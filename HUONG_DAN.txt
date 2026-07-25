@@ -1,0 +1,16 @@
+HƯỚNG DẪN ĐƯA DEMO AVATAR LÊN GITHUB PAGES
+
+1. Tạo một repository mới, ví dụ: avatar-center-demo.
+2. Chọn Add file > Upload files.
+3. Tải lên hai file:
+   - index.html
+   - trung-tam-dieu-hanh.html
+4. Chọn Commit changes.
+5. Vào Settings > Pages.
+6. Tại Build and deployment, chọn Deploy from a branch.
+7. Chọn Branch: main; Folder: /(root); bấm Save.
+8. Chờ vài phút, GitHub sẽ cung cấp đường dẫn dạng:
+   https://ten-tai-khoan.github.io/avatar-center-demo/
+9. Sao chép đường dẫn này và gửi qua Zalo cho khách hàng.
+
+Lưu ý: Không gửi trực tiếp file HTML nếu muốn khách hàng bấm nút và xem đầy đủ giao diện trên điện thoại.
