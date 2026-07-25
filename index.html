@@ -60,17 +60,19 @@ svg{display:block}
 /* ===== APP SHELL ===== */
 #app{display:none;min-height:100vh;min-height:100dvh}
 .shell{display:grid;grid-template-columns:256px 1fr;min-height:100vh;min-height:100dvh}
-.sidebar{background:var(--navy-900);color:#fff;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;height:100dvh;padding:16px 12px}
-.side-brand{display:flex;align-items:center;gap:11px;padding:8px 8px 16px;margin-bottom:6px}
-.side-brand .logo{width:42px;height:42px;border-radius:13px;background:#fff;color:var(--navy-800);display:grid;place-items:center;font-weight:900;font-size:1.15rem;flex:none}
-.side-brand b{display:block;font-size:1rem;letter-spacing:.04em}
-.side-brand small{display:block;color:#8ea1c6;font-size:.68rem;letter-spacing:.02em}
-.nav-title{font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;color:#5f6f92;margin:14px 12px 6px}
-.nav{display:grid;gap:3px;overflow-y:auto;flex:1}
-.nav button{display:flex;align-items:center;gap:12px;width:100%;text-align:left;color:#c3cde3;border-radius:11px;padding:11px 12px;font-weight:600;font-size:.9rem;transition:.14s}
-.nav button svg{width:19px;height:19px;stroke:currentColor;flex:none}
-.nav button:hover{background:var(--navy-700);color:#fff}
-.nav button.active{background:var(--accent);color:#fff;box-shadow:0 8px 20px -12px rgba(37,99,235,.9)}
+.sidebar{background:linear-gradient(185deg,#0d2149 0%,var(--navy-900) 58%);color:#fff;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;height:100dvh;padding:18px 13px;border-right:1px solid rgba(255,255,255,.05)}
+.side-brand{display:flex;align-items:center;gap:12px;padding:6px 8px 18px;margin-bottom:8px;border-bottom:1px solid rgba(255,255,255,.07)}
+.side-brand .logo{width:46px;height:46px;border-radius:14px;background:linear-gradient(140deg,#fff,#dfe8fb);color:var(--navy-800);display:grid;place-items:center;font-weight:900;font-size:1.25rem;flex:none;box-shadow:0 8px 20px -8px rgba(0,0,0,.5)}
+.side-brand b{display:block;font-size:1.12rem;letter-spacing:.05em}
+.side-brand small{display:block;color:#93a6cc;font-size:.7rem;letter-spacing:.02em}
+.nav-title{font-size:.68rem;letter-spacing:.15em;text-transform:uppercase;color:#6b7ca3;margin:16px 12px 8px;font-weight:800}
+.nav{display:grid;gap:4px;overflow-y:auto;flex:1}
+.nav button{display:flex;align-items:center;gap:13px;width:100%;text-align:left;color:#cdd6ea;border-radius:12px;padding:12px 13px;font-weight:600;font-size:1.02rem;letter-spacing:.01em;transition:.16s}
+.nav button svg{width:21px;height:21px;stroke:currentColor;flex:none;opacity:.85}
+.nav button:hover{background:rgba(255,255,255,.07);color:#fff}
+.nav button:hover svg{opacity:1}
+.nav button.active{background:linear-gradient(135deg,var(--accent),#2f6be0);color:#fff;font-weight:700;box-shadow:0 12px 26px -12px rgba(37,99,235,.95)}
+.nav button.active svg{opacity:1}
 .side-user{margin-top:8px;border:1px solid var(--navy-600);background:var(--navy-800);border-radius:14px;padding:11px 12px;display:flex;align-items:center;gap:10px}
 .side-user .ava{width:36px;height:36px;border-radius:11px;background:var(--accent);color:#fff;display:grid;place-items:center;font-weight:800;flex:none}
 .side-user b{display:block;font-size:.82rem;line-height:1.2}
@@ -186,6 +188,16 @@ td.num{font-variant-numeric:tabular-nums}
 .rep-bar i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--teal));border-radius:99px}
 .rep-row .val{font-weight:800;font-size:.82rem;white-space:nowrap;color:var(--navy-700)}
 
+.prog{height:7px;background:var(--soft);border-radius:99px;overflow:hidden;width:88px;display:inline-block;vertical-align:middle;margin-right:8px}
+.prog i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--teal));border-radius:99px}
+.row-link{cursor:pointer;transition:.14s}
+.row-link:hover{background:var(--accent-soft)!important}
+.row-link:hover .row-act{background:var(--accent);color:#fff;border-color:var(--accent)}
+.kpi{transition:.2s}
+.kpi:hover{transform:translateY(-3px);box-shadow:0 22px 44px -26px rgba(10,23,48,.6)}
+.top-titles h1{font-weight:800}
+.view-head h2{font-weight:800;letter-spacing:-.01em}
+.panel-head h3{font-weight:800}
 .toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,20px);background:var(--navy-800);color:#fff;padding:12px 20px;border-radius:13px;box-shadow:0 20px 50px -18px #000;font-weight:700;font-size:.86rem;opacity:0;pointer-events:none;transition:.28s;z-index:300;display:flex;align-items:center;gap:9px;max-width:calc(100% - 32px)}
 .toast.show{opacity:1;transform:translate(-50%,0)}
 .toast svg{width:18px;height:18px;stroke:#6ee7b7;flex:none}
@@ -494,6 +506,7 @@ function startApp(){
   }
   buildNav(); VIEW='dashboard'; render();
 }
+function setScope(v){ scope=String(v); const s=document.getElementById('scopeSelect'); if(s&&!s.disabled) s.value=scope; render(); }
 function buildNav(){
   const nav=document.getElementById('nav');
   nav.innerHTML=navForRole().map(n=>`<button data-view="${n.id}"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="${n.icon}"/></svg><span>${n.label}</span></button>`).join('');
@@ -584,19 +597,39 @@ function hsRows(list){
 
 /* ===== KHOẢN THU ===== */
 function viewKhoanThu(){
+  const isAll=USER.role==='admin'&&scope==='all';
   const ids=visibleCoSoIds();
   const kt=DB.khoanThu.filter(k=>ids.includes(k.coSoId)&&k.thang===ktThangSel);
   const phai=kt.reduce((s,k)=>s+k.phai,0),da=kt.reduce((s,k)=>s+k.daDong,0),no=phai-da,tyLe=phai?Math.round(da/phai*100):0;
   const soNo=kt.filter(k=>k.daDong<k.phai).length;
   const mOpts=[CUR_MONTH-2,CUR_MONTH-1,CUR_MONTH].map(m=>`<option value="${m}" ${m===ktThangSel?'selected':''}>Tháng ${m}/${YEAR}</option>`).join('');
   const acts=`<div style="display:flex;gap:8px;flex-wrap:wrap">${canEdit()?`<button class="btn btn-light btn-sm" id="ktExport"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg> Xuất Excel công nợ</button>`:''}${canEdit()?`<button class="btn btn-primary btn-sm" data-add="khoanthu"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg> Thêm khoản thu</button>`:''}</div>`;
-  return `<div class="view-head"><div><h2>Khoản thu học phí</h2><p>Theo dõi thu học phí và công nợ theo tháng</p></div>${acts}</div>
-  <div class="kpi-grid">
+  const subTitle=isAll?'Tổng hợp theo cơ sở — bấm một cơ sở để xem chi tiết':(USER.role==='admin'?`Chi tiết cơ sở: ${esc(coSoName(Number(scope)))}`:'Theo dõi thu học phí và công nợ theo tháng');
+  const kpis=`<div class="kpi-grid">
     <div class="kpi"><div class="kpi-top"><div class="kpi-ico ico-navy">${ic('M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6')}</div></div><b>${fmtShort(phai)}</b><span>Tổng phải thu</span></div>
     <div class="kpi"><div class="kpi-top"><div class="kpi-ico ico-green">${ic('M20 6 9 17l-5-5')}</div><span class="delta up">${tyLe}%</span></div><b>${fmtShort(da)}</b><span>Đã thu</span></div>
     <div class="kpi"><div class="kpi-top"><div class="kpi-ico ico-amber">${ic('M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z')}</div></div><b>${fmtShort(no)}</b><span>Còn nợ · ${soNo} HS</span></div>
     <div class="kpi"><div class="kpi-top"><div class="kpi-ico ico-blue">${ic('M3 3v18h18M8 15l3-4 3 2 4-6')}</div></div><b>${tyLe}%</b><span>Tỷ lệ thu tháng ${ktThangSel}</span></div>
-  </div>
+  </div>`;
+  const header=`<div class="view-head"><div><h2>Khoản thu học phí</h2><p>${subTitle}</p></div>${acts}</div>${kpis}`;
+  if(isAll){
+    const per=DB.coSo.map(c=>{
+      const kk=DB.khoanThu.filter(k=>k.coSoId===c.id&&k.thang===ktThangSel);
+      const p=kk.reduce((s,k)=>s+k.phai,0),d=kk.reduce((s,k)=>s+k.daDong,0),n=p-d;
+      return {c,p,d,n,soNo:kk.filter(k=>k.daDong<k.phai).length,soHS:DB.hocSinh.filter(h=>h.coSoId===c.id).length,ty:p?Math.round(d/p*100):0};
+    });
+    const rows=per.map(o=>`<tr class="row-link" data-coso="${o.c.id}"><td><div class="cell"><div class="ava">${o.c.laTrungTam?'TT':'CS'}</div><div><b>${esc(o.c.ten)}</b><small>${o.soHS} học sinh</small></div></div></td>
+      <td class="num">${fmtVND(o.p)}</td><td class="num" style="color:var(--green);font-weight:700">${fmtVND(o.d)}</td>
+      <td class="num" style="color:${o.n>0?'var(--red)':'var(--muted)'};font-weight:700">${o.n>0?fmtVND(o.n):'—'}</td>
+      <td class="num">${o.soNo} HS</td>
+      <td><div class="prog"><i style="width:${o.ty}%"></i></div><small class="muted">${o.ty}%</small></td>
+      <td class="right"><span class="row-act">Xem chi tiết ›</span></td></tr>`).join('');
+    return `${header}
+    <div class="toolbar"><select id="ktThang">${mOpts}</select></div>
+    <div class="table-wrap"><table><thead><tr><th>Cơ sở</th><th>Phải thu</th><th>Đã thu</th><th>Còn nợ</th><th>HS nợ</th><th>Tỷ lệ thu</th><th class="right"></th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  }
+  const back=USER.role==='admin'?`<button class="btn btn-light btn-sm" data-back style="margin-bottom:13px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Tất cả cơ sở</button>`:'';
+  return `${header}${back}
   <div class="toolbar">
     <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input id="ktSearch" placeholder="Tìm học sinh..."></div>
     <select id="ktThang">${mOpts}</select>
@@ -734,11 +767,13 @@ function bindViewEvents(){
     document.getElementById('hsSearch').oninput=()=>{const q=document.getElementById('hsSearch').value.toLowerCase();document.getElementById('hsBody').innerHTML=hsRows(DB.hocSinh.filter(inScope).filter(h=>h.ten.toLowerCase().includes(q)||h.ph.toLowerCase().includes(q)));bindRowActs();};
   }
   if(VIEW==='khoanthu'){
-    const rf=()=>{const ids=visibleCoSoIds();document.getElementById('ktBody').innerHTML=ktRows(DB.khoanThu.filter(k=>ids.includes(k.coSoId)&&k.thang===ktThangSel));bindRowActs();};
-    document.getElementById('ktThang').onchange=e=>{ktThangSel=Number(e.target.value);render();};
-    document.getElementById('ktTT').onchange=e=>{ktTrangThai=e.target.value;rf();};
-    document.getElementById('ktSearch').oninput=rf;
+    const rf=()=>{const ids=visibleCoSoIds();const b=document.getElementById('ktBody');if(b){b.innerHTML=ktRows(DB.khoanThu.filter(k=>ids.includes(k.coSoId)&&k.thang===ktThangSel));bindRowActs();}};
+    const th=document.getElementById('ktThang'); if(th) th.onchange=e=>{ktThangSel=Number(e.target.value);render();};
+    const tt=document.getElementById('ktTT'); if(tt) tt.onchange=e=>{ktTrangThai=e.target.value;rf();};
+    const sc=document.getElementById('ktSearch'); if(sc) sc.oninput=rf;
     const ex=document.getElementById('ktExport'); if(ex) ex.onclick=exportDebt;
+    document.querySelectorAll('[data-coso]').forEach(r=>r.onclick=()=>setScope(r.dataset.coso));
+    const bk=document.querySelector('[data-back]'); if(bk) bk.onclick=()=>setScope('all');
   }
   if(VIEW==='diemdanh'){
     const ls=document.getElementById('ddLopSel'); if(ls) ls.onchange=e=>{ddLop=Number(e.target.value);ddKey='';render();};
