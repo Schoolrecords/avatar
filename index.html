@@ -3,13 +3,14 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
-<meta name="theme-color" content="#0a1730"/>
+<meta name="theme-color" content="#0b1d3d"/>
 <title>AVATAR Center — Hệ thống quản trị chuỗi</title>
 <style>
 :root{
-  --navy-900:#0a1730;--navy-800:#0f2044;--navy-700:#16305e;--navy-600:#1e3d76;--navy-500:#274c8f;
-  --accent:#3b82f6;--accent-600:#2563eb;--accent-soft:#e8f0fe;
-  --teal:#0fb5a6;--paper:#eef2f8;--card:#ffffff;--text:#16233d;--muted:#69748c;
+  --navy-900:#0b1d3d;--navy-800:#10264c;--navy-700:#17335f;--navy-600:#1f4276;--navy-500:#2a5490;
+  --accent:#12b0a0;--accent-600:#0e9a8c;--accent-soft:#d7f2ee;
+  --orange:#e0912f;--orange-soft:#fbe8cb;
+  --teal:#0fb5a6;--paper:#f4f8f9;--card:#ffffff;--text:#16233d;--muted:#69748c;
   --line:#e4e9f2;--soft:#f3f6fb;
   --green:#12a367;--green-soft:#e3f6ee;--amber:#c9880f;--amber-soft:#fbf0d6;--red:#e5484d;--red-soft:#fdeaea;
   --radius:16px;--radius-sm:11px;--shadow:0 14px 38px -24px rgba(10,23,48,.55);--shadow-sm:0 6px 18px -12px rgba(10,23,48,.4);
@@ -39,18 +40,18 @@ svg{display:block}
 .login-body label{display:block;font-size:.74rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:0 0 6px 3px}
 .field{margin-bottom:14px}
 .field input,.field select{width:100%;border:1px solid var(--line);background:var(--soft);border-radius:12px;padding:13px 14px;outline:0;transition:.15s}
-.field input:focus,.field select:focus{border-color:var(--accent);background:#fff;box-shadow:0 0 0 4px rgba(59,130,246,.16)}
+.field input:focus,.field select:focus{border-color:var(--accent);background:#fff;box-shadow:0 0 0 4px rgba(18,176,160,.16)}
 .role-picker{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px}
 .role-opt{border:1px solid var(--line);background:#fff;border-radius:13px;padding:12px 8px;text-align:center;transition:.15s;display:grid;gap:7px;justify-items:center}
 .role-opt svg{width:22px;height:22px;stroke:var(--muted)}
 .role-opt b{font-size:.78rem;font-weight:800}
-.role-opt.active{border-color:var(--accent);background:var(--accent-soft);box-shadow:0 0 0 3px rgba(59,130,246,.13)}
+.role-opt.active{border-color:var(--accent);background:var(--accent-soft);box-shadow:0 0 0 3px rgba(18,176,160,.13)}
 .role-opt.active svg{stroke:var(--accent-600)}
 .role-opt.active b{color:var(--accent-600)}
 .login-note{font-size:.75rem;color:var(--muted);text-align:center;margin:16px 0 0;line-height:1.5}
 .btn{border-radius:12px;padding:13px 18px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;gap:9px;transition:.18s;font-size:.92rem}
 .btn:active{transform:translateY(1px)}
-.btn-primary{background:var(--accent);color:#fff;box-shadow:0 12px 26px -14px rgba(37,99,235,.75)}
+.btn-primary{background:var(--accent);color:#fff;box-shadow:0 12px 26px -14px rgba(14,154,140,.75)}
 .btn-primary:hover{background:var(--accent-600)}
 .btn-block{width:100%}
 .btn-light{background:#fff;border:1px solid var(--line);color:var(--text)}
@@ -60,7 +61,7 @@ svg{display:block}
 /* ===== APP SHELL ===== */
 #app{display:none;min-height:100vh;min-height:100dvh}
 .shell{display:grid;grid-template-columns:256px 1fr;min-height:100vh;min-height:100dvh}
-.sidebar{background:linear-gradient(185deg,#0d2149 0%,var(--navy-900) 58%);color:#fff;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;height:100dvh;padding:18px 13px;border-right:1px solid rgba(255,255,255,.05)}
+.sidebar{background:linear-gradient(185deg,#123a52 0%,var(--navy-900) 60%);color:#fff;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;height:100dvh;padding:18px 13px;border-right:1px solid rgba(255,255,255,.05)}
 .side-brand{display:flex;align-items:center;gap:12px;padding:6px 8px 18px;margin-bottom:8px;border-bottom:1px solid rgba(255,255,255,.07)}
 .side-brand .logo{width:46px;height:46px;border-radius:14px;background:linear-gradient(140deg,#fff,#dfe8fb);color:var(--navy-800);display:grid;place-items:center;font-weight:900;font-size:1.25rem;flex:none;box-shadow:0 8px 20px -8px rgba(0,0,0,.5)}
 .side-brand b{display:block;font-size:1.12rem;letter-spacing:.05em}
@@ -71,7 +72,7 @@ svg{display:block}
 .nav button svg{width:21px;height:21px;stroke:currentColor;flex:none;opacity:.85}
 .nav button:hover{background:rgba(255,255,255,.07);color:#fff}
 .nav button:hover svg{opacity:1}
-.nav button.active{background:linear-gradient(135deg,var(--accent),#2f6be0);color:#fff;font-weight:700;box-shadow:0 12px 26px -12px rgba(37,99,235,.95)}
+.nav button.active{background:linear-gradient(135deg,var(--accent),#0e9a8c);color:#fff;font-weight:700;box-shadow:0 12px 26px -12px rgba(14,154,140,.95)}
 .nav button.active svg{opacity:1}
 .side-user{margin-top:8px;border:1px solid var(--navy-600);background:var(--navy-800);border-radius:14px;padding:11px 12px;display:flex;align-items:center;gap:10px}
 .side-user .ava{width:36px;height:36px;border-radius:11px;background:var(--accent);color:#fff;display:grid;place-items:center;font-weight:800;flex:none}
@@ -101,7 +102,7 @@ svg{display:block}
 .kpi-ico{width:40px;height:40px;border-radius:12px;display:grid;place-items:center}
 .kpi-ico svg{width:20px;height:20px}
 .ico-blue{background:var(--accent-soft)}.ico-blue svg{stroke:var(--accent-600)}
-.ico-teal{background:#dcf5f2}.ico-teal svg{stroke:var(--teal)}
+.ico-teal{background:var(--orange-soft)}.ico-teal svg{stroke:var(--orange)}
 .ico-green{background:var(--green-soft)}.ico-green svg{stroke:var(--green)}
 .ico-amber{background:var(--amber-soft)}.ico-amber svg{stroke:var(--amber)}
 .ico-navy{background:#e5eaf5}.ico-navy svg{stroke:var(--navy-600)}
@@ -136,7 +137,7 @@ svg{display:block}
 .view-head p{margin:2px 0 0;color:var(--muted);font-size:.8rem}
 .toolbar{display:flex;gap:9px;flex-wrap:wrap;margin-bottom:13px}
 .toolbar input,.toolbar select{border:1px solid var(--line);background:#fff;border-radius:11px;padding:10px 12px;outline:0;transition:.15s}
-.toolbar input:focus,.toolbar select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(59,130,246,.14)}
+.toolbar input:focus,.toolbar select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(18,176,160,.14)}
 .toolbar .search{flex:1;min-width:170px;display:flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--line);border-radius:11px;padding:0 12px}
 .toolbar .search svg{width:16px;height:16px;stroke:var(--muted);flex:none}
 .toolbar .search input{border:0;flex:1;padding:10px 0;box-shadow:none!important}
@@ -212,7 +213,7 @@ td.num{font-variant-numeric:tabular-nums}
 .modal-body .wide{grid-column:1/-1}
 .modal-body label{display:block;font-size:.73rem;font-weight:800;color:var(--muted);margin:0 0 6px 2px}
 .modal-body input,.modal-body select,.modal-body textarea{width:100%;border:1px solid var(--line);background:var(--soft);border-radius:11px;padding:11px 12px;outline:0;font-family:inherit}
-.modal-body input:focus,.modal-body select:focus,.modal-body textarea:focus{border-color:var(--accent);background:#fff;box-shadow:0 0 0 3px rgba(59,130,246,.14)}
+.modal-body input:focus,.modal-body select:focus,.modal-body textarea:focus{border-color:var(--accent);background:#fff;box-shadow:0 0 0 3px rgba(18,176,160,.14)}
 .sum-box{grid-column:1/-1;background:var(--soft);border:1px solid var(--line);border-radius:13px;padding:13px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;text-align:center}
 .sum-box small{display:block;font-size:.66rem;color:var(--muted);margin-bottom:3px}
 .sum-box b{font-size:.98rem}
