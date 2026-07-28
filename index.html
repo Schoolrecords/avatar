@@ -196,11 +196,17 @@ tbody tr:hover{background:var(--soft)}
 .cscard .cs-top{display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px;margin-bottom:15px}
 .cs-badge{width:54px;height:54px;border-radius:16px;display:grid;place-items:center;font-weight:900;color:#fff;font-size:1.18rem;flex:none}
 .avatar-a{font-weight:900;font-style:italic;letter-spacing:-.02em;text-shadow:0 1px 2px rgba(0,0,0,.18)}
+/* khối logo AVATAR — hình chữ nhật bo cong, nổi khối */
+.cs-logo{position:relative;z-index:1;display:inline-flex;align-items:center;justify-content:center;padding:10px 18px;border-radius:14px;color:#fff;font-weight:800;font-size:.9rem;letter-spacing:.16em;font-style:italic;box-shadow:0 9px 18px -5px rgba(16,38,76,.45),inset 0 1px 0 rgba(255,255,255,.32),inset 0 -3px 6px rgba(0,0,0,.14);text-shadow:0 1px 2px rgba(0,0,0,.22)}
+/* vòng tròn trang trí theo phong cách thẻ KPI */
+.cs-deco{position:absolute;top:-34px;right:-34px;width:132px;height:132px;border-radius:50%;opacity:.12;z-index:0;pointer-events:none}
+.cs-deco::after{content:"";position:absolute;top:40px;right:40px;width:78px;height:78px;border-radius:50%;background:inherit;opacity:.7}
+.cscard .cs-top,.cscard .cs-stats{position:relative;z-index:1}
 .cscard h4{margin:0;font-size:1.22rem;line-height:1.2;text-align:center}
 .cscard .cs-sub{font-size:.82rem;color:var(--muted);text-align:center}
 .cs-stats{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .cs-stat{background:rgba(255,255,255,.68);border-radius:13px;padding:13px 10px;text-align:center}
-.cs-stat b{display:block;font-size:1.7rem;line-height:1.05;color:var(--brand);font-weight:900}
+.cs-stat b{display:block;font-size:1.75rem;line-height:1.05;color:var(--brand);font-weight:600;letter-spacing:-.01em}
 .cs-stat span{font-size:.74rem;color:var(--muted)}
 .cs-rev{margin-top:11px;padding-top:11px;border-top:1px solid var(--line);display:flex;align-items:center;justify-content:space-between}
 .cs-rev small{font-size:.72rem;color:var(--muted)}
@@ -217,7 +223,7 @@ tbody tr:hover{background:var(--soft)}
 .cssum .s b{display:block;font-size:1.28rem;line-height:1;color:var(--brand);font-weight:900}
 .cssum .s span{font-size:.71rem;color:var(--muted)}
 .cs-back{margin-bottom:14px}
-.csd-hero{display:flex;align-items:center;gap:16px;padding:20px 22px;border-radius:var(--radius);box-shadow:var(--shadow-sm)}
+.csd-hero{position:relative;overflow:hidden;display:flex;align-items:center;gap:16px;padding:20px 22px;border-radius:var(--radius);box-shadow:var(--shadow-sm)}
 .csd-hero h2{margin:0;font-size:1.5rem;line-height:1.2}
 .csd-money{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding:16px}
 .csd-money .mbox{background:#f7f9fc;border:1px solid var(--line);border-radius:14px;padding:14px 12px;text-align:center}
@@ -553,8 +559,8 @@ const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&g
 const initials=s=>{const p=String(s).trim().split(/\s+/);return ((p[p.length-2]?.[0]||'')+(p[p.length-1]?.[0]||'')).toUpperCase()||'?';};
 const AVCOL=['#1f4276','#2a5490','#0e7fb0','#3a5db0','#5b6fb8','#7c5cd6','#2f6fd0','#17335f'];
 const avaColor=s=>AVCOL[[...String(s)].reduce((a,c)=>a+c.charCodeAt(0),0)%AVCOL.length];
-/* nền pastel nhạt cho thẻ cơ sở */
-const CS_PASTEL=[['#eaf6ef','#d7ecdf'],['#fbf1e0','#f6e2c6'],['#e9f1fd','#d5e4fb'],['#f0eafb','#e2d6f6'],['#fdecec','#f8d9da'],['#e6f5f8','#d1ebf0'],['#eef0fb','#dce1f6'],['#fdeef5','#f8dae9'],['#eefbf3','#d8f0e2'],['#fff5e6','#f9e6c8']];
+/* nền màu cho thẻ cơ sở — tông theo dải KPI (rực hơn nhưng vẫn nhạt để chữ navy đọc rõ) */
+const CS_PASTEL=[['#e0f2e9','#bfe6d1'],['#fce6cf','#f6d3a6'],['#dfebfc','#bfd9f8'],['#ebe3fb','#d3c2f4'],['#fbe0e3','#f4c4c9'],['#d9eff6','#b8e2ec'],['#e3e7fa','#c9d1f3'],['#fbe0ef','#f3c2dd'],['#defaec','#bef0d6'],['#fdeed6','#f6dcb0']];
 const csPastel=id=>{const p=CS_PASTEL[((id%CS_PASTEL.length)+CS_PASTEL.length)%CS_PASTEL.length];return`linear-gradient(150deg,${p[0]},${p[1]})`;};
 
 /* ============ DATA ============ */
@@ -1045,7 +1051,7 @@ function renderCoso(){
   rows.forEach(({c,gv,lop,hs,thu})=>{
     if(c.build){
       h+=`<div class="cscard build">
-        <div class="cs-top"><div class="cs-badge avatar-a" style="background:#8a97b3">A</div>
+        <div class="cs-top"><div class="cs-logo" style="background:#8a97b3">AVATAR</div>
           <div><h4>${esc(c.ten)}</h4><div class="cs-sub">Đang xây dựng</div></div></div>
         <div class="empty" style="padding:18px 0">Cơ sở mới · chưa nhập dữ liệu</div></div>`;
       return;
@@ -1054,7 +1060,8 @@ function renderCoso(){
     if(lop===0&&gv>0) warn=`<span class="cs-warn">⚠ Chưa nhập lớp</span>`;
     else if(lop>0&&hs/lop<6) warn=`<span class="cs-warn">⚠ Sĩ số bất thường</span>`;
     h+=`<div class="cscard" data-cs="${c.id}" style="background:${csPastel(c.id)};border-left:4px solid ${avaColor(c.ten)}">
-      <div class="cs-top"><div class="cs-badge avatar-a" style="background:${avaColor(c.ten)}">A</div>
+      <span class="cs-deco" style="background:${avaColor(c.ten)}"></span>
+      <div class="cs-top"><div class="cs-logo" style="background:${avaColor(c.ten)}">AVATAR</div>
         <div class="cs-head"><h4>${esc(c.ten)}${warn}</h4><div class="cs-sub">${lop} lớp · ${hs} học sinh</div></div></div>
       <div class="cs-stats">
         <div class="cs-stat"><b>${gv}</b><span>Giáo viên</span></div>
@@ -1085,8 +1092,9 @@ function renderCosoDetail(id){
 
   let h=`<button class="btn btn-sm btn-ghost cs-back" id="csBack">← Tất cả cơ sở</button>
   <div class="csd-hero" style="background:${csPastel(id)};border-left:5px solid ${avaColor(c.ten)}">
-    <div class="cs-badge avatar-a" style="background:${avaColor(c.ten)};width:62px;height:62px;font-size:1.7rem">A</div>
-    <div><h2>${esc(c.ten)}</h2><div class="cs-sub" style="font-size:.9rem">${s.lop} lớp · ${s.hs} học sinh · ${s.gv} giáo viên</div></div>
+    <span class="cs-deco" style="background:${avaColor(c.ten)}"></span>
+    <div class="cs-logo" style="background:${avaColor(c.ten)};padding:13px 24px;font-size:1.05rem">AVATAR</div>
+    <div style="position:relative;z-index:1"><h2>${esc(c.ten)}</h2><div class="cs-sub" style="font-size:.9rem">${s.lop} lớp · ${s.hs} học sinh · ${s.gv} giáo viên</div></div>
   </div>
   <div class="cssum" style="margin-top:14px">
     <div class="s"><b>${s.lop}</b><span>Lớp học</span></div>
