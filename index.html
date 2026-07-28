@@ -247,6 +247,27 @@ tbody tr:hover{background:var(--soft)}
 .hv-paid button{flex:1;padding:10px;border:1.5px solid var(--line);border-radius:11px;background:#fff;font-weight:700;font-size:.86rem;color:var(--muted);cursor:pointer;transition:.12s}
 .hv-paid button[data-p="1"].sel{background:#eafaf1;border-color:var(--emerald);color:var(--emerald)}
 .hv-paid button[data-p="0"].sel{background:#fdf1ec;border-color:#d9663b;color:#d9663b}
+.hv-paid3{display:grid;grid-template-columns:1fr 1fr 1.15fr;gap:7px}
+.hv-paid3 button{padding:10px 4px;border:1.5px solid var(--line);border-radius:11px;background:#fff;font-weight:700;font-size:.82rem;color:var(--muted);cursor:pointer;transition:.12s}
+.hv-paid3 button[data-p="1"].sel{background:#eafaf1;border-color:var(--emerald);color:var(--emerald)}
+.hv-paid3 button[data-p="0"].sel{background:#fdf1ec;border-color:#d9663b;color:#d9663b}
+.hv-paid3 input{padding:10px 6px;border:1.5px solid var(--line);border-radius:11px;background:#fff;font-weight:600;font-size:.82rem;text-align:center;color:var(--ink);min-width:0;width:100%}
+.hv-paid3 input:disabled{background:#f2f4f8;color:var(--faint)}
+/* Hộp thoại AVATAR thông báo (thay alert/confirm mặc định) */
+.ava-dlg-ov{position:fixed;inset:0;z-index:9999;background:rgba(11,29,61,.5);display:grid;place-items:center;padding:20px;animation:avaFade .15s ease}
+.ava-dlg{background:#fff;border-radius:18px;max-width:410px;width:100%;box-shadow:0 30px 70px -20px rgba(11,29,61,.65);overflow:hidden;animation:avaPop .18s ease}
+.ava-dlg-h{display:flex;align-items:center;gap:10px;padding:15px 18px;background:var(--dots),linear-gradient(135deg,#1f4276,#10264c);background-size:16px 16px,auto;color:#fff;font-weight:800;font-size:1.04rem}
+.ava-dlg-h svg{width:22px;height:22px;fill:none;stroke:#f4c430;stroke-width:1.9;flex:none}
+.ava-dlg-b{padding:18px;color:var(--ink);font-size:.95rem;line-height:1.55}
+.ava-dlg-b b{color:var(--brand)}
+.ava-dlg-f{display:flex;gap:10px;justify-content:flex-end;padding:2px 18px 18px}
+.ava-dlg-btn{font:inherit;font-weight:700;border:0;border-radius:12px;padding:11px 22px;cursor:pointer;font-size:.9rem;transition:.12s}
+.ava-dlg-btn.ghost{background:#eef1f7;color:var(--muted)}
+.ava-dlg-btn.primary{background:var(--brand);color:#fff}
+.ava-dlg-btn.danger{background:#d64541;color:#fff}
+.ava-dlg-btn:active{transform:scale(.97)}
+@keyframes avaFade{from{opacity:0}to{opacity:1}}
+@keyframes avaPop{from{transform:translateY(8px) scale(.96);opacity:.5}to{transform:none;opacity:1}}
 .paidtag{display:inline-block;font-size:.66rem;font-weight:800;padding:1px 7px;border-radius:99px;margin-left:5px;vertical-align:middle}
 .paidtag.yes{background:#eafaf1;color:var(--emerald)}
 .paidtag.no{background:#fdf1ec;color:#d9663b}
@@ -542,7 +563,7 @@ const SB_URL='https://hdvtlbeozyumvnhgejxp.supabase.co';
 const SB_KEY='sb_publishable_eGYgGZpxRRdIgLeO6_S_JQ_N7rHsINZ';
 const SB=window.supabase.createClient(SB_URL,SB_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:false,storageKey:'avatar-auth'}});
 /* ánh xạ giữa cột CSDL (chữ_gạch) và tên dùng trong app (chữHoa) */
-const hvFromDb=r=>({id:r.id,ten:r.ten,ns:r.ns||'',ph:r.ph||'',sdt:r.sdt||'',hocPhi:Number(r.hoc_phi)||0,daDong:!!r.da_dong,lopId:r.lop_id,coSoId:r.coso_id,mau:!!r.mau});
+const hvFromDb=r=>({id:r.id,ten:r.ten,ns:r.ns||'',ph:r.ph||'',sdt:r.sdt||'',hocPhi:Number(r.hoc_phi)||0,daDong:!!r.da_dong,ngayDong:r.ngay_dong||null,lopId:r.lop_id,coSoId:r.coso_id,mau:!!r.mau});
 const hvToDb=o=>({ten:o.ten,ns:o.ns||'',ph:o.ph||'',sdt:o.sdt||'',hoc_phi:o.hocPhi||0,da_dong:!!o.daDong,lop_id:o.lopId,coso_id:o.coSoId,mau:!!o.mau});
 const gdFromDb=r=>({id:r.id,ngay:r.ngay,loai:r.loai,hangMuc:r.hang_muc,coSoId:r.coso_id,soTien:Number(r.so_tien)||0,noiDung:r.noi_dung||'',nguoiLap:r.nguoi_lap||'',hvId:(r.hv_id!=null?r.hv_id:null)});
 const gdToDb=o=>({ngay:o.ngay,loai:o.loai,hang_muc:o.hangMuc,coso_id:o.coSoId,so_tien:o.soTien,noi_dung:o.noiDung||'',nguoi_lap:o.nguoiLap||''});
@@ -553,7 +574,7 @@ async function syncHocPhiVoucher(h,paid){
   if(del.error) return;                       // cột hv_id chưa có → chưa chạy SQL đồng bộ
   OPS.gd=OPS.gd.filter(g=>g.hvId!==h.id);
   if(paid && (h.hocPhi||0)>0){
-    const rec={ngay:todayISO(),loai:'thu',hangMuc:'Học phí',coSoId:h.coSoId,soTien:h.hocPhi,noiDung:'Học phí: '+h.ten+' — '+lopName(h.lopId),nguoiLap:USER.role==='admin'?'Quản trị':csName(USER.coSoId)};
+    const rec={ngay:h.ngayDong||todayISO(),loai:'thu',hangMuc:'Học phí',coSoId:h.coSoId,soTien:h.hocPhi,noiDung:'Học phí: '+h.ten+' — '+lopName(h.lopId),nguoiLap:USER.role==='admin'?'Quản trị':csName(USER.coSoId)};
     const {data,error}=await SB.from('so_quy').insert({...gdToDb(rec),hv_id:h.id}).select().single();
     if(!error&&data) OPS.gd.push(gdFromDb(data));
   }
@@ -623,6 +644,30 @@ function isValidDob(s){
   const dim=[31,leap?29:28,31,30,31,30,31,31,30,31,30,31][mo-1];
   return d>=1&&d<=dim;
 }
+/* ===== Hộp thoại AVATAR (thay alert/confirm của trình duyệt) ===== */
+const IC_BELL='<path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/>';
+function avaDialog({title,message,okText,cancelText,danger}){
+  return new Promise(resolve=>{
+    const ov=document.createElement('div'); ov.className='ava-dlg-ov';
+    const body=esc(String(message==null?'':message)).replace(/\n/g,'<br>');
+    ov.innerHTML=`<div class="ava-dlg" role="dialog" aria-modal="true">
+      <div class="ava-dlg-h"><svg viewBox="0 0 24 24">${IC_BELL}</svg><span>${esc(title||'AVATAR thông báo')}</span></div>
+      <div class="ava-dlg-b">${body}</div>
+      <div class="ava-dlg-f">
+        ${cancelText!==null?`<button class="ava-dlg-btn ghost" data-r="0">${esc(cancelText||'Hủy')}</button>`:''}
+        <button class="ava-dlg-btn ${danger?'danger':'primary'}" data-r="1">${esc(okText||'OK')}</button>
+      </div></div>`;
+    document.body.appendChild(ov);
+    const done=v=>{ov.remove();document.removeEventListener('keydown',onKey);resolve(v);};
+    const onKey=e=>{ if(e.key==='Escape'&&cancelText!==null)done(false); else if(e.key==='Enter')done(true); };
+    ov.querySelectorAll('[data-r]').forEach(b=>b.onclick=()=>done(b.dataset.r==='1'));
+    ov.addEventListener('click',e=>{ if(e.target===ov&&cancelText!==null)done(false); });
+    document.addEventListener('keydown',onKey);
+    const ok=ov.querySelector('[data-r="1"]'); if(ok)ok.focus();
+  });
+}
+const avaAlert=(message,opts={})=>avaDialog({title:opts.title||'AVATAR thông báo',message,okText:opts.okText||'Đã hiểu',cancelText:null,danger:opts.danger});
+const avaConfirm=(message,opts={})=>avaDialog({title:opts.title||'AVATAR thông báo',message,okText:opts.okText||'Đồng ý',cancelText:opts.cancelText||'Hủy',danger:opts.danger});
 const initials=s=>{const p=String(s).trim().split(/\s+/);return ((p[p.length-2]?.[0]||'')+(p[p.length-1]?.[0]||'')).toUpperCase()||'?';};
 const AVCOL=['#1f4276','#2a5490','#0e7fb0','#3a5db0','#5b6fb8','#7c5cd6','#2f6fd0','#17335f'];
 const avaColor=s=>AVCOL[[...String(s)].reduce((a,c)=>a+c.charCodeAt(0),0)%AVCOL.length];
@@ -689,6 +734,7 @@ function saveOps(){/* dữ liệu nay lưu trên Supabase; giữ hàm rỗng cho
 const HM_THU=['Học phí','Ghi danh/Nhập học','Bán tài liệu','Thu khác'];
 const HM_CHI=['Lương giáo viên','Thuê mặt bằng','Điện nước','Vật tư/Văn phòng phẩm','Marketing','Chi khác'];
 const isoVN=s=>{if(!s)return'';const p=String(s).split('-');return `${p[2]}/${p[1]}/${p[0]}`;};
+const vnToIso=s=>{const m=/^(\d{2})\/(\d{2})\/(\d{4})$/.exec(String(s||'').trim());return m?`${m[3]}-${m[2]}-${m[1]}`:'';};
 let ktThang='all', ktLoai='all';
 function ensureXLSX(){return new Promise((res,rej)=>{if(window.XLSX)return res();const s=document.createElement('script');s.src='xlsx.full.min.js';s.onload=()=>res();s.onerror=()=>rej(new Error('load'));document.head.appendChild(s);});}
 
@@ -743,7 +789,7 @@ const xlPick=(o,keys)=>{for(const k in o){if(keys.some(x=>k.includes(x)))return 
 async function importRows(table,dbRows,fromDb,targetArr){
   for(let i=0;i<dbRows.length;i+=500){
     const {data,error}=await SB.from(table).insert(dbRows.slice(i,i+500)).select();
-    if(error){alert('Lỗi nhập dữ liệu: '+error.message);return false;}
+    if(error){avaAlert('Lỗi nhập dữ liệu: '+error.message);return false;}
     (data||[]).forEach(r=>targetArr.push(fromDb(r)));
   }
   return true;
@@ -781,7 +827,7 @@ async function hsDownloadTemplate(lop){
 }
 function hsImportExcel(lop){
   pickFile(async file=>{
-    let rows; try{rows=await readSheet(file);}catch(e){alert('Không đọc được file. Hãy dùng file .xlsx theo mẫu tải về.');return;}
+    let rows; try{rows=await readSheet(file);}catch(e){avaAlert('Không đọc được file. Hãy dùng file .xlsx theo mẫu tải về.');return;}
     const recs=[],bad=[];
     rows.forEach((r,i)=>{const ten=String(xlPick(r,['ho va ten','ho ten','ten'])).trim(); if(!ten){bad.push(i+2);return;}
       recs.push({ten,ns:String(xlPick(r,['ngay sinh','sinh'])).trim(),ph:String(xlPick(r,['phu huynh','huynh','cha me'])).trim(),sdt:String(xlPick(r,['dien thoai','sdt','so dt','phone'])).trim(),hocPhi:Number(String(xlPick(r,['hoc phi','phi'])).replace(/\D/g,''))||0,daDong:false,lopId:lop.id,coSoId:lop.coSoId,mau:false});});
@@ -796,10 +842,10 @@ async function gvDownloadTemplate(){
 }
 function gvImportExcel(){
   let coSoId;
-  if(USER.role==='admin'){ if(gvCs==='all'){alert('Anh hãy chọn 1 cơ sở ở ô lọc (góc trên) trước khi nhập Excel giáo viên.');return;} coSoId=Number(gvCs);}
+  if(USER.role==='admin'){ if(gvCs==='all'){avaAlert('Anh hãy chọn 1 cơ sở ở ô lọc (góc trên) trước khi nhập Excel giáo viên.');return;} coSoId=Number(gvCs);}
   else coSoId=USER.coSoId;
   pickFile(async file=>{
-    let rows; try{rows=await readSheet(file);}catch(e){alert('Không đọc được file. Hãy dùng file .xlsx theo mẫu tải về.');return;}
+    let rows; try{rows=await readSheet(file);}catch(e){avaAlert('Không đọc được file. Hãy dùng file .xlsx theo mẫu tải về.');return;}
     const recs=[],bad=[];
     rows.forEach((r,i)=>{const ten=String(xlPick(r,['ho va ten','ho ten','ten'])).trim(); if(!ten){bad.push(i+2);return;}
       const mraw=fold(String(xlPick(r,['mon']))).toLowerCase();
@@ -957,7 +1003,7 @@ function openChgPass(){
     btn.disabled=false; btn.textContent='Cập nhật mật khẩu';
     if(error){show('Lỗi: '+error.message);return;}
     closeModal();
-    alert('Đã đổi mật khẩu thành công! Lần đăng nhập sau hãy dùng mật khẩu mới.');
+    avaAlert('Đã đổi mật khẩu thành công! Lần đăng nhập sau hãy dùng mật khẩu mới.');
   };
 }
 
@@ -1217,7 +1263,7 @@ function showGV(id){
     if(VIEW==='gv')renderGV();
   };
   const del=$('#ev_del'); if(del)del.onclick=async()=>{
-    if(!confirm('Xóa giáo viên "'+g.ten+'"? Thao tác này không thể hoàn tác.'))return;
+    if(!await avaConfirm('Xóa giáo viên "'+g.ten+'"? Thao tác này không thể hoàn tác.',{danger:true,okText:'Xóa'}))return;
     const {error}=await SB.from('giao_vien').delete().eq('id',g.id);
     if(error){showErr('Lỗi xóa: '+error.message);return;}
     const i=GV.findIndex(x=>x.id===g.id); if(i>=0)GV.splice(i,1);
@@ -1480,7 +1526,7 @@ function openLopEdit(l){
   };
   $('#lp_del').onclick=async()=>{
     if(soHS>0){err('Lớp còn '+soHS+' học sinh. Hãy chuyển các em sang lớp khác (trong mục Học sinh) trước khi xóa.');return;}
-    if(!confirm('Xóa lớp "'+l.lop+'"? Thao tác này không thể hoàn tác.'))return;
+    if(!await avaConfirm('Xóa lớp "'+l.lop+'"? Thao tác này không thể hoàn tác.',{danger:true,okText:'Xóa'}))return;
     const {error}=await SB.from('lop_hoc').delete().eq('id',l.id);
     if(error){err('Lỗi xóa: '+error.message);return;}
     const i=LOP.findIndex(x=>x.id===l.id); if(i>=0)LOP.splice(i,1);
@@ -1553,7 +1599,7 @@ function renderThu(){
   $('#addChi').onclick=()=>addGD('chi');
   $('#expXls').onclick=()=>exportSoQuy(list,{tThu,tChi,ton});
   $$('#view [data-view]').forEach(b=>b.onclick=()=>{const g=OPS.gd.find(x=>x.id===Number(b.dataset.view));if(g)openVoucher(g);});
-  $$('#view [data-del]').forEach(b=>b.onclick=async()=>{const id=Number(b.dataset.del);const g=OPS.gd.find(x=>x.id===id);const {error}=await SB.from('so_quy').delete().eq('id',id);if(error){alert('Lỗi xóa phiếu: '+error.message);return;}OPS.gd=OPS.gd.filter(x=>x.id!==id);
+  $$('#view [data-del]').forEach(b=>b.onclick=async()=>{const id=Number(b.dataset.del);const g=OPS.gd.find(x=>x.id===id);const {error}=await SB.from('so_quy').delete().eq('id',id);if(error){avaAlert('Lỗi xóa phiếu: '+error.message);return;}OPS.gd=OPS.gd.filter(x=>x.id!==id);
     if(g&&g.hvId!=null){const hv=OPS.hv.find(x=>x.id===g.hvId);if(hv&&hv.daDong){await SB.from('hoc_vien').update({da_dong:false}).eq('id',hv.id);hv.daDong=false;}}
     renderThu();});
 }
@@ -1587,14 +1633,14 @@ function addGD(loai){
     const tien=Number($('#gd_tien').value.replace(/\D/g,''))||0; if(!tien){$('#gd_tien').focus();return null;}
     return {ngay:$('#gd_ngay').value||todayISO(),loai,hangMuc:$('#gd_hm').value,coSoId:Number($('#gd_cs').value),soTien:tien,noiDung:$('#gd_nd').value.trim(),nguoiLap:$('#gd_ng').value.trim()};
   };
-  const doSave=async g=>{const {data,error}=await SB.from('so_quy').insert(gdToDb(g)).select().single();if(error){alert('Lỗi lưu phiếu: '+error.message);return;}OPS.gd.push(gdFromDb(data));closeModal();renderThu();};
+  const doSave=async g=>{const {data,error}=await SB.from('so_quy').insert(gdToDb(g)).select().single();if(error){avaAlert('Lỗi lưu phiếu: '+error.message);return;}OPS.gd.push(gdFromDb(data));closeModal();renderThu();};
   $('#gd_save').onclick=()=>{const g=readForm();if(g)doSave(g);};
   $('#gd_preview').onclick=()=>{const g=readForm();if(g)openVoucher(g,{onSave:()=>doSave(g)});};
 }
 
 async function exportSoQuy(list,t){
   const btn=$('#expXls'); if(btn){btn.textContent='Đang tạo…';}
-  try{await ensureXLSX();}catch(e){alert('Không tải được thư viện Excel. Hãy kiểm tra kết nối mạng.');if(btn)btn.textContent='⬇ Xuất Excel';return;}
+  try{await ensureXLSX();}catch(e){avaAlert('Không tải được thư viện Excel. Hãy kiểm tra kết nối mạng.');if(btn)btn.textContent='⬇ Xuất Excel';return;}
   const adm=USER.role==='admin';
   const kyTxt=ktThang==='all'?'Tất cả kỳ':('Tháng '+(+ktThang.split('-')[1])+'/'+ktThang.split('-')[0]);
   const phamvi=adm?(scope==='all'?'Toàn hệ thống':csName(Number(scope))):csName(USER.coSoId);
@@ -1711,7 +1757,7 @@ function renderHocVien(){
     h+=`<div class="ddgrid">`;
     list.forEach((v,i)=>{
       const info=[lopName(v.lopId),isAdmin?csName(v.coSoId):'',v.sdt,v.hocPhi?fmtVND(v.hocPhi):''].filter(Boolean).join(' · ');
-      const paidTag=v.hocPhi?`<span class="paidtag ${v.daDong?'yes':'no'}">${v.daDong?'Đã đóng':'Chưa đóng'}</span>`:'';
+      const paidTag=v.hocPhi?`<span class="paidtag ${v.daDong?'yes':'no'}">${v.daDong?('Đã đóng'+(v.ngayDong?' '+isoVN(v.ngayDong):'')):'Chưa đóng'}</span>`:'';
       h+=`<div class="ddrow"><div class="idx">${i+1}</div>
         <div class="nm"><b>${esc(v.ten)}${paidTag}</b><small>${esc(info)||'—'}</small></div>
         <button class="btn btn-sm btn-light" data-edit="${v.id}" style="flex:none">Hồ sơ</button>
@@ -1742,10 +1788,11 @@ function openHvEdit(h){
      <div class="fld full"><label>Họ và tên</label><input id="hv_ten" value="${esc(h.ten)}"/></div>
      <div class="fld"><label>Ngày sinh</label><input id="hv_ns" value="${esc(h.ns)}" placeholder="dd/mm/yyyy"/></div>
      <div class="fld"><label>Học phí (đ/tháng)</label><input id="hv_hp" inputmode="numeric" value="${h.hocPhi||''}" placeholder="VD: 600.000"/></div>
-     <div class="fld full"><label>Tình trạng học phí</label>
-       <div class="hv-paid" id="hv_paid">
-         <button type="button" data-p="1" class="${h.daDong?'sel':''}">✓ Đã đóng</button>
-         <button type="button" data-p="0" class="${h.daDong?'':'sel'}">Chưa đóng</button>
+     <div class="fld full"><label>Tình trạng học phí · ngày đóng</label>
+       <div class="hv-paid3" id="hv_paid">
+         <button type="button" data-p="1">✓ Đã đóng</button>
+         <button type="button" data-p="0">Chưa đóng</button>
+         <input id="hv_ngaydong" placeholder="dd/mm/yyyy" value="${h.daDong&&h.ngayDong?isoVN(h.ngayDong):''}"/>
        </div></div>
      <div class="fld"><label>Phụ huynh</label><input id="hv_ph" value="${esc(h.ph)}" placeholder="Tên phụ huynh"/></div>
      <div class="fld"><label>Điện thoại</label><input id="hv_sdt" value="${esc(h.sdt)}" inputmode="tel" placeholder="SĐT liên hệ"/></div>
@@ -1754,27 +1801,41 @@ function openHvEdit(h){
      <div class="fld full" style="display:flex;gap:9px"><button class="btn btn-primary" id="hv_save" style="flex:1">✓ Lưu hồ sơ</button><button class="btn btn-light" id="hv_del" style="color:var(--rose)">Xóa</button></div>
    </div></div>`;
   $('#modal').classList.add('on');
-  attachMoneyFormat($('#hv_hp')); attachDateFormat($('#hv_ns'));
+  attachMoneyFormat($('#hv_hp')); attachDateFormat($('#hv_ns')); attachDateFormat($('#hv_ngaydong'));
   let paid=!!h.daDong;
-  $$('#hv_paid button').forEach(b=>b.onclick=()=>{paid=b.dataset.p==='1';$$('#hv_paid button').forEach(x=>x.classList.toggle('sel',x===b));});
+  const ndInp=$('#hv_ngaydong');
+  const setPaidUI=()=>{
+    $$('#hv_paid button').forEach(x=>x.classList.toggle('sel',x.dataset.p===(paid?'1':'0')));
+    ndInp.disabled=!paid;
+    if(paid){ if(!ndInp.value) ndInp.value=isoVN(todayISO()); } else { ndInp.value=''; }
+  };
+  $$('#hv_paid button').forEach(b=>b.onclick=()=>{paid=b.dataset.p==='1';setPaidUI();});
+  setPaidUI();
   const err=m=>{const e=$('#hvErr');e.textContent=m||'';e.style.display=m?'block':'none';};
   $('#hv_save').onclick=async()=>{
     const ten=$('#hv_ten').value.trim();
     if(!ten){err('Vui lòng nhập họ tên.');return;}
     if(!isValidDob($('#hv_ns').value)){err('Ngày sinh chưa đúng dạng ngày/tháng/năm (VD: 01/09/2015).');$('#hv_ns').focus();return;}
+    let ndIso=null;
+    if(paid){
+      const ndv=$('#hv_ngaydong').value.trim();
+      if(ndv && !isValidDob(ndv)){err('Ngày đóng chưa đúng dạng ngày/tháng/năm.');$('#hv_ngaydong').focus();return;}
+      ndIso = ndv ? vnToIso(ndv) : todayISO();
+    }
     const hp=Number(String($('#hv_hp').value).replace(/[^\d]/g,''))||0;
     const lopId=Number($('#hv_lop').value);
-    const patch={ten,ns:$('#hv_ns').value.trim(),ph:$('#hv_ph').value.trim(),sdt:$('#hv_sdt').value.trim(),hocPhi:hp,daDong:paid,lopId};
+    const patch={ten,ns:$('#hv_ns').value.trim(),ph:$('#hv_ph').value.trim(),sdt:$('#hv_sdt').value.trim(),hocPhi:hp,daDong:paid,ngayDong:ndIso,lopId};
     const btn=$('#hv_save'); btn.disabled=true; btn.textContent='Đang lưu…'; err('');
     const {error}=await SB.from('hoc_vien').update({ten:patch.ten,ns:patch.ns,ph:patch.ph,sdt:patch.sdt,hoc_phi:hp,da_dong:paid,lop_id:lopId,mau:false}).eq('id',h.id);
     btn.disabled=false; btn.textContent='✓ Lưu hồ sơ';
     if(error){err('Lỗi lưu: '+error.message);return;}
+    await SB.from('hoc_vien').update({ngay_dong:ndIso}).eq('id',h.id);   // cần cột ngay_dong; bỏ qua êm nếu chưa chạy SQL
     Object.assign(h,patch,{mau:false});
     await syncHocPhiVoucher(h,paid);        // đồng bộ phiếu thu trong Sổ quỹ
     closeModal(); renderHocVien();
   };
   $('#hv_del').onclick=async()=>{
-    if(!confirm('Xóa hồ sơ học sinh "'+h.ten+'"? Thao tác này không thể hoàn tác.'))return;
+    if(!await avaConfirm('Xóa hồ sơ học sinh "'+h.ten+'"? Thao tác này không thể hoàn tác.',{danger:true,okText:'Xóa'}))return;
     const {error}=await SB.from('hoc_vien').delete().eq('id',h.id);
     if(error){err('Lỗi xóa: '+error.message);return;}
     OPS.hv=OPS.hv.filter(x=>x.id!==h.id);
@@ -1834,13 +1895,13 @@ function renderGhiDanh(){
   attachMoneyFormat($('#gd_hp')); attachDateFormat($('#gd_ns'));
   $('#gd_add').onclick=async()=>{
     const ten=$('#gd_ten').value.trim(); if(!ten){$('#gd_ten').focus();return;}
-    if(!isValidDob($('#gd_ns').value)){alert('Ngày sinh chưa đúng dạng ngày/tháng/năm (VD: 01/09/2015).');$('#gd_ns').focus();return;}
+    if(!isValidDob($('#gd_ns').value)){avaAlert('Ngày sinh chưa đúng dạng ngày/tháng/năm (VD: 01/09/2015).');$('#gd_ns').focus();return;}
     const rec={ten,ns:$('#gd_ns').value.trim(),ph:$('#gd_ph').value.trim(),sdt:$('#gd_sdt').value.trim(),hocPhi:Number($('#gd_hp').value.replace(/\D/g,''))||0,lopId:ghiLopId,coSoId:lop.coSoId,mau:false};
     const {data,error}=await SB.from('hoc_vien').insert(hvToDb(rec)).select().single();
-    if(error){alert('Lỗi ghi danh: '+error.message);return;}
+    if(error){avaAlert('Lỗi ghi danh: '+error.message);return;}
     OPS.hv.push(hvFromDb(data));renderGhiDanh();
   };
-  $$('#view [data-del]').forEach(b=>b.onclick=async()=>{const id=Number(b.dataset.del);const {error}=await SB.from('hoc_vien').delete().eq('id',id);if(error){alert('Lỗi xóa: '+error.message);return;}OPS.hv=OPS.hv.filter(x=>x.id!==id);renderGhiDanh();});
+  $$('#view [data-del]').forEach(b=>b.onclick=async()=>{const id=Number(b.dataset.del);const {error}=await SB.from('hoc_vien').delete().eq('id',id);if(error){avaAlert('Lỗi xóa: '+error.message);return;}OPS.hv=OPS.hv.filter(x=>x.id!==id);renderGhiDanh();});
   renderNavCounts();
 }
 
@@ -1898,11 +1959,11 @@ function renderDiemDanh(){
   $$('#ccSeg button').forEach(b=>b.onclick=async()=>{
     if(cc===b.dataset.v){
       const {error}=await SB.from('cham_cong_gv').delete().eq('lop_id',ddLopId).eq('ngay',ddDate);
-      if(error){alert('Lỗi lưu chấm công: '+error.message);return;}
+      if(error){avaAlert('Lỗi lưu chấm công: '+error.message);return;}
       delete OPS.ccGV[ccKey];
     }else{
       const {error}=await SB.from('cham_cong_gv').upsert({lop_id:ddLopId,ngay:ddDate,coso_id:lop.coSoId,trang_thai:b.dataset.v},{onConflict:'lop_id,ngay'});
-      if(error){alert('Lỗi lưu chấm công: '+error.message);return;}
+      if(error){avaAlert('Lỗi lưu chấm công: '+error.message);return;}
       OPS.ccGV[ccKey]=b.dataset.v;
     }
     renderDiemDanh();
@@ -1912,11 +1973,11 @@ function renderDiemDanh(){
       OPS.ddHV[ddKey]=OPS.ddHV[ddKey]||{};
       if(OPS.ddHV[ddKey][id]===b.dataset.v){
         const {error}=await SB.from('diem_danh_hv').delete().eq('lop_id',ddLopId).eq('ngay',ddDate).eq('hv_id',id);
-        if(error){alert('Lỗi lưu điểm danh: '+error.message);return;}
+        if(error){avaAlert('Lỗi lưu điểm danh: '+error.message);return;}
         delete OPS.ddHV[ddKey][id];
       }else{
         const {error}=await SB.from('diem_danh_hv').upsert({lop_id:ddLopId,ngay:ddDate,hv_id:id,coso_id:lop.coSoId,trang_thai:b.dataset.v},{onConflict:'lop_id,ngay,hv_id'});
-        if(error){alert('Lỗi lưu điểm danh: '+error.message);return;}
+        if(error){avaAlert('Lỗi lưu điểm danh: '+error.message);return;}
         OPS.ddHV[ddKey][id]=b.dataset.v;
       }
       renderDiemDanh();});
