@@ -596,6 +596,14 @@ function applyGvEdits(rows){
 const fmtVND=n=>Math.round(n).toLocaleString('vi-VN')+'₫';
 const fmtShort=n=>n>=1e9?(n/1e9).toFixed(n>=1e10?0:1).replace('.0','')+' tỷ':n>=1e6?Math.round(n/1e6)+' tr':n>=1e3?Math.round(n/1e3)+'k':String(n);
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+/* Ô nhập tiền: tự thêm dấu chấm nghìn khi gõ (1200000 → 1.200.000) */
+function attachMoneyFormat(el){
+  if(!el)return;
+  el.setAttribute('inputmode','numeric');
+  const grp=()=>{const d=el.value.replace(/\D/g,'');el.value=d?Number(d).toLocaleString('vi-VN'):'';};
+  grp();                       // định dạng luôn giá trị có sẵn
+  el.addEventListener('input',grp);
+}
 const initials=s=>{const p=String(s).trim().split(/\s+/);return ((p[p.length-2]?.[0]||'')+(p[p.length-1]?.[0]||'')).toUpperCase()||'?';};
 const AVCOL=['#1f4276','#2a5490','#0e7fb0','#3a5db0','#5b6fb8','#7c5cd6','#2f6fd0','#17335f'];
 const avaColor=s=>AVCOL[[...String(s)].reduce((a,c)=>a+c.charCodeAt(0),0)%AVCOL.length];
@@ -1542,7 +1550,7 @@ function addGD(loai){
      <div class="fld"><label>Ngày</label><input type="date" id="gd_ngay" value="${todayISO()}"/></div>
      <div class="fld"><label>Hạng mục</label><select id="gd_hm">${cats.map(c=>`<option>${c}</option>`).join('')}</select></div>
      <div class="fld full"><label>Cơ sở</label><select id="gd_cs" ${USER.role!=='admin'?'disabled':''}>${csOpts.map(c=>`<option value="${c.id}" ${c.id===defCs?'selected':''}>${esc(c.ten)}</option>`).join('')}</select></div>
-     <div class="fld full"><label>Số tiền (đồng)</label><input id="gd_tien" inputmode="numeric" placeholder="VD: 600000"/></div>
+     <div class="fld full"><label>Số tiền (đồng)</label><input id="gd_tien" inputmode="numeric" placeholder="VD: 600.000"/></div>
      <div class="fld full"><label>Nội dung / diễn giải</label><input id="gd_nd" placeholder="${loai==='thu'?'VD: Thu học phí T7 lớp 8A1':'VD: Trả lương GV tháng 7'}"/></div>
      <div class="fld full"><label>Người lập phiếu</label><input id="gd_ng" value="${USER.role==='admin'?'Ban Giám đốc':'Lễ tân '+esc(csName(USER.coSoId))}"/></div>
      <div class="fld full" style="display:flex;gap:8px">
@@ -1551,6 +1559,7 @@ function addGD(loai){
      </div>
    </div></div>`;
   $('#modal').classList.add('on');
+  attachMoneyFormat($('#gd_tien'));
   const readForm=()=>{
     const tien=Number($('#gd_tien').value.replace(/\D/g,''))||0; if(!tien){$('#gd_tien').focus();return null;}
     return {ngay:$('#gd_ngay').value||todayISO(),loai,hangMuc:$('#gd_hm').value,coSoId:Number($('#gd_cs').value),soTien:tien,noiDung:$('#gd_nd').value.trim(),nguoiLap:$('#gd_ng').value.trim()};
@@ -1709,7 +1718,7 @@ function openHvEdit(h){
    <div class="mbody"><div class="form2">
      <div class="fld full"><label>Họ và tên</label><input id="hv_ten" value="${esc(h.ten)}"/></div>
      <div class="fld"><label>Ngày sinh</label><input id="hv_ns" value="${esc(h.ns)}" placeholder="dd/mm/yyyy"/></div>
-     <div class="fld"><label>Học phí (đ/tháng)</label><input id="hv_hp" inputmode="numeric" value="${h.hocPhi||''}" placeholder="VD: 600000"/></div>
+     <div class="fld"><label>Học phí (đ/tháng)</label><input id="hv_hp" inputmode="numeric" value="${h.hocPhi||''}" placeholder="VD: 600.000"/></div>
      <div class="fld full"><label>Tình trạng học phí</label>
        <div class="hv-paid" id="hv_paid">
          <button type="button" data-p="1" class="${h.daDong?'sel':''}">✓ Đã đóng</button>
@@ -1722,6 +1731,7 @@ function openHvEdit(h){
      <div class="fld full" style="display:flex;gap:9px"><button class="btn btn-primary" id="hv_save" style="flex:1">✓ Lưu hồ sơ</button><button class="btn btn-light" id="hv_del" style="color:var(--rose)">Xóa</button></div>
    </div></div>`;
   $('#modal').classList.add('on');
+  attachMoneyFormat($('#hv_hp'));
   let paid=!!h.daDong;
   $$('#hv_paid button').forEach(b=>b.onclick=()=>{paid=b.dataset.p==='1';$$('#hv_paid button').forEach(x=>x.classList.toggle('sel',x===b));});
   const err=m=>{const e=$('#hvErr');e.textContent=m||'';e.style.display=m?'block':'none';};
@@ -1764,7 +1774,7 @@ function renderGhiDanh(){
       <div class="pbody"><div class="form2">
         <div class="fld full"><label>Họ và tên</label><input id="gd_ten" placeholder="VD: Nguyễn Văn An"/></div>
         <div class="fld"><label>Ngày sinh</label><input id="gd_ns" placeholder="dd/mm/yyyy"/></div>
-        <div class="fld"><label>Học phí (đ/tháng)</label><input id="gd_hp" inputmode="numeric" placeholder="VD: 600000"/></div>
+        <div class="fld"><label>Học phí (đ/tháng)</label><input id="gd_hp" inputmode="numeric" placeholder="VD: 600.000"/></div>
         <div class="fld"><label>Phụ huynh</label><input id="gd_ph" placeholder="Tên phụ huynh"/></div>
         <div class="fld"><label>Điện thoại</label><input id="gd_sdt" inputmode="tel" placeholder="SĐT liên hệ"/></div>
         <div class="fld full"><button class="btn btn-primary btn-block" id="gd_add">＋ Ghi danh vào lớp</button></div>
@@ -1797,6 +1807,7 @@ function renderGhiDanh(){
   $('#ghiLop').onchange=e=>{ghiLopId=Number(e.target.value);renderGhiDanh();};
   $('#hsTpl').onclick=()=>hsDownloadTemplate(lop);
   $('#hsImp').onclick=()=>hsImportExcel(lop);
+  attachMoneyFormat($('#gd_hp'));
   $('#gd_add').onclick=async()=>{
     const ten=$('#gd_ten').value.trim(); if(!ten){$('#gd_ten').focus();return;}
     const rec={ten,ns:$('#gd_ns').value.trim(),ph:$('#gd_ph').value.trim(),sdt:$('#gd_sdt').value.trim(),hocPhi:Number($('#gd_hp').value.replace(/\D/g,''))||0,lopId:ghiLopId,coSoId:lop.coSoId,mau:false};
