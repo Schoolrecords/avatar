@@ -4,7 +4,9 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
 <meta name="theme-color" content="#0b1d3d"/>
-<title>AVATAR · Hệ thống quản trị chuỗi trung tâm</title>
+<link rel="icon" type="image/png" href="logo-mark.png"/>
+<link rel="apple-touch-icon" href="logo-mark.png"/>
+<title>AVATAR English Center · Hệ thống quản trị chuỗi</title>
 <style>
 :root{
   --bg:#eef1f7;--card:#ffffff;--ink:#132244;--muted:#5f6a86;--faint:#8b95ae;
@@ -38,7 +40,8 @@ svg{display:block}
   background-size:20px 20px,auto,auto,auto}
 .lcard{width:min(420px,100%);background:var(--card);border-radius:26px;box-shadow:0 44px 90px -46px #000;overflow:hidden}
 .lhead{background:var(--dots),linear-gradient(160deg,#12305e 0%,#0b1d3d 100%);background-size:18px 18px,auto;color:#fff;padding:34px 30px 28px;text-align:center;border-bottom:3px solid #2a5490}
-.llogo{width:70px;height:70px;border-radius:22px;background:#fff;color:var(--brand-700);display:grid;place-items:center;margin:0 auto 15px;font-weight:900;font-size:1.55rem;letter-spacing:.04em;box-shadow:0 14px 30px -12px rgba(0,0,0,.5)}
+.llogo{width:76px;height:76px;border-radius:22px;background:#fff;overflow:hidden;margin:0 auto 15px;box-shadow:0 14px 30px -12px rgba(0,0,0,.5)}
+.llogo img,.brand .lg img{width:100%;height:100%;object-fit:cover;border-radius:inherit;display:block}
 .lhead h1{margin:0;font-size:1.36rem;letter-spacing:.06em;font-weight:800}
 .lhead p{margin:7px 0 0;color:#bfe0db;font-size:.85rem}
 .lbody{padding:26px 28px 30px}
@@ -75,7 +78,7 @@ svg{display:block}
 .shell{display:grid;grid-template-columns:262px 1fr;min-height:100vh;min-height:100dvh}
 .side{background:var(--dots),linear-gradient(188deg,#1c3c6e 0%,#0b1d3d 74%);background-size:22px 22px,auto;color:#fff;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;height:100dvh;padding:18px 13px}
 .brand{display:flex;align-items:center;gap:12px;padding:6px 8px 17px;border-bottom:1px solid rgba(255,255,255,.09)}
-.brand .lg{width:48px;height:48px;border-radius:15px;background:linear-gradient(140deg,#fff,#dbe4f3);color:var(--brand-700);display:grid;place-items:center;font-weight:900;font-size:1.3rem;flex:none;box-shadow:0 10px 22px -10px rgba(0,0,0,.5)}
+.brand .lg{width:50px;height:50px;border-radius:15px;background:#fff;overflow:hidden;flex:none;box-shadow:0 10px 22px -10px rgba(0,0,0,.5)}
 .brand b{display:block;font-size:1.14rem;letter-spacing:.07em;font-weight:800}
 .brand small{display:block;color:#8fc0ba;font-size:.68rem;letter-spacing:.02em}
 .navlab{font-size:.66rem;letter-spacing:.16em;text-transform:uppercase;color:#5f8f88;margin:16px 12px 8px;font-weight:800}
@@ -177,6 +180,17 @@ tbody tr:hover{background:var(--soft)}
 .cs-rev{margin-top:11px;padding-top:11px;border-top:1px solid var(--line);display:flex;align-items:center;justify-content:space-between}
 .cs-rev small{font-size:.72rem;color:var(--muted)}
 .cs-rev b{font-size:1.02rem;color:var(--brand-700)}
+.cs-warn{display:inline-flex;align-items:center;gap:3px;font-size:.6rem;font-weight:800;color:#8a5a05;background:var(--amber-soft);border:1px solid #f2dca6;padding:2px 7px;border-radius:99px;margin-left:6px;vertical-align:middle;white-space:nowrap}
+.cs-mini{display:flex;align-items:center;gap:8px;margin-top:11px;font-size:.74rem;color:var(--muted)}
+.cs-mini .mk{color:var(--amber);font-weight:900}
+.cs-mini .mbar{flex:1;height:5px;border-radius:99px;background:var(--soft);overflow:hidden}
+.cs-mini .mbar i{display:block;height:100%;background:var(--sky)}
+.cs-bar{height:6px;border-radius:99px;background:var(--soft);margin-top:11px;overflow:hidden}
+.cs-bar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,var(--brand),var(--emerald))}
+.cssum{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.cssum .s{flex:1;min-width:110px;background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px 15px;box-shadow:var(--shadow-sm)}
+.cssum .s b{display:block;font-size:1.28rem;line-height:1}
+.cssum .s span{font-size:.71rem;color:var(--muted)}
 
 /* rank list */
 .rank{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}
@@ -278,9 +292,9 @@ tbody tr:hover{background:var(--soft)}
 <div id="login">
   <div class="lcard">
     <div class="lhead">
-      <div class="llogo">AV</div>
+      <div class="llogo"><img src="logo-mark.png" alt="AVATAR English Center"/></div>
       <h1>AVATAR</h1>
-      <p>Hệ thống quản trị chuỗi trung tâm</p>
+      <p>English Center · Quản trị chuỗi trung tâm</p>
     </div>
     <div class="lbody">
       <label>Vai trò đăng nhập</label>
@@ -322,8 +336,8 @@ tbody tr:hover{background:var(--soft)}
     <!-- SIDEBAR -->
     <aside class="side" id="side">
       <div class="brand">
-        <div class="lg">AV</div>
-        <div><b>AVATAR</b><small>Quản trị chuỗi trung tâm</small></div>
+        <div class="lg"><img src="logo-mark.png" alt="AVATAR"/></div>
+        <div><b>AVATAR</b><small>English Center</small></div>
       </div>
       <div class="navlab">Điều hành</div>
       <nav class="nav" id="nav"></nav>
@@ -377,6 +391,17 @@ const avaColor=s=>AVCOL[[...String(s)].reduce((a,c)=>a+c.charCodeAt(0),0)%AVCOL.
 /* ============ DATA ============ */
 const DATA=window.AVATAR_DATA;
 const COSO=DATA.map(c=>({id:c.id,ten:c.ten,build:!!c.trong}));
+/* viết tắt cơ sở, tự tách khi trùng (Diễn Hạnh/Diễn Hồng đều "DH") */
+const fold=s=>String(s).normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/đ/g,'d').replace(/Đ/g,'D');
+const CS_ABBR=(()=>{
+  const base={},cnt={},map={};
+  COSO.forEach(c=>{const w=fold(c.ten).trim().split(/\s+/);const b=((w[w.length-2]?.[0]||'')+(w[w.length-1]?.[0]||'')).toUpperCase();base[c.id]=b;cnt[b]=(cnt[b]||0)+1;});
+  COSO.forEach(c=>{const w=fold(c.ten).trim().split(/\s+/);const b=base[c.id];
+    if(cnt[b]>1){const last=w[w.length-1];map[c.id]=(w[w.length-2]?.[0]||'').toUpperCase()+last[0].toUpperCase()+(last.slice(1,2)||'').toLowerCase();}
+    else map[c.id]=b;});
+  return map;
+})();
+const csAbbr=id=>CS_ABBR[id]||'?';
 let GV=[],LOP=[];
 DATA.forEach(c=>{(c.gv||[]).forEach(g=>GV.push({...g,coSoId:c.id})); (c.lop||[]).forEach(l=>LOP.push({...l,coSoId:c.id}));});
 const csName=id=>COSO.find(c=>c.id===id)?.ten||'—';
@@ -393,7 +418,7 @@ const DOW=['Chủ nhật','Thứ hai','Thứ ba','Thứ tư','Thứ năm','Thứ
 
 /* ============ STATE ============ */
 let USER={role:'admin',coSoId:null}, VIEW='dashboard', scope='all';
-let gvSearch='',gvCs='all',gvMon='all', lopSearch='',lopCs='all';
+let gvSearch='',gvCs='all',gvMon='all', lopSearch='',lopCs='all', csSort='thu';
 
 /* ============ ICONS ============ */
 const IC={
@@ -692,31 +717,59 @@ $('#modal').onclick=e=>{if(e.target.id==='modal')closeModal();};
 /* ============ CƠ SỞ ============ */
 function renderCoso(){
   const list=inCOSO();
-  let h=`<div class="cscards">`;
-  list.forEach(c=>{
-    const s=csStat(c.id), col=avaColor(c.ten);
+  const active=list.filter(c=>!c.build);
+  const tot=active.reduce((a,c)=>{const s=csStat(c.id);a.gv+=s.gv;a.hs+=s.hs;a.lop+=s.lop;a.thu+=s.thu;return a;},{gv:0,hs:0,lop:0,thu:0});
+  const maxThu=Math.max(1,...active.map(c=>csStat(c.id).thu));
+  const rows=list.map(c=>({c,...csStat(c.id)}));
+  rows.sort((a,b)=>{
+    if(a.c.build!==b.c.build) return a.c.build?1:-1;   // đang XD xuống cuối
+    if(csSort==='ten') return a.c.ten.localeCompare(b.c.ten,'vi');
+    return b[csSort]-a[csSort];
+  });
+
+  let h=`<div class="cssum">
+    <div class="s"><b>${active.length}</b><span>Cơ sở hoạt động</span></div>
+    <div class="s"><b>${tot.gv}</b><span>Giáo viên</span></div>
+    <div class="s"><b>${tot.hs.toLocaleString('vi-VN')}</b><span>Học sinh</span></div>
+    <div class="s"><b>${tot.lop}</b><span>Lớp học</span></div>
+    <div class="s"><b>${fmtShort(tot.thu)}</b><span>Dự thu học phí</span></div>
+  </div>
+  <div class="toolbar"><div style="margin-left:auto;display:flex;align-items:center;gap:8px">
+    <small class="muted" style="font-weight:700">Sắp xếp:</small>
+    <select class="fsel" id="cssort">${[['thu','Dự thu cao nhất'],['hs','Học sinh nhiều nhất'],['gv','Giáo viên nhiều nhất'],['ten','Tên A→Z']].map(([k,t])=>`<option value="${k}" ${csSort===k?'selected':''}>${t}</option>`).join('')}</select>
+  </div></div>
+  <div class="cscards">`;
+
+  rows.forEach(({c,gv,lop,hs,thu})=>{
     if(c.build){
       h+=`<div class="cscard build">
-        <div class="cs-top"><div class="cs-badge" style="background:#94a7a4">${initials(c.ten)}</div>
+        <div class="cs-top"><div class="cs-badge" style="background:#8a97b3">${csAbbr(c.id)}</div>
           <div><h4>${esc(c.ten)}</h4><div class="cs-sub">Đang xây dựng</div></div></div>
-        <div class="empty" style="padding:14px 0">Cơ sở mới · chưa nhập dữ liệu</div></div>`;
+        <div class="empty" style="padding:18px 0">Cơ sở mới · chưa nhập dữ liệu</div></div>`;
       return;
     }
+    let warn='';
+    if(lop===0&&gv>0) warn=`<span class="cs-warn">⚠ Chưa nhập lớp</span>`;
+    else if(lop>0&&hs/lop<6) warn=`<span class="cs-warn">⚠ Sĩ số bất thường</span>`;
+    const cc=Math.round(chuyenCan(c.ten+'cc')*100);
     h+=`<div class="cscard" data-cs="${c.id}">
-      <div class="cs-top"><div class="cs-badge" style="background:${col}">${initials(c.ten)}</div>
-        <div><h4>${esc(c.ten)}</h4><div class="cs-sub">${s.lop} lớp · ${s.hs} học sinh</div></div></div>
+      <div class="cs-top"><div class="cs-badge" style="background:${avaColor(c.ten)}">${csAbbr(c.id)}</div>
+        <div style="min-width:0"><h4>${esc(c.ten)}${warn}</h4><div class="cs-sub">${lop} lớp · ${hs} học sinh</div></div></div>
       <div class="cs-stats">
-        <div class="cs-stat"><b>${s.gv}</b><span>Giáo viên</span></div>
-        <div class="cs-stat"><b>${s.hs}</b><span>Học sinh</span></div>
+        <div class="cs-stat"><b>${gv}</b><span>Giáo viên</span></div>
+        <div class="cs-stat"><b>${hs}</b><span>Học sinh</span></div>
       </div>
-      <div class="cs-rev"><small>Dự thu học phí</small><b>${fmtShort(s.thu)}</b></div>
+      <div class="cs-mini"><span class="mk" title="Số liệu minh họa">◐</span> Chuyên cần <div class="mbar"><i style="width:${lop?cc:0}%"></i></div> <b style="color:var(--ink)">${lop?cc+'%':'—'}</b></div>
+      <div class="cs-rev"><small>Dự thu học phí</small><b>${lop?fmtShort(thu):'Chưa nhập lớp'}</b></div>
+      <div class="cs-bar"><i style="width:${Math.max(2,thu/maxThu*100)}%"></i></div>
     </div>`;
   });
   h+='</div>';
   $('#view').innerHTML=h;
-  $$('#view .cscard[data-cs]').forEach(c=>c.onclick=()=>{
-    if(USER.role==='admin'){scope=c.dataset.cs;$('#scope').value=scope;}
-    gvCs=c.dataset.cs; go('gv');
+  $('#cssort').onchange=e=>{csSort=e.target.value;renderCoso();};
+  $$('#view .cscard[data-cs]').forEach(el=>el.onclick=()=>{
+    if(USER.role==='admin'){scope=el.dataset.cs;$('#scope').value=scope;}
+    gvCs=el.dataset.cs; go('gv');
   });
 }
 
@@ -763,7 +816,7 @@ function renderThu(){
   h+=`<div class="panel"><div class="phead"><h3>Dự thu theo cơ sở</h3><span class="sub">Tổng ${fmtVND(total)}</span></div>
     <div class="twrap"><table><thead><tr><th>Cơ sở</th><th class="tright">Lớp</th><th class="tright">Học sinh</th><th class="tright">Dự thu</th><th>Tỷ trọng</th></tr></thead><tbody>`;
   rows.forEach(r=>{
-    h+=`<tr style="cursor:pointer" data-cs="${r.c.id}"><td><div class="gvcell"><div class="gvava" style="width:32px;height:32px;font-size:.72rem;background:${avaColor(r.c.ten)}">${initials(r.c.ten)}</div><b>${esc(r.c.ten)}</b></div></td>
+    h+=`<tr style="cursor:pointer" data-cs="${r.c.id}"><td><div class="gvcell"><div class="gvava" style="width:32px;height:32px;font-size:.72rem;background:${avaColor(r.c.ten)}">${csAbbr(r.c.id)}</div><b>${esc(r.c.ten)}</b></div></td>
       <td class="tright num">${r.lop}</td><td class="tright num">${r.hs}</td>
       <td class="tright num">${fmtVND(r.thu)}</td>
       <td style="min-width:120px"><div class="bar" style="height:7px;border-radius:99px;background:var(--soft)"><i style="display:block;height:100%;border-radius:99px;width:${Math.max(3,r.thu/maxThu*100)}%;background:linear-gradient(90deg,var(--brand),var(--emerald))"></i></div></td></tr>`;
