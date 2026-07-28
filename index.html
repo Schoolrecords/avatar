@@ -594,7 +594,7 @@ function applyGvEdits(rows){
     ['ten','ns','td','dc','sdt','mon'].forEach(k=>{ if(e[k]!=null && String(e[k]).length) g[k]=e[k]; });});
 }
 const fmtVND=n=>Math.round(n).toLocaleString('vi-VN')+'₫';
-const fmtShort=n=>n>=1e9?(n/1e9).toFixed(n>=1e10?0:1).replace('.0','')+' tỷ':n>=1e6?Math.round(n/1e6)+' tr':n>=1e3?Math.round(n/1e3)+'k':String(n);
+const fmtShort=n=>n>=1e9?(n/1e9).toFixed(n>=1e10?0:1).replace(/\.0$/,'')+' tỷ':n>=1e6?(n/1e6).toFixed(1).replace(/\.0$/,'')+' tr':n>=1e3?Math.round(n/1e3)+'k':String(n);
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 /* Ô nhập tiền: tự thêm dấu chấm nghìn khi gõ (1200000 → 1.200.000) */
 function attachMoneyFormat(el){
