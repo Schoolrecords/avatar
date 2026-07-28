@@ -100,6 +100,7 @@ svg{display:block}
 .btn-logout{width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:11px 8px;border-radius:11px;font-size:.83rem;font-weight:800;color:#d6e7e3;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);transition:.15s}
 .btn-logout svg{width:17px;height:17px;stroke:currentColor;flex:none}
 .btn-logout:hover{background:var(--rose);border-color:var(--rose);color:#fff}
+.btn-key:hover{background:var(--emerald)!important;border-color:var(--emerald)!important;color:#fff!important}
 
 .main{min-width:0;padding:20px 26px 90px;display:flex;flex-direction:column}
 .top{display:flex;align-items:center;gap:14px;margin-bottom:20px}
@@ -411,6 +412,10 @@ td.chi{color:var(--rose);font-weight:800}
             <small id="uRole">Toàn hệ thống</small>
           </div>
         </div>
+        <button id="chgPass" class="btn-logout btn-key">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.9"><circle cx="8" cy="15" r="4"/><path d="M10.85 12.15 19 4"/><path d="M18 5l2 2"/><path d="M15.5 7.5l2 2"/></svg>
+          Đổi mật khẩu
+        </button>
         <button id="logout" class="btn-logout">
           <svg viewBox="0 0 24 24" fill="none" stroke-width="1.9"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
           Đăng xuất
@@ -603,7 +608,7 @@ async function afterAuth(){
   if(!user)return;
   const {data:prof,error}=await SB.from('profiles').select('*').eq('id',user.id).single();
   if(error||!prof||!prof.role){showLoginErr('Tài khoản chưa được phân quyền. Liên hệ quản trị viên.');await SB.auth.signOut();return;}
-  USER = prof.role==='admin' ? {role:'admin',coSoId:null} : {role:'owner',coSoId:prof.coso_id};
+  USER = prof.role==='admin' ? {role:'admin',coSoId:null,email:user.email} : {role:'owner',coSoId:prof.coso_id,email:user.email};
   scope='all';
   const btn=$('#loginBtn'); if(btn){btn.disabled=true;btn.textContent='Đang tải dữ liệu…';}
   try{ await loadCloud(); }
@@ -623,6 +628,39 @@ function startApp(){
   buildScope(); renderNav(); go('dashboard');
 }
 $('#logout').onclick=async()=>{ try{await SB.auth.signOut();}catch(e){} location.reload(); };
+$('#chgPass').onclick=openChgPass;
+function openChgPass(){
+  $('#mcard').innerHTML=`
+   <div class="mhead" style="background:var(--dots),linear-gradient(150deg,#0c6b52,#0f766e);background-size:18px 18px,auto">
+     <div class="mava">${svg('<rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>')}</div>
+     <div style="flex:1"><h3>Đổi mật khẩu</h3><p>Tài khoản: ${esc(USER.email||'')}</p></div>
+     <button class="mclose" onclick="closeModal()">${svg('<path d="M6 6l12 12M18 6L6 18"/>')}</button>
+   </div>
+   <div class="mbody"><div class="form2">
+     <div class="fld full"><label>Mật khẩu mới</label>
+       <div class="pass-wrap"><input type="password" id="np1" placeholder="Ít nhất 6 ký tự"/><button type="button" class="eye" id="npEye1"></button></div></div>
+     <div class="fld full"><label>Nhập lại mật khẩu mới</label>
+       <input type="password" id="np2" placeholder="Gõ lại mật khẩu mới"/></div>
+     <div id="npErr" style="display:none;color:#c0392b;font-size:.85rem;font-weight:600"></div>
+     <div class="fld full"><button class="btn btn-primary btn-block" id="npSave">Cập nhật mật khẩu</button></div>
+     <div class="fld full"><small style="color:var(--muted)">Sau khi đổi, lần đăng nhập sau anh/chị dùng mật khẩu mới.</small></div>
+   </div></div>`;
+  $('#modal').classList.add('on');
+  $('#npEye1').innerHTML=EYE_ON;
+  $('#npEye1').onclick=()=>{const i=$('#np1');const show=i.type==='password';i.type=show?'text':'password';$('#npEye1').innerHTML=show?EYE_OFF:EYE_ON;i.focus();};
+  const show=m=>{const e=$('#npErr');e.textContent=m||'';e.style.display=m?'block':'none';};
+  $('#npSave').onclick=async()=>{
+    const p1=$('#np1').value, p2=$('#np2').value;
+    if(p1.length<6){show('Mật khẩu phải từ 6 ký tự trở lên.');$('#np1').focus();return;}
+    if(p1!==p2){show('Hai lần nhập mật khẩu chưa khớp.');$('#np2').focus();return;}
+    const btn=$('#npSave'); btn.disabled=true; btn.textContent='Đang cập nhật…'; show('');
+    const {error}=await SB.auth.updateUser({password:p1});
+    btn.disabled=false; btn.textContent='Cập nhật mật khẩu';
+    if(error){show('Lỗi: '+error.message);return;}
+    closeModal();
+    alert('Đã đổi mật khẩu thành công! Lần đăng nhập sau hãy dùng mật khẩu mới.');
+  };
+}
 
 function buildScope(){
   const wrap=$('#scopeWrap'), sel=$('#scope');
