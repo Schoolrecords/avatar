@@ -373,32 +373,18 @@ td.chi{color:var(--rose);font-weight:800}
       <p>English Center · Quản trị chuỗi trung tâm</p>
     </div>
     <div class="lbody">
-      <label>Vai trò đăng nhập</label>
-      <div class="roles" id="roles">
-        <button class="role on" data-role="admin">
-          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M3 21V9l9-6 9 6v12"/><path d="M9 21v-6h6v6"/></svg>
-          <b>Quản trị chuỗi</b>
-        </button>
-        <button class="role" data-role="owner">
-          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>
-          <b>Lễ tân Cơ Sở</b>
-        </button>
-      </div>
-      <div class="field" id="csField" style="display:none;margin-top:6px">
-        <label>Chọn cơ sở</label>
-        <select id="csPick"></select>
-      </div>
-      <div class="field" style="margin-top:6px">
-        <label>Tên đăng nhập</label>
-        <input id="uname" value="admin" autocomplete="username"/>
+      <div class="field">
+        <label>Email đăng nhập</label>
+        <input id="uname" type="email" placeholder="vd: giamdoc@avatar.vn" autocomplete="username"/>
       </div>
       <div class="field">
         <label>Mật khẩu</label>
         <div class="pass-wrap">
-          <input id="upass" type="password" value="123456" autocomplete="current-password"/>
+          <input id="upass" type="password" placeholder="Nhập mật khẩu" autocomplete="current-password"/>
           <button type="button" class="eye" id="eyeBtn" aria-label="Hiện mật khẩu"></button>
         </div>
       </div>
+      <div id="loginErr" style="display:none;color:#c0392b;font-size:.85rem;margin:2px 0 4px;font-weight:600"></div>
       <button class="btn btn-primary btn-block" id="loginBtn">Đăng nhập hệ thống</button>
       <p class="lnote">Bản quyền thuộc về Trung tâm Anh ngữ Avatar</p>
     </div>
@@ -460,9 +446,33 @@ td.chi{color:var(--rose);font-weight:800}
 <div class="voucher" id="voucher"></div>
 
 <script src="data.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 /* ============ UTIL ============ */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+
+/* ===== SUPABASE (kho dữ liệu online) ===== */
+const SB_URL='https://hdvtlbeozyumvnhgejxp.supabase.co';
+const SB_KEY='sb_publishable_eGYgGZpxRRdIgLeO6_S_JQ_N7rHsINZ';
+const SB=window.supabase.createClient(SB_URL,SB_KEY);
+/* ánh xạ giữa cột CSDL (chữ_gạch) và tên dùng trong app (chữHoa) */
+const hvFromDb=r=>({id:r.id,ten:r.ten,ns:r.ns||'',ph:r.ph||'',sdt:r.sdt||'',hocPhi:Number(r.hoc_phi)||0,lopId:r.lop_id,coSoId:r.coso_id,mau:!!r.mau});
+const hvToDb=o=>({ten:o.ten,ns:o.ns||'',ph:o.ph||'',sdt:o.sdt||'',hoc_phi:o.hocPhi||0,lop_id:o.lopId,coso_id:o.coSoId,mau:!!o.mau});
+const gdFromDb=r=>({id:r.id,ngay:r.ngay,loai:r.loai,hangMuc:r.hang_muc,coSoId:r.coso_id,soTien:Number(r.so_tien)||0,noiDung:r.noi_dung||'',nguoiLap:r.nguoi_lap||''});
+const gdToDb=o=>({ngay:o.ngay,loai:o.loai,hang_muc:o.hangMuc,coso_id:o.coSoId,so_tien:o.soTien,noi_dung:o.noiDung||'',nguoi_lap:o.nguoiLap||''});
+async function loadCloud(){
+  const [hv,gd,dd,cc]=await Promise.all([
+    SB.from('hoc_vien').select('*'),
+    SB.from('so_quy').select('*'),
+    SB.from('diem_danh_hv').select('*'),
+    SB.from('cham_cong_gv').select('*')
+  ]);
+  if(hv.error||gd.error||dd.error||cc.error) throw (hv.error||gd.error||dd.error||cc.error);
+  OPS.hv=(hv.data||[]).map(hvFromDb);
+  OPS.gd=(gd.data||[]).map(gdFromDb);
+  OPS.ddHV={}; (dd.data||[]).forEach(r=>{const k=r.lop_id+'|'+r.ngay;(OPS.ddHV[k]=OPS.ddHV[k]||{})[r.hv_id]=r.trang_thai;});
+  OPS.ccGV={}; (cc.data||[]).forEach(r=>{OPS.ccGV['cc|'+r.lop_id+'|'+r.ngay]=r.trang_thai;});
+}
 const fmtVND=n=>Math.round(n).toLocaleString('vi-VN')+'₫';
 const fmtShort=n=>n>=1e9?(n/1e9).toFixed(n>=1e10?0:1).replace('.0','')+' tỷ':n>=1e6?Math.round(n/1e6)+' tr':n>=1e3?Math.round(n/1e3)+'k':String(n);
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -498,10 +508,10 @@ const chuyenCan=key=>0.83+seed('c'+key)*0.15;          // chuyên cần 83–98%
 const SLOTS=['17:15','17:30','18:00','18:30','19:00','19:30','20:00'];
 const DOW=['Chủ nhật','Thứ hai','Thứ ba','Thứ tư','Thứ năm','Thứ sáu','Thứ bảy'];
 
-/* ===== NGHIỆP VỤ: ghi danh & điểm danh (lưu tạm trên máy - localStorage) ===== */
-const OPS_KEY='avatar_ops_v1';
-let OPS=(()=>{try{const s=localStorage.getItem(OPS_KEY);if(s){const o=JSON.parse(s);o.hv=o.hv||[];o.ddHV=o.ddHV||{};o.ccGV=o.ccGV||{};o.gd=o.gd||[];return o;}}catch(e){}return{hv:[],ddHV:{},ccGV:{},gd:[]};})();
-function saveOps(){try{localStorage.setItem(OPS_KEY,JSON.stringify(OPS));}catch(e){}}
+/* ===== NGHIỆP VỤ: ghi danh & điểm danh — lưu trên Supabase (đồng bộ mọi máy) ===== */
+/* OPS là bộ nhớ đệm trong trình duyệt; nạp bằng loadCloud() sau khi đăng nhập. */
+let OPS={hv:[],ddHV:{},ccGV:{},gd:[]};
+function saveOps(){/* dữ liệu nay lưu trên Supabase; giữ hàm rỗng cho tương thích */}
 const HM_THU=['Học phí','Ghi danh/Nhập học','Bán tài liệu','Thu khác'];
 const HM_CHI=['Lương giáo viên','Thuê mặt bằng','Điện nước','Vật tư/Văn phòng phẩm','Marketing','Chi khác'];
 const isoVN=s=>{if(!s)return'';const p=String(s).split('-');return `${p[2]}/${p[1]}/${p[0]}`;};
@@ -515,11 +525,16 @@ let ddDate=todayISO(), ddLopId=null, ghiLopId=null;
 const HO2=['Nguyễn','Trần','Lê','Phạm','Hoàng','Phan','Vũ','Hồ','Ngô','Đặng','Bùi','Dương'];
 const DEM2=['Thị','Văn','Hữu','Đức','Ngọc','Minh','Thanh','Gia','Bảo','Hải','Khánh','Nhật'];
 const TEN2=['An','Bình','Chi','Dũng','Giang','Hà','Hùng','Khánh','Lan','Linh','Mai','Nam','Ngân','Phúc','Quân','Sơn','Trang','Tú','Vy','Yến','Đạt','Hương','Khoa','Thảo'];
-function seedHV(lop){
+async function seedHV(lop){
   const have=hvOfLop(lop.id).length, need=Math.max(0,(lop.siso||12)-have);
+  const rows=[];
   for(let i=0;i<need;i++){const r=seed(lop.lop+lop.id+(have+i));
     const nm=HO2[Math.floor(seed('a'+r+i)*HO2.length)]+' '+DEM2[Math.floor(seed('b'+r+i)*DEM2.length)]+' '+TEN2[Math.floor(seed('c'+r+i)*TEN2.length)];
-    OPS.hv.push({id:nextHvId(),ten:nm,ns:'',ph:'',sdt:'',hocPhi:0,lopId:lop.id,coSoId:lop.coSoId,mau:true});}
+    rows.push(hvToDb({ten:nm,ns:'',ph:'',sdt:'',hocPhi:0,lopId:lop.id,coSoId:lop.coSoId,mau:true}));}
+  if(!rows.length)return;
+  const {data,error}=await SB.from('hoc_vien').insert(rows).select();
+  if(error){alert('Lỗi tạo danh sách mẫu: '+error.message);return;}
+  (data||[]).forEach(r=>OPS.hv.push(hvFromDb(r)));
 }
 function lopPickHTML(selId){
   return inLOP().filter(l=>l.siso>0||hvOfLop(l.id).length).slice().sort((a,b)=>a.coSoId-b.coSoId)
@@ -573,20 +588,29 @@ const inLOP=()=>LOP.filter(l=>scopeIds().includes(l.coSoId));
 const inCOSO=()=>COSO.filter(c=>scopeIds().includes(c.id));
 
 /* ============ LOGIN ============ */
-let selRole='admin';
-function fillCsPick(){
-  $('#csPick').innerHTML=COSO.filter(c=>!c.build).map(c=>`<option value="${c.id}">${esc(c.ten)}</option>`).join('');
-}
-$$('#roles .role').forEach(b=>b.onclick=()=>{
-  $$('#roles .role').forEach(x=>x.classList.remove('on')); b.classList.add('on');
-  selRole=b.dataset.role;
-  $('#csField').style.display=selRole==='owner'?'block':'none';
-  $('#uname').value=selRole==='admin'?'admin':'coso';
-});
-$('#loginBtn').onclick=()=>{
-  USER=selRole==='admin'?{role:'admin',coSoId:null}:{role:'owner',coSoId:Number($('#csPick').value)};
-  scope='all'; startApp();
+function showLoginErr(m){const e=$('#loginErr');if(e){e.textContent=m||'';e.style.display=m?'block':'none';}}
+$('#loginBtn').onclick=async()=>{
+  const email=$('#uname').value.trim(), pass=$('#upass').value;
+  if(!email||!pass){showLoginErr('Vui lòng nhập email và mật khẩu.');return;}
+  const btn=$('#loginBtn'); btn.disabled=true; btn.textContent='Đang đăng nhập…'; showLoginErr('');
+  const {error}=await SB.auth.signInWithPassword({email,password:pass});
+  btn.disabled=false; btn.textContent='Đăng nhập hệ thống';
+  if(error){showLoginErr('Sai email hoặc mật khẩu.');return;}
+  await afterAuth();
 };
+async function afterAuth(){
+  const {data:{user}}=await SB.auth.getUser();
+  if(!user)return;
+  const {data:prof,error}=await SB.from('profiles').select('*').eq('id',user.id).single();
+  if(error||!prof||!prof.role){showLoginErr('Tài khoản chưa được phân quyền. Liên hệ quản trị viên.');await SB.auth.signOut();return;}
+  USER = prof.role==='admin' ? {role:'admin',coSoId:null} : {role:'owner',coSoId:prof.coso_id};
+  scope='all';
+  const btn=$('#loginBtn'); if(btn){btn.disabled=true;btn.textContent='Đang tải dữ liệu…';}
+  try{ await loadCloud(); }
+  catch(e){ if(btn){btn.disabled=false;btn.textContent='Đăng nhập hệ thống';} showLoginErr('Không tải được dữ liệu. Kiểm tra kết nối mạng.'); return; }
+  if(btn){btn.disabled=false;btn.textContent='Đăng nhập hệ thống';}
+  showLoginErr(''); startApp();
+}
 $('#upass').addEventListener('keydown',e=>{if(e.key==='Enter')$('#loginBtn').click();});
 
 function startApp(){
@@ -598,7 +622,7 @@ function startApp(){
   $('#uAva').textContent=USER.role==='admin'?'QT':initials(csName(USER.coSoId));
   buildScope(); renderNav(); go('dashboard');
 }
-$('#logout').onclick=()=>{ $('#app').style.display='none'; $('#login').style.display='grid'; };
+$('#logout').onclick=async()=>{ try{await SB.auth.signOut();}catch(e){} location.reload(); };
 
 function buildScope(){
   const wrap=$('#scopeWrap'), sel=$('#scope');
@@ -987,7 +1011,7 @@ function renderThu(){
   $('#addChi').onclick=()=>addGD('chi');
   $('#expXls').onclick=()=>exportSoQuy(list,{tThu,tChi,ton});
   $$('#view [data-view]').forEach(b=>b.onclick=()=>{const g=OPS.gd.find(x=>x.id===Number(b.dataset.view));if(g)openVoucher(g);});
-  $$('#view [data-del]').forEach(b=>b.onclick=()=>{OPS.gd=OPS.gd.filter(x=>x.id!==Number(b.dataset.del));saveOps();renderThu();});
+  $$('#view [data-del]').forEach(b=>b.onclick=async()=>{const id=Number(b.dataset.del);const {error}=await SB.from('so_quy').delete().eq('id',id);if(error){alert('Lỗi xóa phiếu: '+error.message);return;}OPS.gd=OPS.gd.filter(x=>x.id!==id);renderThu();});
 }
 
 function addGD(loai){
@@ -1016,9 +1040,9 @@ function addGD(loai){
   $('#modal').classList.add('on');
   const readForm=()=>{
     const tien=Number($('#gd_tien').value.replace(/\D/g,''))||0; if(!tien){$('#gd_tien').focus();return null;}
-    return {id:OPS.gd.reduce((m,g)=>Math.max(m,g.id),0)+1,ngay:$('#gd_ngay').value||todayISO(),loai,hangMuc:$('#gd_hm').value,coSoId:Number($('#gd_cs').value),soTien:tien,noiDung:$('#gd_nd').value.trim(),nguoiLap:$('#gd_ng').value.trim()};
+    return {ngay:$('#gd_ngay').value||todayISO(),loai,hangMuc:$('#gd_hm').value,coSoId:Number($('#gd_cs').value),soTien:tien,noiDung:$('#gd_nd').value.trim(),nguoiLap:$('#gd_ng').value.trim()};
   };
-  const doSave=g=>{OPS.gd.push(g);saveOps();closeModal();renderThu();};
+  const doSave=async g=>{const {data,error}=await SB.from('so_quy').insert(gdToDb(g)).select().single();if(error){alert('Lỗi lưu phiếu: '+error.message);return;}OPS.gd.push(gdFromDb(data));closeModal();renderThu();};
   $('#gd_save').onclick=()=>{const g=readForm();if(g)doSave(g);};
   $('#gd_preview').onclick=()=>{const g=readForm();if(g)openVoucher(g,{onSave:()=>doSave(g)});};
 }
@@ -1138,13 +1162,15 @@ function renderGhiDanh(){
   </div>`;
   $('#view').innerHTML=h;
   $('#ghiLop').onchange=e=>{ghiLopId=Number(e.target.value);renderGhiDanh();};
-  $('#gd_add').onclick=()=>{
+  $('#gd_add').onclick=async()=>{
     const ten=$('#gd_ten').value.trim(); if(!ten){$('#gd_ten').focus();return;}
-    OPS.hv.push({id:nextHvId(),ten,ns:$('#gd_ns').value.trim(),ph:$('#gd_ph').value.trim(),sdt:$('#gd_sdt').value.trim(),hocPhi:Number($('#gd_hp').value.replace(/\D/g,''))||0,lopId:ghiLopId,coSoId:lop.coSoId});
-    saveOps();renderGhiDanh();
+    const rec={ten,ns:$('#gd_ns').value.trim(),ph:$('#gd_ph').value.trim(),sdt:$('#gd_sdt').value.trim(),hocPhi:Number($('#gd_hp').value.replace(/\D/g,''))||0,lopId:ghiLopId,coSoId:lop.coSoId,mau:false};
+    const {data,error}=await SB.from('hoc_vien').insert(hvToDb(rec)).select().single();
+    if(error){alert('Lỗi ghi danh: '+error.message);return;}
+    OPS.hv.push(hvFromDb(data));renderGhiDanh();
   };
-  $('#gd_seed').onclick=()=>{seedHV(lop);saveOps();renderGhiDanh();};
-  $$('#view [data-del]').forEach(b=>b.onclick=()=>{OPS.hv=OPS.hv.filter(x=>x.id!==Number(b.dataset.del));saveOps();renderGhiDanh();});
+  $('#gd_seed').onclick=async()=>{await seedHV(lop);renderGhiDanh();};
+  $$('#view [data-del]').forEach(b=>b.onclick=async()=>{const id=Number(b.dataset.del);const {error}=await SB.from('hoc_vien').delete().eq('id',id);if(error){alert('Lỗi xóa: '+error.message);return;}OPS.hv=OPS.hv.filter(x=>x.id!==id);renderGhiDanh();});
   renderNavCounts();
 }
 
@@ -1195,12 +1221,31 @@ function renderDiemDanh(){
   $('#ddDate').onchange=e=>{ddDate=e.target.value;renderDiemDanh();};
   $('#ddLop').onchange=e=>{ddLopId=Number(e.target.value);renderDiemDanh();};
   const tg=$('#toGhi'); if(tg)tg.onclick=()=>{ghiLopId=ddLopId;go('ghidanh');};
-  $$('#ccSeg button').forEach(b=>b.onclick=()=>{OPS.ccGV[ccKey]=(cc===b.dataset.v)?undefined:b.dataset.v;if(!OPS.ccGV[ccKey])delete OPS.ccGV[ccKey];saveOps();renderDiemDanh();});
+  $$('#ccSeg button').forEach(b=>b.onclick=async()=>{
+    if(cc===b.dataset.v){
+      const {error}=await SB.from('cham_cong_gv').delete().eq('lop_id',ddLopId).eq('ngay',ddDate);
+      if(error){alert('Lỗi lưu chấm công: '+error.message);return;}
+      delete OPS.ccGV[ccKey];
+    }else{
+      const {error}=await SB.from('cham_cong_gv').upsert({lop_id:ddLopId,ngay:ddDate,coso_id:lop.coSoId,trang_thai:b.dataset.v},{onConflict:'lop_id,ngay'});
+      if(error){alert('Lỗi lưu chấm công: '+error.message);return;}
+      OPS.ccGV[ccKey]=b.dataset.v;
+    }
+    renderDiemDanh();
+  });
   $$('#view .ddSeg').forEach(seg=>{const id=Number(seg.dataset.hv);
-    seg.querySelectorAll('button').forEach(b=>b.onclick=()=>{
+    seg.querySelectorAll('button').forEach(b=>b.onclick=async()=>{
       OPS.ddHV[ddKey]=OPS.ddHV[ddKey]||{};
-      if(OPS.ddHV[ddKey][id]===b.dataset.v)delete OPS.ddHV[ddKey][id]; else OPS.ddHV[ddKey][id]=b.dataset.v;
-      saveOps();renderDiemDanh();});
+      if(OPS.ddHV[ddKey][id]===b.dataset.v){
+        const {error}=await SB.from('diem_danh_hv').delete().eq('lop_id',ddLopId).eq('ngay',ddDate).eq('hv_id',id);
+        if(error){alert('Lỗi lưu điểm danh: '+error.message);return;}
+        delete OPS.ddHV[ddKey][id];
+      }else{
+        const {error}=await SB.from('diem_danh_hv').upsert({lop_id:ddLopId,ngay:ddDate,hv_id:id,coso_id:lop.coSoId,trang_thai:b.dataset.v},{onConflict:'lop_id,ngay,hv_id'});
+        if(error){alert('Lỗi lưu điểm danh: '+error.message);return;}
+        OPS.ddHV[ddKey][id]=b.dataset.v;
+      }
+      renderDiemDanh();});
   });
 }
 
@@ -1210,7 +1255,8 @@ const EYE_OFF='<svg viewBox="0 0 24 24" fill="none" stroke-width="1.9"><path d="
 $('#eyeBtn').innerHTML=EYE_ON;
 $('#eyeBtn').onclick=()=>{const i=$('#upass');const show=i.type==='password';i.type=show?'text':'password';$('#eyeBtn').innerHTML=show?EYE_OFF:EYE_ON;$('#eyeBtn').setAttribute('aria-label',show?'Ẩn mật khẩu':'Hiện mật khẩu');i.focus();};
 
-fillCsPick();
+/* Giữ đăng nhập: nếu còn phiên hợp lệ thì vào thẳng app */
+(async()=>{ try{ const {data:{session}}=await SB.auth.getSession(); if(session) await afterAuth(); }catch(e){} })();
 </script>
 </body>
 </html>
