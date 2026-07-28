@@ -4,990 +4,675 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
 <meta name="theme-color" content="#0b1d3d"/>
-<title>AVATAR Center — Hệ thống quản trị chuỗi</title>
+<title>AVATAR · Hệ thống quản trị chuỗi trung tâm</title>
 <style>
 :root{
-  --navy-900:#0b1d3d;--navy-800:#10264c;--navy-700:#17335f;--navy-600:#1f4276;--navy-500:#2a5490;
-  --accent:#12b0a0;--accent-600:#0e9a8c;--accent-soft:#d7f2ee;
-  --orange:#e0912f;--orange-soft:#fbe8cb;
-  --teal:#0fb5a6;--paper:#f4f8f9;--card:#ffffff;--text:#16233d;--muted:#69748c;
-  --line:#e4e9f2;--soft:#f3f6fb;
-  --green:#12a367;--green-soft:#e3f6ee;--amber:#c9880f;--amber-soft:#fbf0d6;--red:#e5484d;--red-soft:#fdeaea;
-  --radius:16px;--radius-sm:11px;--shadow:0 14px 38px -24px rgba(10,23,48,.55);--shadow-sm:0 6px 18px -12px rgba(10,23,48,.4);
+  --bg:#eef1f7;--card:#ffffff;--ink:#132244;--muted:#5f6a86;--faint:#8b95ae;
+  --line:#e2e7f1;--soft:#f2f5fb;
+  --brand:#1f4276;--brand-600:#17335f;--brand-700:#10264c;--brand-soft:#dbe4f3;
+  --navy-900:#0b1d3d;--navy-800:#10264c;
+  --emerald:#2f6fd0;--emerald-soft:#dde8fa;
+  --amber:#c98410;--amber-soft:#fbeecd;--rose:#e04b52;--rose-soft:#fbe6e7;
+  --sky:#0e7fb0;--sky-soft:#d7edf6;--violet:#7c5cd6;--violet-soft:#e9e2fb;
+  --radius:18px;--radius-sm:12px;
+  --shadow:0 20px 45px -30px rgba(11,29,61,.55);--shadow-sm:0 8px 22px -16px rgba(11,29,61,.5);
+  --dots:radial-gradient(rgba(255,255,255,.16) 1.5px, transparent 1.6px);
 }
 *{box-sizing:border-box}
-html{scroll-behavior:smooth}
-body{margin:0;font-family:"Be Vietnam Pro","Segoe UI",Roboto,Arial,sans-serif;color:var(--text);background:var(--paper);line-height:1.5;-webkit-text-size-adjust:100%}
-button,input,select,textarea{font:inherit}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{margin:0;font-family:"Be Vietnam Pro","Segoe UI",Roboto,system-ui,Arial,sans-serif;color:var(--ink);background:var(--bg);line-height:1.5}
+button,input,select,textarea{font:inherit;color:inherit}
 button{cursor:pointer;border:0;background:none}
 a{text-decoration:none;color:inherit}
+svg{display:block}
 .hidden{display:none!important}
 .muted{color:var(--muted)}
-svg{display:block}
-::-webkit-scrollbar{height:9px;width:9px}
-::-webkit-scrollbar-thumb{background:#c9d3e4;border-radius:9px}
+::-webkit-scrollbar{height:8px;width:8px}
+::-webkit-scrollbar-thumb{background:#c4d3d0;border-radius:8px}
 
 /* ===== LOGIN ===== */
-#loginScreen{min-height:100vh;min-height:100dvh;display:grid;place-items:center;padding:22px;
-  background:radial-gradient(1200px 600px at 15% -10%,#1e3d76,transparent 60%),
-             radial-gradient(1000px 700px at 110% 120%,#16305e,transparent 55%),var(--navy-900)}
-.login-card{width:min(430px,100%);background:var(--card);border-radius:24px;box-shadow:0 40px 90px -40px #000;overflow:hidden}
-.login-head{background:linear-gradient(160deg,var(--navy-800),var(--navy-600));color:#fff;padding:30px 28px 26px;text-align:center}
-.login-logo{width:64px;height:64px;border-radius:19px;background:#fff;color:var(--navy-800);display:grid;place-items:center;margin:0 auto 14px;font-weight:900;font-size:1.5rem;letter-spacing:.02em;box-shadow:0 10px 30px -12px rgba(0,0,0,.5)}
-.login-head h1{margin:0;font-size:1.32rem;letter-spacing:.04em}
-.login-head p{margin:6px 0 0;color:#b9c6e2;font-size:.85rem}
-.login-body{padding:24px 26px 28px}
-.login-body label{display:block;font-size:.74rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:0 0 6px 3px}
-.field{margin-bottom:14px}
-.field input,.field select{width:100%;border:1px solid var(--line);background:var(--soft);border-radius:12px;padding:13px 14px;outline:0;transition:.15s}
-.field input:focus,.field select:focus{border-color:var(--accent);background:#fff;box-shadow:0 0 0 4px rgba(18,176,160,.16)}
-.role-picker{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px}
-.role-opt{border:1px solid var(--line);background:#fff;border-radius:13px;padding:12px 8px;text-align:center;transition:.15s;display:grid;gap:7px;justify-items:center}
-.role-opt svg{width:22px;height:22px;stroke:var(--muted)}
-.role-opt b{font-size:.78rem;font-weight:800}
-.role-opt.active{border-color:var(--accent);background:var(--accent-soft);box-shadow:0 0 0 3px rgba(18,176,160,.13)}
-.role-opt.active svg{stroke:var(--accent-600)}
-.role-opt.active b{color:var(--accent-600)}
-.login-note{font-size:.75rem;color:var(--muted);text-align:center;margin:16px 0 0;line-height:1.5}
-.btn{border-radius:12px;padding:13px 18px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;gap:9px;transition:.18s;font-size:.92rem}
+#login{min-height:100vh;min-height:100dvh;display:grid;place-items:center;padding:22px;
+  background:var(--dots),
+             radial-gradient(1100px 560px at 12% -8%,#1e3d76,transparent 58%),
+             radial-gradient(900px 620px at 112% 118%,#12305e,transparent 55%),var(--navy-900);
+  background-size:20px 20px,auto,auto,auto}
+.lcard{width:min(420px,100%);background:var(--card);border-radius:26px;box-shadow:0 44px 90px -46px #000;overflow:hidden}
+.lhead{background:var(--dots),linear-gradient(160deg,#12305e 0%,#0b1d3d 100%);background-size:18px 18px,auto;color:#fff;padding:34px 30px 28px;text-align:center;border-bottom:3px solid #2a5490}
+.llogo{width:70px;height:70px;border-radius:22px;background:#fff;color:var(--brand-700);display:grid;place-items:center;margin:0 auto 15px;font-weight:900;font-size:1.55rem;letter-spacing:.04em;box-shadow:0 14px 30px -12px rgba(0,0,0,.5)}
+.lhead h1{margin:0;font-size:1.36rem;letter-spacing:.06em;font-weight:800}
+.lhead p{margin:7px 0 0;color:#bfe0db;font-size:.85rem}
+.lbody{padding:26px 28px 30px}
+.lbody label{display:block;font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:0 0 7px 3px}
+.field{margin-bottom:15px}
+.field input,.field select{width:100%;border:1.5px solid var(--line);background:var(--soft);border-radius:13px;padding:13px 14px;outline:0;transition:.15s}
+.field input:focus,.field select:focus{border-color:var(--brand);background:#fff;box-shadow:0 0 0 4px rgba(15,118,110,.14)}
+.roles{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:9px}
+.role{border:1.5px solid var(--line);background:#fff;border-radius:14px;padding:14px 10px;text-align:center;transition:.15s;display:grid;gap:8px;justify-items:center}
+.role svg{width:23px;height:23px;stroke:var(--muted)}
+.role b{font-size:.82rem;font-weight:800}
+.role.on{border-color:var(--brand);background:var(--brand-soft);box-shadow:0 0 0 3px rgba(31,66,118,.14)}
+.role.on svg{stroke:var(--brand-600)}
+.role.on b{color:var(--brand-700)}
+.pass-wrap{position:relative}
+.pass-wrap input{padding-right:48px}
+.eye{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:38px;height:38px;display:grid;place-items:center;border-radius:10px;color:var(--faint)}
+.eye:hover{color:var(--brand-600);background:var(--soft)}
+.eye svg{width:20px;height:20px;stroke:currentColor}
+.lnote{font-size:.75rem;color:var(--faint);text-align:center;margin:17px 0 0;line-height:1.5}
+
+.btn{border-radius:13px;padding:13px 18px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;gap:9px;transition:.18s;font-size:.92rem}
 .btn:active{transform:translateY(1px)}
-.btn-primary{background:var(--accent);color:#fff;box-shadow:0 12px 26px -14px rgba(14,154,140,.75)}
-.btn-primary:hover{background:var(--accent-600)}
+.btn-primary{background:linear-gradient(135deg,#2a5490,#1f4276);color:#fff;box-shadow:0 14px 30px -14px rgba(16,38,76,.9)}
+.btn-primary:hover{background:linear-gradient(135deg,#25497f,#17335f)}
 .btn-block{width:100%}
-.btn-light{background:#fff;border:1px solid var(--line);color:var(--text)}
+.btn-light{background:#fff;border:1.5px solid var(--line);color:var(--ink)}
 .btn-light:hover{background:var(--soft)}
-.btn-sm{padding:8px 12px;font-size:.8rem;border-radius:10px}
+.btn-sm{padding:8px 13px;font-size:.8rem;border-radius:10px}
+.btn-ghost{background:var(--soft);color:var(--brand-700)}
 
-/* ===== APP SHELL ===== */
-#app{display:none;min-height:100vh;min-height:100dvh}
-.shell{display:grid;grid-template-columns:256px 1fr;min-height:100vh;min-height:100dvh}
-.sidebar{background:linear-gradient(185deg,#123a52 0%,var(--navy-900) 60%);color:#fff;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;height:100dvh;padding:18px 13px;border-right:1px solid rgba(255,255,255,.05)}
-.side-brand{display:flex;align-items:center;gap:12px;padding:6px 8px 18px;margin-bottom:8px;border-bottom:1px solid rgba(255,255,255,.07)}
-.side-brand .logo{width:46px;height:46px;border-radius:14px;background:linear-gradient(140deg,#fff,#dfe8fb);color:var(--navy-800);display:grid;place-items:center;font-weight:900;font-size:1.25rem;flex:none;box-shadow:0 8px 20px -8px rgba(0,0,0,.5)}
-.side-brand b{display:block;font-size:1.12rem;letter-spacing:.05em}
-.side-brand small{display:block;color:#93a6cc;font-size:.7rem;letter-spacing:.02em}
-.nav-title{font-size:.68rem;letter-spacing:.15em;text-transform:uppercase;color:#6b7ca3;margin:16px 12px 8px;font-weight:800}
+/* ===== SHELL ===== */
+#app{display:none}
+.shell{display:grid;grid-template-columns:262px 1fr;min-height:100vh;min-height:100dvh}
+.side{background:var(--dots),linear-gradient(188deg,#1c3c6e 0%,#0b1d3d 74%);background-size:22px 22px,auto;color:#fff;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;height:100dvh;padding:18px 13px}
+.brand{display:flex;align-items:center;gap:12px;padding:6px 8px 17px;border-bottom:1px solid rgba(255,255,255,.09)}
+.brand .lg{width:48px;height:48px;border-radius:15px;background:linear-gradient(140deg,#fff,#dbe4f3);color:var(--brand-700);display:grid;place-items:center;font-weight:900;font-size:1.3rem;flex:none;box-shadow:0 10px 22px -10px rgba(0,0,0,.5)}
+.brand b{display:block;font-size:1.14rem;letter-spacing:.07em;font-weight:800}
+.brand small{display:block;color:#8fc0ba;font-size:.68rem;letter-spacing:.02em}
+.navlab{font-size:.66rem;letter-spacing:.16em;text-transform:uppercase;color:#5f8f88;margin:16px 12px 8px;font-weight:800}
 .nav{display:grid;gap:4px;overflow-y:auto;flex:1}
-.nav button{display:flex;align-items:center;gap:13px;width:100%;text-align:left;color:#cdd6ea;border-radius:12px;padding:12px 13px;font-weight:600;font-size:1.02rem;letter-spacing:.01em;transition:.16s}
-.nav button svg{width:21px;height:21px;stroke:currentColor;flex:none;opacity:.85}
-.nav button:hover{background:rgba(255,255,255,.07);color:#fff}
-.nav button:hover svg{opacity:1}
-.nav button.active{background:linear-gradient(135deg,var(--accent),#0e9a8c);color:#fff;font-weight:700;box-shadow:0 12px 26px -12px rgba(14,154,140,.95)}
-.nav button.active svg{opacity:1}
-.side-user{margin-top:8px;border:1px solid var(--navy-600);background:var(--navy-800);border-radius:14px;padding:11px 12px;display:flex;align-items:center;gap:10px}
-.side-user .ava{width:36px;height:36px;border-radius:11px;background:var(--accent);color:#fff;display:grid;place-items:center;font-weight:800;flex:none}
-.side-user b{display:block;font-size:.82rem;line-height:1.2}
-.side-user small{display:block;color:#8ea1c6;font-size:.7rem}
-.side-user .logout{margin-left:auto;color:#8ea1c6;padding:7px;border-radius:9px}
-.side-user .logout:hover{background:var(--navy-600);color:#fff}
+.nav button{display:flex;align-items:center;gap:13px;width:100%;text-align:left;color:#cfe4e0;border-radius:13px;padding:12px 13px;font-weight:600;font-size:1rem;transition:.15s}
+.nav button svg{width:21px;height:21px;stroke:currentColor;flex:none;opacity:.82}
+.nav button .cnt{margin-left:auto;font-size:.72rem;font-weight:800;background:rgba(255,255,255,.09);padding:2px 8px;border-radius:99px;color:#a9d3cd}
+.nav button:hover{background:rgba(255,255,255,.08);color:#fff}
+.nav button.on{background:linear-gradient(135deg,#2a5490,var(--brand));color:#fff;font-weight:700;box-shadow:0 14px 26px -14px rgba(16,38,76,.95)}
+.nav button.on svg{opacity:1}
+.nav button.on .cnt{background:rgba(255,255,255,.22);color:#fff}
+.suser{margin-top:8px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);border-radius:15px;padding:11px 12px;display:flex;align-items:center;gap:10px}
+.suser .ava{width:38px;height:38px;border-radius:12px;background:var(--emerald);color:#fff;display:grid;place-items:center;font-weight:800;flex:none}
+.suser b{display:block;font-size:.82rem;line-height:1.25}
+.suser small{display:block;color:#8fc0ba;font-size:.7rem}
+.suser .out{margin-left:auto;color:#8fc0ba;padding:7px;border-radius:10px}
+.suser .out:hover{background:rgba(255,255,255,.1);color:#fff}
 
-.main{min-width:0;padding:20px 26px 60px;display:flex;flex-direction:column}
-.topbar{display:flex;align-items:center;gap:14px;margin-bottom:20px}
-.hamburger{display:none;width:42px;height:42px;border-radius:12px;background:#fff;border:1px solid var(--line);align-items:center;justify-content:center;flex:none}
-.hamburger svg{width:20px;height:20px;stroke:var(--text)}
-.top-titles{min-width:0}
-.top-titles h1{margin:0;font-size:1.5rem;letter-spacing:-.02em;line-height:1.1}
-.top-titles p{margin:2px 0 0;color:var(--muted);font-size:.83rem}
-.top-actions{margin-left:auto;display:flex;align-items:center;gap:9px}
-.scope{display:flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--line);border-radius:12px;padding:7px 10px 7px 12px;box-shadow:var(--shadow-sm)}
-.scope svg{width:16px;height:16px;stroke:var(--navy-600);flex:none}
-.scope small{font-size:.66rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:800}
-.scope select{border:0;outline:0;background:none;font-weight:800;color:var(--navy-700);max-width:180px;padding:2px 4px}
-.scope.locked{background:var(--soft)}
-.scope.locked select{color:var(--muted)}
+.main{min-width:0;padding:20px 26px 90px;display:flex;flex-direction:column}
+.top{display:flex;align-items:center;gap:14px;margin-bottom:20px}
+.burger{display:none;width:44px;height:44px;border-radius:13px;background:#fff;border:1px solid var(--line);align-items:center;justify-content:center;flex:none;box-shadow:var(--shadow-sm)}
+.burger svg{width:21px;height:21px;stroke:var(--ink)}
+.ttl{min-width:0}
+.ttl h1{margin:0;font-size:1.5rem;letter-spacing:-.02em;line-height:1.12}
+.ttl p{margin:2px 0 0;color:var(--muted);font-size:.83rem}
+.topact{margin-left:auto;display:flex;align-items:center;gap:9px;flex-wrap:wrap;justify-content:flex-end}
+.scope{display:flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--line);border-radius:13px;padding:8px 10px 8px 13px;box-shadow:var(--shadow-sm)}
+.scope svg{width:16px;height:16px;stroke:var(--brand-600);flex:none}
+.scope small{font-size:.64rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:800}
+.scope select{border:0;outline:0;background:none;font-weight:800;color:var(--brand-700);max-width:190px;padding:2px 4px}
+.scope.lock{background:var(--soft)}.scope.lock select{color:var(--muted)}
 
-.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:13px;margin-bottom:16px}
+/* KPI */
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:13px;margin-bottom:16px}
 .kpi{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px 17px;box-shadow:var(--shadow-sm)}
 .kpi-top{display:flex;align-items:center;justify-content:space-between}
-.kpi-ico{width:40px;height:40px;border-radius:12px;display:grid;place-items:center}
-.kpi-ico svg{width:20px;height:20px}
-.ico-blue{background:var(--accent-soft)}.ico-blue svg{stroke:var(--accent-600)}
-.ico-teal{background:var(--orange-soft)}.ico-teal svg{stroke:var(--orange)}
-.ico-green{background:var(--green-soft)}.ico-green svg{stroke:var(--green)}
-.ico-amber{background:var(--amber-soft)}.ico-amber svg{stroke:var(--amber)}
-.ico-navy{background:#e5eaf5}.ico-navy svg{stroke:var(--navy-600)}
-.kpi b{display:block;font-size:1.62rem;letter-spacing:-.02em;margin-top:12px;line-height:1}
+.kpi-ic{width:42px;height:42px;border-radius:13px;display:grid;place-items:center}
+.kpi-ic svg{width:21px;height:21px}
+.ic-teal{background:var(--brand-soft)}.ic-teal svg{stroke:var(--brand-600)}
+.ic-em{background:var(--emerald-soft)}.ic-em svg{stroke:var(--emerald)}
+.ic-sky{background:var(--sky-soft)}.ic-sky svg{stroke:var(--sky)}
+.ic-am{background:var(--amber-soft)}.ic-am svg{stroke:var(--amber)}
+.ic-vi{background:var(--violet-soft)}.ic-vi svg{stroke:var(--violet)}
+.kpi b{display:block;font-size:1.6rem;letter-spacing:-.02em;margin-top:13px;line-height:1}
 .kpi span{font-size:.78rem;color:var(--muted)}
-.kpi .delta{font-size:.7rem;font-weight:800;padding:3px 8px;border-radius:99px}
-.delta.up{background:var(--green-soft);color:var(--green)}
 
-.grid-2{display:grid;grid-template-columns:1.5fr 1fr;gap:14px}
-.panel{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow-sm);overflow:hidden}
-.panel-head{padding:15px 17px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:10px}
-.panel-head h3{margin:0;font-size:.98rem}
-.panel-head .sub{font-size:.72rem;color:var(--muted)}
-.panel-body{padding:16px 17px}
+.grid2{display:grid;grid-template-columns:1.55fr 1fr;gap:14px}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow-sm);overflow:hidden;margin-bottom:14px}
+.phead{padding:15px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:10px}
+.phead h3{margin:0;font-size:1rem}
+.phead .sub{font-size:.72rem;color:var(--muted)}
+.pbody{padding:16px 18px}
 
-.bars{display:flex;align-items:flex-end;gap:9px;height:190px;padding-top:10px}
-.bar-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:7px;min-width:0}
-.bar-track{width:100%;display:flex;align-items:flex-end;justify-content:center;height:150px}
-.bar{width:70%;max-width:34px;background:linear-gradient(var(--accent),var(--navy-600));border-radius:7px 7px 3px 3px;min-height:6px;transition:.3s}
-.bar-col small{font-size:.66rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
-.bar-col b{font-size:.66rem}
+/* toolbar (search/filter) */
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;align-items:center}
+.search{flex:1;min-width:200px;display:flex;align-items:center;gap:9px;background:#fff;border:1px solid var(--line);border-radius:13px;padding:11px 14px;box-shadow:var(--shadow-sm)}
+.search svg{width:18px;height:18px;stroke:var(--faint);flex:none}
+.search input{border:0;outline:0;background:none;width:100%}
+.fsel{background:#fff;border:1px solid var(--line);border-radius:13px;padding:11px 13px;font-weight:700;color:var(--ink);box-shadow:var(--shadow-sm);outline:0;max-width:210px}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{border:1px solid var(--line);background:#fff;border-radius:99px;padding:8px 15px;font-size:.83rem;font-weight:700;color:var(--muted);transition:.15s}
+.chip.on{background:var(--brand);border-color:var(--brand);color:#fff}
 
-.mini-list{display:grid;gap:9px}
-.mini-row{display:flex;align-items:center;gap:11px;border:1px solid var(--line);border-radius:12px;padding:10px 12px}
-.mini-row .ava{width:36px;height:36px;border-radius:11px;background:var(--soft);display:grid;place-items:center;font-weight:800;color:var(--navy-700);flex:none;font-size:.85rem}
-.mini-row b{font-size:.82rem;display:block;line-height:1.2}
-.mini-row small{font-size:.7rem;color:var(--muted)}
-.mini-row .amt{margin-left:auto;font-weight:800;color:var(--red);font-size:.85rem;white-space:nowrap}
-
-.view-head{display:flex;align-items:flex-end;justify-content:space-between;gap:14px;margin-bottom:14px}
-.view-head h2{margin:0;font-size:1.2rem}
-.view-head p{margin:2px 0 0;color:var(--muted);font-size:.8rem}
-.toolbar{display:flex;gap:9px;flex-wrap:wrap;margin-bottom:13px}
-.toolbar input,.toolbar select{border:1px solid var(--line);background:#fff;border-radius:11px;padding:10px 12px;outline:0;transition:.15s}
-.toolbar input:focus,.toolbar select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(18,176,160,.14)}
-.toolbar .search{flex:1;min-width:170px;display:flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--line);border-radius:11px;padding:0 12px}
-.toolbar .search svg{width:16px;height:16px;stroke:var(--muted);flex:none}
-.toolbar .search input{border:0;flex:1;padding:10px 0;box-shadow:none!important}
-
-.table-wrap{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow-sm);overflow:auto}
-table{width:100%;border-collapse:collapse;min-width:640px}
-th,td{text-align:left;padding:12px 15px;border-bottom:1px solid var(--line);font-size:.84rem;white-space:nowrap}
-th{background:var(--soft);color:var(--muted);font-size:.68rem;text-transform:uppercase;letter-spacing:.05em;position:sticky;top:0}
-th.right,td.right{text-align:right}
+/* table */
+.twrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:.9rem}
+thead th{text-align:left;font-size:.68rem;text-transform:uppercase;letter-spacing:.05em;color:var(--faint);font-weight:800;padding:11px 14px;border-bottom:1px solid var(--line);white-space:nowrap;background:var(--soft)}
+tbody td{padding:12px 14px;border-bottom:1px solid var(--line);vertical-align:middle}
 tbody tr:last-child td{border-bottom:0}
-tbody tr:hover{background:#fafcff}
-td.num{font-variant-numeric:tabular-nums}
-.cell{display:flex;align-items:center;gap:10px}
-.cell .ava{width:34px;height:34px;border-radius:10px;background:var(--accent-soft);color:var(--accent-600);display:grid;place-items:center;font-weight:800;flex:none;font-size:.8rem}
-.cell b{font-size:.84rem;display:block;line-height:1.2}
-.cell small{font-size:.7rem;color:var(--muted)}
-.pill{display:inline-flex;align-items:center;gap:5px;font-size:.72rem;font-weight:800;padding:4px 10px;border-radius:99px}
-.pill.green{background:var(--green-soft);color:var(--green)}
-.pill.amber{background:var(--amber-soft);color:var(--amber)}
-.pill.red{background:var(--red-soft);color:var(--red)}
-.pill.blue{background:var(--accent-soft);color:var(--accent-600)}
-.pill.gray{background:var(--soft);color:var(--muted)}
-.row-acts{display:flex;gap:6px;justify-content:flex-end;align-items:center}
-.row-act{border:1px solid var(--line);background:#fff;border-radius:9px;padding:6px 11px;font-size:.75rem;font-weight:800;color:var(--navy-700);white-space:nowrap}
-.row-act:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
-.icon-act{border:1px solid var(--line);background:#fff;border-radius:9px;width:32px;height:32px;display:grid;place-items:center;flex:none}
-.icon-act svg{width:15px;height:15px;stroke:var(--navy-600)}
-.icon-act:hover{background:var(--soft)}
-.icon-act.danger:hover{background:var(--red-soft);border-color:#f2b8b8}
-.icon-act.danger:hover svg{stroke:var(--red)}
-.empty{padding:40px;text-align:center;color:var(--muted);font-size:.86rem}
+tbody tr{transition:.12s}
+tbody tr:hover{background:var(--soft)}
+.tright{text-align:right}
+.num{font-variant-numeric:tabular-nums;font-weight:700}
+.gvcell{display:flex;align-items:center;gap:11px;min-width:170px}
+.gvava{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;font-weight:800;font-size:.82rem;color:#fff;flex:none}
+.gvcell b{display:block;line-height:1.2}
+.gvcell small{color:var(--muted);font-size:.74rem}
+.badge{display:inline-flex;align-items:center;gap:5px;font-size:.7rem;font-weight:800;padding:4px 10px;border-radius:99px;white-space:nowrap}
+.bg-vh{background:var(--sky-soft);color:var(--sky)}
+.bg-ta{background:var(--violet-soft);color:var(--violet)}
+.bg-em{background:var(--emerald-soft);color:var(--emerald)}
+.bg-am{background:var(--amber-soft);color:var(--amber)}
+.bg-gray{background:var(--soft);color:var(--muted)}
+.linkbtn{color:var(--brand-600);font-weight:800;font-size:.82rem}
 
-.att-list{display:grid;gap:9px}
-.att-row{display:flex;align-items:center;gap:11px;background:#fff;border:1px solid var(--line);border-radius:13px;padding:10px 13px;box-shadow:var(--shadow-sm)}
-.att-row .ava{width:34px;height:34px;border-radius:10px;background:var(--accent-soft);color:var(--accent-600);display:grid;place-items:center;font-weight:800;font-size:.8rem;flex:none}
-.att-row b{font-size:.86rem;display:block;line-height:1.2}
-.att-row small{font-size:.7rem;color:var(--muted)}
-.seg{margin-left:auto;display:flex;background:var(--soft);border-radius:10px;padding:3px;gap:3px;flex:none}
-.seg button{padding:7px 11px;border-radius:8px;font-size:.75rem;font-weight:800;color:var(--muted);white-space:nowrap}
-.seg button.on-co{background:var(--green);color:#fff}
-.seg button.on-muon{background:var(--amber);color:#fff}
-.seg button.on-vang{background:var(--red);color:#fff}
-@media(max-width:560px){.att-row{flex-wrap:wrap}.seg{margin-left:0;width:100%;justify-content:space-between}.seg button{flex:1}}
-.report-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
-.rep-row{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--line)}
-.rep-row:last-child{border-bottom:0}
-.rep-row .name{font-weight:700;font-size:.85rem;min-width:120px}
-.rep-bar{flex:1;height:9px;background:var(--soft);border-radius:99px;overflow:hidden}
-.rep-bar i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--teal));border-radius:99px}
-.rep-row .val{font-weight:800;font-size:.82rem;white-space:nowrap;color:var(--navy-700)}
+/* cơ sở cards */
+.cscards{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:13px}
+.cscard{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow-sm);padding:16px 17px;transition:.15s;cursor:pointer;position:relative;overflow:hidden}
+.cscard:hover{box-shadow:var(--shadow);transform:translateY(-2px)}
+.cscard.build{opacity:.72;border-style:dashed}
+.cscard .cs-top{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.cs-badge{width:46px;height:46px;border-radius:14px;display:grid;place-items:center;font-weight:900;color:#fff;font-size:1.05rem;flex:none}
+.cscard h4{margin:0;font-size:1.02rem}
+.cscard .cs-sub{font-size:.73rem;color:var(--muted)}
+.cs-stats{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.cs-stat{background:var(--soft);border-radius:11px;padding:9px 11px}
+.cs-stat b{display:block;font-size:1.08rem;line-height:1.1}
+.cs-stat span{font-size:.68rem;color:var(--muted)}
+.cs-rev{margin-top:11px;padding-top:11px;border-top:1px solid var(--line);display:flex;align-items:center;justify-content:space-between}
+.cs-rev small{font-size:.72rem;color:var(--muted)}
+.cs-rev b{font-size:1.02rem;color:var(--brand-700)}
 
-.prog{height:7px;background:var(--soft);border-radius:99px;overflow:hidden;width:88px;display:inline-block;vertical-align:middle;margin-right:8px}
-.prog i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--teal));border-radius:99px}
-.row-link{cursor:pointer;transition:.14s}
-.row-link:hover{background:var(--accent-soft)!important}
-.row-link:hover .row-act{background:var(--accent);color:#fff;border-color:var(--accent)}
-.kpi{transition:.2s}
-.kpi:hover{transform:translateY(-3px);box-shadow:0 22px 44px -26px rgba(10,23,48,.6)}
-.top-titles h1{font-weight:800}
-.view-head h2{font-weight:800;letter-spacing:-.01em}
-.panel-head h3{font-weight:800}
-.toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,20px);background:var(--navy-800);color:#fff;padding:12px 20px;border-radius:13px;box-shadow:0 20px 50px -18px #000;font-weight:700;font-size:.86rem;opacity:0;pointer-events:none;transition:.28s;z-index:300;display:flex;align-items:center;gap:9px;max-width:calc(100% - 32px)}
-.toast.show{opacity:1;transform:translate(-50%,0)}
-.toast svg{width:18px;height:18px;stroke:#6ee7b7;flex:none}
-.backdrop{position:fixed;inset:0;background:rgba(10,23,48,.55);backdrop-filter:blur(3px);display:none;align-items:flex-end;justify-content:center;z-index:250}
-.backdrop.show{display:flex}
-.modal{background:#fff;width:100%;max-width:540px;border-radius:22px 22px 0 0;box-shadow:0 -20px 60px -20px #000;max-height:92vh;overflow:auto}
-.modal-head{display:flex;align-items:center;justify-content:space-between;padding:18px 20px;border-bottom:1px solid var(--line);position:sticky;top:0;background:#fff;z-index:1}
-.modal-head h3{margin:0;font-size:1.05rem}
-.modal-close{width:34px;height:34px;border-radius:10px;background:var(--soft);display:grid;place-items:center}
-.modal-close svg{width:18px;height:18px;stroke:var(--muted)}
-.modal-body{padding:18px 20px;display:grid;grid-template-columns:1fr 1fr;gap:13px}
-.modal-body .wide{grid-column:1/-1}
-.modal-body label{display:block;font-size:.73rem;font-weight:800;color:var(--muted);margin:0 0 6px 2px}
-.modal-body input,.modal-body select,.modal-body textarea{width:100%;border:1px solid var(--line);background:var(--soft);border-radius:11px;padding:11px 12px;outline:0;font-family:inherit}
-.modal-body input:focus,.modal-body select:focus,.modal-body textarea:focus{border-color:var(--accent);background:#fff;box-shadow:0 0 0 3px rgba(18,176,160,.14)}
-.sum-box{grid-column:1/-1;background:var(--soft);border:1px solid var(--line);border-radius:13px;padding:13px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;text-align:center}
-.sum-box small{display:block;font-size:.66rem;color:var(--muted);margin-bottom:3px}
-.sum-box b{font-size:.98rem}
-.quick-fill{grid-column:1/-1;justify-self:start;border:1px dashed var(--accent);color:var(--accent-600);background:var(--accent-soft);border-radius:10px;padding:8px 12px;font-size:.78rem;font-weight:800}
-.hist{grid-column:1/-1}
-.hist h4{margin:2px 0 9px;font-size:.74rem;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
-.hist-row{display:flex;align-items:center;gap:10px;padding:9px 12px;border:1px solid var(--line);border-radius:11px;margin-bottom:7px}
-.hist-row b{font-size:.86rem}
-.hist-row small{font-size:.71rem;color:var(--muted)}
-.hist-row .r{margin-left:auto;display:flex;gap:8px;align-items:center}
-.hist-row .amt{font-weight:800;color:var(--green)}
-.modal-foot{padding:15px 20px 22px;display:flex;gap:9px;justify-content:flex-end;position:sticky;bottom:0;background:#fff;border-top:1px solid var(--line)}
-.scrim{display:none}
+/* rank list */
+.rank{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}
+.rank:last-child{border-bottom:0}
+.rank .no{width:26px;height:26px;border-radius:9px;background:var(--soft);display:grid;place-items:center;font-weight:800;font-size:.8rem;color:var(--muted);flex:none}
+.rank .no.top{background:var(--brand);color:#fff}
+.rank .rn{flex:1;min-width:0}
+.rank .rn b{display:block;font-size:.9rem}
+.rank .bar{height:6px;border-radius:99px;background:var(--soft);margin-top:5px;overflow:hidden}
+.rank .bar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,var(--brand),var(--emerald))}
+.rank .rv{font-weight:800;font-size:.86rem;color:var(--brand-700);white-space:nowrap}
 
-@media(min-width:821px){.modal{border-radius:22px;margin:auto}.backdrop{align-items:center}}
-@media(max-width:1050px){.kpi-grid{grid-template-columns:repeat(2,1fr)}.grid-2{grid-template-columns:1fr}.report-grid{grid-template-columns:1fr}}
-@media(max-width:820px){
+.empty{text-align:center;padding:40px 20px;color:var(--muted)}
+.empty svg{width:44px;height:44px;stroke:var(--faint);margin:0 auto 12px}
+.pagehint{background:var(--amber-soft);border:1px solid #f2dca6;color:#8a5a05;border-radius:13px;padding:12px 15px;font-size:.84rem;margin-bottom:14px;display:flex;gap:10px;align-items:flex-start}
+.pagehint svg{width:18px;height:18px;stroke:#a86b06;flex:none;margin-top:1px}
+
+/* modal */
+.modal{position:fixed;inset:0;background:rgba(9,32,29,.5);backdrop-filter:blur(3px);display:none;place-items:center;padding:20px;z-index:60}
+.modal.on{display:grid}
+.mcard{width:min(460px,100%);background:#fff;border-radius:22px;overflow:hidden;box-shadow:0 40px 90px -40px #000;max-height:92vh;display:flex;flex-direction:column}
+.mhead{padding:22px 22px 18px;background:var(--dots),linear-gradient(150deg,#17335f,#1f4276);background-size:18px 18px,auto;color:#fff;display:flex;gap:14px;align-items:center}
+.mhead .mava{width:56px;height:56px;border-radius:17px;background:rgba(255,255,255,.16);display:grid;place-items:center;font-weight:900;font-size:1.2rem;flex:none}
+.mhead h3{margin:0;font-size:1.16rem}
+.mhead p{margin:3px 0 0;font-size:.8rem;color:#c9e6e2}
+.mbody{padding:18px 22px 22px;overflow-y:auto}
+.mrow{display:flex;gap:13px;padding:11px 0;border-bottom:1px solid var(--line);align-items:center}
+.mrow:last-child{border-bottom:0}
+.mrow .mi{width:36px;height:36px;border-radius:11px;background:var(--soft);display:grid;place-items:center;flex:none}
+.mrow .mi svg{width:17px;height:17px;stroke:var(--brand-600)}
+.mrow small{display:block;font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;font-weight:700}
+.mrow b{font-weight:700;font-size:.93rem}
+.mrow a{color:var(--brand-600);font-weight:800}
+.mclose{margin-left:auto;color:#fff;padding:6px;border-radius:9px;background:rgba(255,255,255,.12)}
+.mclose svg{width:18px;height:18px;stroke:#fff}
+
+/* bottom nav (mobile) */
+.botnav{display:none}
+
+@media(max-width:920px){
   .shell{grid-template-columns:1fr}
-  .sidebar{position:fixed;left:0;top:0;z-index:200;width:262px;transform:translateX(-105%);transition:.26s;box-shadow:0 0 60px rgba(0,0,0,.5)}
-  .sidebar.open{transform:translateX(0)}
-  .scrim{position:fixed;inset:0;background:rgba(10,23,48,.5);z-index:190}
-  .scrim.show{display:block}
-  .hamburger{display:flex}
-  .main{padding:16px 15px 70px}
-  .top-actions{margin-left:0}
-  .topbar{flex-wrap:wrap}
-  .top-titles{flex:1}
-  .scope select{max-width:130px}
+  .side{position:fixed;left:0;top:0;z-index:70;width:270px;transform:translateX(-100%);transition:transform .25s;box-shadow:0 0 60px rgba(0,0,0,.4)}
+  .side.open{transform:none}
+  .scrim{display:none;position:fixed;inset:0;background:rgba(9,32,29,.5);z-index:65}
+  .scrim.on{display:block}
+  .burger{display:flex}
+  .kpis{grid-template-columns:1fr 1fr}
+  .grid2{grid-template-columns:1fr}
+  .main{padding:16px 15px 96px}
+  .ttl h1{font-size:1.28rem}
+  .botnav{display:flex;position:fixed;bottom:0;left:0;right:0;z-index:50;background:#fff;border-top:1px solid var(--line);padding:7px 6px calc(7px + env(safe-area-inset-bottom));justify-content:space-around;box-shadow:0 -10px 30px -20px rgba(9,42,38,.5)}
+  .botnav button{display:grid;justify-items:center;gap:3px;color:var(--faint);font-size:.62rem;font-weight:700;padding:5px 9px;border-radius:11px;flex:1}
+  .botnav button svg{width:22px;height:22px;stroke:currentColor}
+  .botnav button.on{color:var(--brand-600)}
+  .botnav button.on svg{stroke:var(--brand-600)}
 }
-@media(max-width:560px){
-  .kpi-grid{grid-template-columns:1fr 1fr;gap:10px}
-  .kpi b{font-size:1.35rem}
-  .top-titles h1{font-size:1.25rem}
-  .scope{width:100%;order:3}
-  .scope select{max-width:none;flex:1}
-  .role-picker{grid-template-columns:1fr}
-  .modal-body{grid-template-columns:1fr}
+@media(max-width:480px){
+  .kpis{grid-template-columns:1fr 1fr;gap:10px}
+  .kpi b{font-size:1.4rem}
+  .fsel{max-width:100%;flex:1}
 }
 </style>
 </head>
 <body>
 
-<!-- ============ LOGIN ============ -->
-<div id="loginScreen">
-  <div class="login-card">
-    <div class="login-head">
-      <div class="login-logo">A</div>
-      <h1>AVATAR CENTER</h1>
-      <p>Hệ thống quản trị chuỗi 15 cơ sở &amp; Trung tâm chính</p>
+<!-- ================= LOGIN ================= -->
+<div id="login">
+  <div class="lcard">
+    <div class="lhead">
+      <div class="llogo">AV</div>
+      <h1>AVATAR</h1>
+      <p>Hệ thống quản trị chuỗi trung tâm</p>
     </div>
-    <div class="login-body">
+    <div class="lbody">
+      <label>Vai trò đăng nhập</label>
+      <div class="roles" id="roles">
+        <button class="role on" data-role="admin">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M3 21V9l9-6 9 6v12"/><path d="M9 21v-6h6v6"/></svg>
+          <b>Quản trị chuỗi</b>
+        </button>
+        <button class="role" data-role="owner">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>
+          <b>Lễ tân Cơ Sở</b>
+        </button>
+      </div>
+      <div class="field" id="csField" style="display:none;margin-top:6px">
+        <label>Chọn cơ sở</label>
+        <select id="csPick"></select>
+      </div>
+      <div class="field" style="margin-top:6px">
+        <label>Tên đăng nhập</label>
+        <input id="uname" value="admin" autocomplete="username"/>
+      </div>
       <div class="field">
-        <label>Đăng nhập với vai trò</label>
-        <div class="role-picker" id="rolePicker">
-          <button class="role-opt active" data-role="admin">
-            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 3 6v6c0 5 3.8 8.5 9 10 5.2-1.5 9-5 9-10V6z"/></svg>
-            <b>Giám đốc</b>
-          </button>
-          <button class="role-opt" data-role="letan">
-            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h.01M15 9h.01M9 13h.01M15 13h.01"/></svg>
-            <b>Lễ tân</b>
-          </button>
-          <button class="role-opt" data-role="giaovien">
-            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 7l10-4 10 4-10 4z"/><path d="M6 10v5c0 1.5 2.7 3 6 3s6-1.5 6-3v-5"/></svg>
-            <b>Giáo viên</b>
-          </button>
+        <label>Mật khẩu</label>
+        <div class="pass-wrap">
+          <input id="upass" type="password" value="123456" autocomplete="current-password"/>
+          <button type="button" class="eye" id="eyeBtn" aria-label="Hiện mật khẩu"></button>
         </div>
       </div>
-      <div class="field" id="csField">
-        <label>Cơ sở phụ trách</label>
-        <select id="loginCoSo"></select>
-      </div>
       <button class="btn btn-primary btn-block" id="loginBtn">Đăng nhập hệ thống</button>
-      <p class="login-note">Bản demo giao diện — dữ liệu mẫu, chưa kết nối kho dữ liệu thật.<br>Chọn vai trò để xem quyền hạn khác nhau.</p>
+      <p class="lnote">Bản quyền thuộc về Trung tâm Anh ngữ Avatar</p>
     </div>
   </div>
 </div>
 
-<!-- ============ APP ============ -->
+<!-- ================= APP ================= -->
 <div id="app">
   <div class="scrim" id="scrim"></div>
   <div class="shell">
-    <aside class="sidebar" id="sidebar">
-      <div class="side-brand">
-        <div class="logo">A</div>
-        <div><b>AVATAR</b><small>Quản trị chuỗi</small></div>
+    <!-- SIDEBAR -->
+    <aside class="side" id="side">
+      <div class="brand">
+        <div class="lg">AV</div>
+        <div><b>AVATAR</b><small>Quản trị chuỗi trung tâm</small></div>
       </div>
-      <div class="nav-title">Tổng quan</div>
+      <div class="navlab">Điều hành</div>
       <nav class="nav" id="nav"></nav>
-      <div class="side-user">
-        <div class="ava" id="userAva">GĐ</div>
+      <div class="suser">
+        <div class="ava" id="uAva">A</div>
         <div style="min-width:0">
-          <b id="userName">Giám đốc</b>
-          <small id="userRole">Toàn hệ thống</small>
+          <b id="uName">Quản trị</b>
+          <small id="uRole">Toàn hệ thống</small>
         </div>
-        <button class="logout" id="logoutBtn" title="Đăng xuất">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+        <button class="out" id="logout" title="Đăng xuất">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.9"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
         </button>
       </div>
     </aside>
 
+    <!-- MAIN -->
     <main class="main">
-      <div class="topbar">
-        <button class="hamburger" id="hamburger">
-          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
-        </button>
-        <div class="top-titles">
-          <h1 id="pageTitle">Bảng điều hành</h1>
-          <p id="pageSub">Tổng quan hoạt động toàn hệ thống</p>
-        </div>
-        <div class="top-actions">
-          <div class="scope" id="scopeBox">
-            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-4h6v4"/></svg>
-            <div><small>Cơ sở</small></div>
-            <select id="scopeSelect"></select>
+      <div class="top">
+        <button class="burger" id="burger"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button>
+        <div class="ttl"><h1 id="pgTitle">Tổng quan</h1><p id="pgSub">Toàn hệ thống</p></div>
+        <div class="topact">
+          <div class="scope" id="scopeWrap">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.9"><path d="M3 21V9l9-6 9 6v12"/></svg>
+            <div><small>Phạm vi</small></div>
+            <select id="scope"></select>
           </div>
         </div>
       </div>
-      <div id="views"></div>
+      <div id="view"></div>
     </main>
   </div>
+
+  <!-- BOTTOM NAV (mobile) -->
+  <nav class="botnav" id="botnav"></nav>
 </div>
 
-<div class="toast" id="toast"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span id="toastMsg">Đã lưu</span></div>
+<!-- MODAL -->
+<div class="modal" id="modal"><div class="mcard" id="mcard"></div></div>
 
-<div class="backdrop" id="backdrop">
-  <div class="modal">
-    <div class="modal-head"><h3 id="modalTitle">Thêm mới</h3><button class="modal-close" id="modalClose"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
-    <div class="modal-body" id="modalBody"></div>
-    <div class="modal-foot"><button class="btn btn-light" id="modalCancel">Hủy</button><button class="btn btn-primary" id="modalSave">Lưu lại</button></div>
-  </div>
-</div>
-
+<script src="data.js"></script>
 <script>
-/* ============================================================
-   AVATAR CENTER — Demo quản trị chuỗi (Giai đoạn 1+)
-   Dữ liệu mẫu, lưu tạm localStorage. Sẽ nối Supabase ở GĐ2.
-   ============================================================ */
-const MONTHS=['T1','T2','T3','T4','T5','T6','T7','T8','T9','T10','T11','T12'];
-const CUR_MONTH=7, YEAR=2026;
+/* ============ UTIL ============ */
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const fmtVND=n=>Math.round(n).toLocaleString('vi-VN')+'₫';
-const fmtShort=n=>n>=1e9?(n/1e9).toFixed(1).replace('.0','')+' tỷ':n>=1e6?Math.round(n/1e6)+' tr':n.toLocaleString('vi-VN');
-const initials=s=>s.trim().split(/\s+/).slice(-2).map(w=>w[0]).join('').toUpperCase();
-const rnd=(a,b)=>a+Math.floor(Math.random()*(b-a+1));
-const pick=a=>a[Math.floor(Math.random()*a.length)];
-const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fmtShort=n=>n>=1e9?(n/1e9).toFixed(n>=1e10?0:1).replace('.0','')+' tỷ':n>=1e6?Math.round(n/1e6)+' tr':n>=1e3?Math.round(n/1e3)+'k':String(n);
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const initials=s=>{const p=String(s).trim().split(/\s+/);return ((p[p.length-2]?.[0]||'')+(p[p.length-1]?.[0]||'')).toUpperCase()||'?';};
+const AVCOL=['#1f4276','#2a5490','#0e7fb0','#3a5db0','#5b6fb8','#7c5cd6','#2f6fd0','#17335f'];
+const avaColor=s=>AVCOL[[...String(s)].reduce((a,c)=>a+c.charCodeAt(0),0)%AVCOL.length];
 
-/* Đọc số tiền bằng chữ (VND) */
-function docTien(n){
-  n=Math.round(n); if(n===0) return 'Không đồng';
-  const d=['không','một','hai','ba','bốn','năm','sáu','bảy','tám','chín'];
-  function doc3(num,full){
-    let tram=Math.floor(num/100),chuc=Math.floor((num%100)/10),dv=num%10,s='';
-    if(full||tram>0) s+=d[tram]+' trăm';
-    if(chuc>1){ s+=' '+d[chuc]+' mươi'; if(dv===1)s+=' mốt'; else if(dv===5)s+=' lăm'; else if(dv>0)s+=' '+d[dv]; }
-    else if(chuc===1){ s+=' mười'; if(dv===5)s+=' lăm'; else if(dv>0)s+=' '+d[dv]; }
-    else if(dv>0){ if(tram>0||full)s+=' lẻ'; s+=' '+d[dv]; }
-    return s.trim();
-  }
-  const units=['',' nghìn',' triệu',' tỷ']; const g=[];
-  while(n>0){ g.push(n%1000); n=Math.floor(n/1000); }
-  let res='';
-  for(let i=g.length-1;i>=0;i--){ if(g[i]===0) continue; res+=' '+doc3(g[i],i<g.length-1)+units[i]; }
-  res=res.trim();
-  return res.charAt(0).toUpperCase()+res.slice(1)+' đồng';
-}
-function todayISO(){ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
-function isoToDM(iso){ if(!iso) return todayDM(); const p=iso.split('-'); return `${+p[2]}/${+p[1]}`; }
-function todayDM(){ const d=new Date(); return `${d.getDate()}/${d.getMonth()+1}`; }
-
-/* ---------- Sinh dữ liệu mẫu ---------- */
-const HO=['Nguyễn','Trần','Lê','Phạm','Hoàng','Phan','Vũ','Đặng','Bùi','Đỗ','Hồ','Ngô','Dương','Lý'];
-const DEM=['Thị','Văn','Hữu','Đức','Ngọc','Minh','Thanh','Quang','Gia','Bảo','Hải','Anh'];
-const TEN=['An','Bình','Chi','Dũng','Giang','Hà','Hùng','Khánh','Lan','Linh','Mai','Nam','Ngân','Phúc','Quân','Sơn','Trang','Tú','Vy','Yến','Đạt','Hương','Khoa','Ngọc','Thảo'];
-const MON=['Tiếng Anh Mầm non','Tiếng Anh Thiếu nhi','Tiếng Anh Thiếu niên','Luyện thi Starters/Movers','Luyện thi Flyers','Giao tiếp Quốc tế'];
-const LOP_PRE=['Kids','Junior','Teen','Starters','Movers','Flyers','IELTS Foundation','Communication'];
-const LICH=['T2-4-6','T3-5-7','T7-CN','T2-4','T3-5'];
-const genName=()=>`${pick(HO)} ${pick(DEM)} ${pick(TEN)}`;
-
-function buildData(){
-  const coSo=[],giaoVien=[],lopHoc=[],hocSinh=[],khoanThu=[],thanhToan=[],diemDanh=[];
-  let gid=1,lid=1,sid=1,kid=1,tid=1;
-  for(let c=0;c<16;c++){
-    const laTrungTam=c===0;
-    coSo.push({id:c,ten:laTrungTam?'Trung tâm chính':`Cơ sở ${String(c).padStart(2,'0')}`,diaChi:laTrungTam?'Trụ sở điều hành':`Khu vực ${c}`,chuCoSo:laTrungTam?'Ban Giám đốc':genName(),laTrungTam});
-    const gvIds=[];
-    for(let i=0;i<(laTrungTam?6:rnd(3,5));i++){ giaoVien.push({id:gid,ten:genName(),coSoId:c,mon:pick(MON),sdt:'09'+rnd(10000000,99999999)}); gvIds.push(gid); gid++; }
-    for(let i=0;i<(laTrungTam?7:rnd(3,5));i++){
-      const hp=pick([600000,750000,850000,950000,1100000,1250000]);
-      const l={id:lid,ten:`${pick(LOP_PRE)} ${String.fromCharCode(65+i)}${rnd(1,9)}`,coSoId:c,gvId:pick(gvIds),hocPhi:hp,lich:pick(LICH)};
-      lopHoc.push(l); lid++;
-      for(let s=0;s<rnd(9,18);s++){
-        const hs={id:sid,ten:genName(),lopId:l.id,coSoId:c,ph:genName(),sdt:'03'+rnd(10000000,99999999),tuoi:rnd(6,15),trangThai:'active'};
-        hocSinh.push(hs); sid++;
-        for(let m=CUR_MONTH-2;m<=CUR_MONTH;m++){
-          let da; if(m<CUR_MONTH) da=Math.random()<0.92?hp:(Math.random()<0.5?0:hp);
-                  else da=Math.random()<0.62?hp:(Math.random()<0.4?Math.round(hp/2/1000)*1000:0);
-          const kt={id:kid,hsId:hs.id,coSoId:c,lopId:l.id,thang:m,phai:hp,daDong:da,ngayThu:da>0?`${rnd(1,26)}/${m}`:'—'};
-          khoanThu.push(kt);
-          if(da>0){ thanhToan.push({id:tid,ktId:kid,hsId:hs.id,coSoId:c,soTien:da,ngay:kt.ngayThu,ghiChu:'Thu học phí'}); tid++; }
-          kid++;
-        }
-      }
-    }
-  }
-  let did=1; const ddDates=['2026-07-01','2026-07-04','2026-07-08','2026-07-11','2026-07-15','2026-07-18'];
-  lopHoc.forEach(l=>{ const hsL=hocSinh.filter(h=>h.lopId===l.id); ddDates.forEach(dt=>{ hsL.forEach(h=>{ const r=Math.random(); const tt=r<0.85?'co':r<0.93?'muon':'vang'; diemDanh.push({id:did++,lopId:l.id,hsId:h.id,ngay:dt,tt}); }); }); });
-  return {coSo,giaoVien,lopHoc,hocSinh,khoanThu,thanhToan,diemDanh};
+/* ============ DATA ============ */
+const DATA=window.AVATAR_DATA;
+const COSO=DATA.map(c=>({id:c.id,ten:c.ten,build:!!c.trong}));
+let GV=[],LOP=[];
+DATA.forEach(c=>{(c.gv||[]).forEach(g=>GV.push({...g,coSoId:c.id})); (c.lop||[]).forEach(l=>LOP.push({...l,coSoId:c.id}));});
+const csName=id=>COSO.find(c=>c.id===id)?.ten||'—';
+function csStat(id){
+  const g=GV.filter(x=>x.coSoId===id), l=LOP.filter(x=>x.coSoId===id);
+  return {gv:g.length,lop:l.length,hs:l.reduce((s,x)=>s+(x.siso||0),0),thu:l.reduce((s,x)=>s+(x.duthu||0),0)};
 }
 
-/* ---------- State ---------- */
-let DB,USER,VIEW='dashboard',scope='all';
-let ktThangSel=CUR_MONTH,ktTrangThai='all';
-let ddLop=null,ddNgay='',ddState={},ddKey='';
-const LS_KEY='avatar_admin_v3';
-let nextId={};
-function loadDB(){
-  try{ const s=localStorage.getItem(LS_KEY); if(s) return JSON.parse(s); }catch(e){}
-  const d=buildData(); localStorage.setItem(LS_KEY,JSON.stringify(d)); return d;
-}
-function saveDB(){ try{ localStorage.setItem(LS_KEY,JSON.stringify(DB)); }catch(e){} }
-function newId(arr){ return Math.max(0,...arr.map(x=>x.id))+1; }
+/* ============ STATE ============ */
+let USER={role:'admin',coSoId:null}, VIEW='dashboard', scope='all';
+let gvSearch='',gvCs='all',gvMon='all', lopSearch='',lopCs='all';
 
-/* ---------- Quyền & tra cứu ---------- */
-function canEdit(){ return USER.role!=='giaovien'; }
-function visibleCoSoIds(){ if(USER.role==='admin') return scope==='all'?DB.coSo.map(c=>c.id):[Number(scope)]; return [USER.coSoId]; }
-function inScope(i){ return visibleCoSoIds().includes(i.coSoId); }
-function coSoName(id){ const c=DB.coSo.find(x=>x.id===id); return c?c.ten:'—'; }
-function lopName(id){ const l=DB.lopHoc.find(x=>x.id===id); return l?l.ten:'—'; }
-function gvName(id){ const g=DB.giaoVien.find(x=>x.id===id); return g?g.ten:'—'; }
-function lopOf(id){ return DB.lopHoc.find(x=>x.id===id); }
-function hsOf(id){ return DB.hocSinh.find(x=>x.id===id); }
-function ktOf(id){ return DB.khoanThu.find(x=>x.id===id); }
-function recompute(kt){ const ps=DB.thanhToan.filter(p=>p.ktId===kt.id); kt.daDong=ps.reduce((s,p)=>s+p.soTien,0); kt.ngayThu=ps.length?ps[ps.length-1].ngay:'—'; }
-
-/* ---------- Menu ---------- */
-const NAV_ALL=[
-  {id:'dashboard',label:'Bảng điều hành',sub:'Tổng quan hoạt động',icon:'M3 13h8V3H3zM13 21h8V3h-8zM3 21h8v-6H3z'},
-  {id:'coso',label:'Cơ sở',sub:'15 chi nhánh & Trung tâm chính',icon:'M3 21h18M5 21V7l7-4 7 4v14M9 21v-4h6v4'},
-  {id:'giaovien',label:'Giáo viên',sub:'Hồ sơ & phân công giảng dạy',icon:'M2 7l10-4 10 4-10 4zM6 10v5c0 1.5 2.7 3 6 3s6-1.5 6-3v-5'},
-  {id:'lophoc',label:'Lớp học',sub:'Danh sách lớp & học phí',icon:'M4 4h16v14H4zM4 9h16M9 4v14'},
-  {id:'hocsinh',label:'Học sinh',sub:'Danh sách học viên',icon:'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 20c0-3.3 3.6-6 8-6s8 2.7 8 6'},
-  {id:'diemdanh',label:'Điểm danh',sub:'Điểm danh học viên theo buổi',icon:'M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11'},
-  {id:'khoanthu',label:'Khoản thu',sub:'Học phí, công nợ theo tháng',icon:'M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6'},
-  {id:'baocao',label:'Báo cáo',sub:'Tổng hợp doanh thu & công nợ',icon:'M3 3v18h18M8 15l3-4 3 2 4-6'},
-];
-function navForRole(){
-  if(USER.role==='giaovien') return NAV_ALL.filter(n=>['dashboard','lophoc','hocsinh','diemdanh'].includes(n.id));
-  if(USER.role==='letan') return NAV_ALL.filter(n=>n.id!=='coso');
-  return NAV_ALL;
-}
-
-/* ============================================================ LOGIN */
-let selRole='admin';
-const rolePicker=document.getElementById('rolePicker');
-const csField=document.getElementById('csField');
-const loginCoSo=document.getElementById('loginCoSo');
-function initLogin(){
-  loginCoSo.innerHTML=DB.coSo.filter(c=>!c.laTrungTam).map(c=>`<option value="${c.id}">${c.ten}</option>`).join('');
-  rolePicker.querySelectorAll('.role-opt').forEach(b=>b.onclick=()=>{
-    rolePicker.querySelectorAll('.role-opt').forEach(x=>x.classList.remove('active'));
-    b.classList.add('active'); selRole=b.dataset.role;
-    csField.style.display=(selRole==='admin')?'none':'block';
-  });
-  csField.style.display='none';
-}
-document.getElementById('loginBtn').onclick=()=>{
-  const coSoId=(selRole==='admin')?0:Number(loginCoSo.value);
-  let name,roleLabel;
-  if(selRole==='admin'){ name='Giám đốc'; roleLabel='Toàn hệ thống'; }
-  else if(selRole==='letan'){ name='Lễ tân — '+coSoName(coSoId); roleLabel=coSoName(coSoId); }
-  else { name='Giáo viên'; roleLabel=coSoName(coSoId); }
-  USER={role:selRole,coSoId,name,roleLabel};
-  startApp();
+/* ============ ICONS ============ */
+const IC={
+  dashboard:'<path d="M3 13h8V3H3zM13 21h8V3h-8zM3 21h8v-6H3z"/>',
+  coso:'<path d="M3 21V9l9-6 9 6v12"/><path d="M9 21v-6h6v6"/>',
+  gv:'<circle cx="9" cy="8" r="3.2"/><path d="M3.5 20c0-3.2 2.8-5 5.5-5s5.5 1.8 5.5 5"/><path d="M17 11l2 2 3-3.5"/>',
+  lop:'<rect x="3" y="4" width="18" height="14" rx="2"/><path d="M3 9h18M8 18v3M16 18v3"/>',
+  thu:'<circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9.2c0-1.2 1.1-2 2.5-2s2.5.7 2.5 2-1.1 1.8-2.5 1.8-2.5.6-2.5 2 1.1 2 2.5 2 2.5-.8 2.5-2"/>',
+  users:'<circle cx="9" cy="8" r="3.2"/><path d="M2.5 20c0-3 2.6-4.8 6.5-4.8"/><circle cx="17" cy="9" r="2.6"/><path d="M14 20c0-2.6 1.8-4.2 4.5-4.2s3 1.4 3 3"/>',
+  cap:'<path d="M22 10 12 5 2 10l10 5 10-5Z"/><path d="M6 12v5c0 1 2.7 2.5 6 2.5s6-1.5 6-2.5v-5"/>',
+  phone:'<path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2 4.2 2 2 0 0 1 4 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.6a16 16 0 0 0 6 6l1.1-1.1a2 2 0 0 1 2.1-.5c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2Z"/>',
+  cake:'<path d="M4 21h16v-7a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2z"/><path d="M4 15c1.5 1.2 2.5 1.2 4 0s2.5-1.2 4 0 2.5 1.2 4 0 2.5-1.2 4 0"/><path d="M12 8V5M9 8V6M15 8V6"/>',
+  pin:'<path d="M12 21s7-5.7 7-11a7 7 0 0 0-14 0c0 5.3 7 11 7 11Z"/><circle cx="12" cy="10" r="2.5"/>',
+  search:'<circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/>'
 };
+const svg=(p,sw=1.9)=>`<svg viewBox="0 0 24 24" fill="none" stroke-width="${sw}">${p}</svg>`;
 
-/* ============================================================ APP */
+/* ============ NAV ============ */
+const NAV=[
+  {k:'dashboard',t:'Tổng quan',i:IC.dashboard},
+  {k:'gv',t:'Giáo viên',i:IC.gv,cnt:()=>inGV().length},
+  {k:'coso',t:'Cơ sở',i:IC.coso,cnt:()=>USER.role==='admin'?COSO.length:1},
+  {k:'lop',t:'Lớp học',i:IC.lop,cnt:()=>inLOP().length},
+  {k:'thu',t:'Khoản thu',i:IC.thu},
+];
+const BOT=[NAV[0],NAV[1],NAV[2],NAV[3],NAV[4]];
+
+function scopeIds(){
+  if(USER.role!=='admin') return [USER.coSoId];
+  return scope==='all'?COSO.map(c=>c.id):[Number(scope)];
+}
+const inGV=()=>GV.filter(g=>scopeIds().includes(g.coSoId));
+const inLOP=()=>LOP.filter(l=>scopeIds().includes(l.coSoId));
+const inCOSO=()=>COSO.filter(c=>scopeIds().includes(c.id));
+
+/* ============ LOGIN ============ */
+let selRole='admin';
+function fillCsPick(){
+  $('#csPick').innerHTML=COSO.filter(c=>!c.build).map(c=>`<option value="${c.id}">${esc(c.ten)}</option>`).join('');
+}
+$$('#roles .role').forEach(b=>b.onclick=()=>{
+  $$('#roles .role').forEach(x=>x.classList.remove('on')); b.classList.add('on');
+  selRole=b.dataset.role;
+  $('#csField').style.display=selRole==='owner'?'block':'none';
+  $('#uname').value=selRole==='admin'?'admin':'coso';
+});
+$('#loginBtn').onclick=()=>{
+  USER=selRole==='admin'?{role:'admin',coSoId:null}:{role:'owner',coSoId:Number($('#csPick').value)};
+  scope='all'; startApp();
+};
+$('#upass').addEventListener('keydown',e=>{if(e.key==='Enter')$('#loginBtn').click();});
+
 function startApp(){
-  document.getElementById('loginScreen').classList.add('hidden');
-  document.getElementById('app').style.display='block';
-  document.getElementById('userName').textContent=USER.name;
-  document.getElementById('userRole').textContent=USER.roleLabel;
-  document.getElementById('userAva').textContent=USER.role==='admin'?'GĐ':USER.role==='letan'?'LT':'GV';
-  const box=document.getElementById('scopeBox'),sel=document.getElementById('scopeSelect');
+  $('#login').style.display='none';
+  $('#app').style.display='block';
+  const nm=USER.role==='admin'?'Ban Quản trị':('Chủ cơ sở '+csName(USER.coSoId));
+  $('#uName').textContent=USER.role==='admin'?'Quản trị chuỗi':csName(USER.coSoId);
+  $('#uRole').textContent=USER.role==='admin'?'Toàn hệ thống':'Lễ tân Cơ Sở';
+  $('#uAva').textContent=USER.role==='admin'?'QT':initials(csName(USER.coSoId));
+  buildScope(); renderNav(); go('dashboard');
+}
+$('#logout').onclick=()=>{ $('#app').style.display='none'; $('#login').style.display='grid'; };
+
+function buildScope(){
+  const wrap=$('#scopeWrap'), sel=$('#scope');
   if(USER.role==='admin'){
-    box.classList.remove('locked');
-    sel.innerHTML='<option value="all">Tất cả cơ sở</option>'+DB.coSo.map(c=>`<option value="${c.id}">${c.ten}</option>`).join('');
-    sel.disabled=false; scope='all'; sel.onchange=()=>{ scope=sel.value; render(); };
+    wrap.classList.remove('lock');
+    sel.innerHTML='<option value="all">Toàn hệ thống ('+COSO.length+' cơ sở)</option>'+
+      COSO.map(c=>`<option value="${c.id}">${esc(c.ten)}${c.build?' · đang XD':''}</option>`).join('');
+    sel.disabled=false;
+    sel.onchange=()=>{scope=sel.value; go(VIEW);};
   }else{
-    box.classList.add('locked'); sel.innerHTML=`<option>${coSoName(USER.coSoId)}</option>`; sel.disabled=true; scope=String(USER.coSoId);
+    wrap.classList.add('lock');
+    sel.innerHTML=`<option>${esc(csName(USER.coSoId))}</option>`; sel.disabled=true;
   }
-  buildNav(); VIEW='dashboard'; render();
-}
-function setScope(v){ scope=String(v); const s=document.getElementById('scopeSelect'); if(s&&!s.disabled) s.value=scope; render(); }
-function buildNav(){
-  const nav=document.getElementById('nav');
-  nav.innerHTML=navForRole().map(n=>`<button data-view="${n.id}"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="${n.icon}"/></svg><span>${n.label}</span></button>`).join('');
-  nav.querySelectorAll('button').forEach(b=>b.onclick=()=>{ VIEW=b.dataset.view; closeSidebar(); render(); });
-}
-function setActiveNav(){
-  document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.view===VIEW));
-  const m=NAV_ALL.find(n=>n.id===VIEW)||NAV_ALL[0];
-  document.getElementById('pageTitle').textContent=m.label;
-  document.getElementById('pageSub').textContent=m.sub;
-}
-function render(){
-  setActiveNav();
-  const el=document.getElementById('views');
-  el.innerHTML=({dashboard:viewDashboard,coso:viewCoSo,giaovien:viewGiaoVien,lophoc:viewLopHoc,hocsinh:viewHocSinh,diemdanh:viewDiemDanh,khoanthu:viewKhoanThu,baocao:viewBaoCao}[VIEW]||viewDashboard)();
-  bindViewEvents();
 }
 
-/* ===== DASHBOARD ===== */
-function viewDashboard(){
-  const ids=visibleCoSoIds();
-  const gv=DB.giaoVien.filter(inScope).length, lop=DB.lopHoc.filter(inScope).length, hs=DB.hocSinh.filter(inScope).length;
-  const ktM=DB.khoanThu.filter(k=>ids.includes(k.coSoId)&&k.thang===CUR_MONTH);
-  const phai=ktM.reduce((s,k)=>s+k.phai,0), da=ktM.reduce((s,k)=>s+k.daDong,0), no=phai-da, tyLe=phai?Math.round(da/phai*100):0;
-  const perCoSo=ids.map(id=>({ten:coSoName(id),thu:DB.khoanThu.filter(k=>k.coSoId===id&&k.thang===CUR_MONTH).reduce((s,k)=>s+k.daDong,0)})).sort((a,b)=>b.thu-a.thu).slice(0,10);
-  const maxThu=Math.max(1,...perCoSo.map(p=>p.thu));
-  const debts=ktM.filter(k=>k.daDong<k.phai).map(k=>({hs:hsOf(k.hsId),no:k.phai-k.daDong,coSoId:k.coSoId})).sort((a,b)=>b.no-a.no).slice(0,6);
-  const kpiCoSo=USER.role==='admin'?`<div class="kpi"><div class="kpi-top"><div class="kpi-ico ico-navy">${ic('M3 21h18M5 21V7l7-4 7 4v14M9 21v-4h6v4')}</div></div><b>${scope==='all'?16:1}</b><span>Cơ sở đang xem</span></div>`:'';
-  return `<div class="kpi-grid">${kpiCoSo}
-    <div class="kpi"><div class="kpi-top"><div class="kpi-ico ico-blue">${ic('M2 7l10-4 10 4-10 4zM6 10v5c0 1.5 2.7 3 6 3s6-1.5 6-3v-5')}</div></div><b>${gv}</b><span>Giáo viên</span></div>
-    <div class="kpi"><div class="kpi-top"><div class="kpi-ico ico-teal">${ic('M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 20c0-3.3 3.6-6 8-6s8 2.7 8 6')}</div></div><b>${hs}</b><span>Học sinh · ${lop} lớp</span></div>
-    <div class="kpi"><div class="kpi-top"><div class="kpi-ico ico-green">${ic('M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6')}</div><span class="delta up">${tyLe}%</span></div><b>${fmtShort(da)}</b><span>Đã thu ${MONTHS[CUR_MONTH-1]}</span></div>
-    <div class="kpi"><div class="kpi-top"><div class="kpi-ico ico-amber">${ic('M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z')}</div></div><b>${fmtShort(no)}</b><span>Còn phải thu ${MONTHS[CUR_MONTH-1]}</span></div>
-  </div>
-  <div class="grid-2">
-    <div class="panel"><div class="panel-head"><div><h3>Doanh thu đã thu theo cơ sở</h3><div class="sub">Tháng ${CUR_MONTH}/${YEAR} · đơn vị: triệu đồng</div></div></div>
-      <div class="panel-body"><div class="bars">${perCoSo.map(p=>`<div class="bar-col"><b>${(p.thu/1e6).toFixed(0)}</b><div class="bar-track"><div class="bar" style="height:${Math.max(6,p.thu/maxThu*100)}%"></div></div><small>${esc(p.ten.replace('Cơ sở ','CS').replace('Trung tâm chính','TT'))}</small></div>`).join('')}</div></div></div>
-    <div class="panel"><div class="panel-head"><div><h3>Công nợ cần nhắc</h3><div class="sub">HS nợ học phí nhiều nhất</div></div></div>
-      <div class="panel-body"><div class="mini-list">${debts.length?debts.map(d=>`<div class="mini-row"><div class="ava">${initials(d.hs.ten)}</div><div><b>${esc(d.hs.ten)}</b><small>${esc(lopName(d.hs.lopId))} · ${esc(coSoName(d.coSoId))}</small></div><div class="amt">${fmtVND(d.no)}</div></div>`).join(''):'<div class="empty">Không có công nợ 🎉</div>'}</div></div></div>
-  </div>`;
+/* ============ NAV RENDER ============ */
+function renderNav(){
+  $('#nav').innerHTML=NAV.map(n=>`<button data-k="${n.k}" class="${n.k===VIEW?'on':''}">${svg(n.i)}<span>${n.t}</span>${n.cnt?`<span class="cnt">${n.cnt()}</span>`:''}</button>`).join('');
+  $$('#nav button').forEach(b=>b.onclick=()=>{go(b.dataset.k);closeSide();});
+  $('#botnav').innerHTML=BOT.map(n=>`<button data-k="${n.k}" class="${n.k===VIEW?'on':''}">${svg(n.i,1.9)}<span>${n.t}</span></button>`).join('');
+  $$('#botnav button').forEach(b=>b.onclick=()=>go(b.dataset.k));
+}
+function syncNav(){
+  $$('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.k===VIEW));
+  $$('#botnav button').forEach(b=>b.classList.toggle('on',b.dataset.k===VIEW));
+  const n=NAV.find(x=>x.k===VIEW);
+  $('#nav .cnt')&&renderNavCounts();
+}
+function renderNavCounts(){
+  NAV.forEach(n=>{if(!n.cnt)return;const b=$(`#nav button[data-k="${n.k}"] .cnt`);if(b)b.textContent=n.cnt();});
 }
 
-/* ===== CƠ SỞ ===== */
-function viewCoSo(){
-  const rows=DB.coSo.map(c=>{
-    const gv=DB.giaoVien.filter(g=>g.coSoId===c.id).length, lop=DB.lopHoc.filter(l=>l.coSoId===c.id).length, hs=DB.hocSinh.filter(h=>h.coSoId===c.id).length;
-    const thu=DB.khoanThu.filter(k=>k.coSoId===c.id&&k.thang===CUR_MONTH).reduce((s,k)=>s+k.daDong,0);
-    return `<tr><td><div class="cell"><div class="ava">${c.laTrungTam?'TT':'CS'}</div><div><b>${esc(c.ten)}</b><small>${esc(c.chuCoSo)}</small></div></div></td><td class="num">${gv}</td><td class="num">${lop}</td><td class="num">${hs}</td><td class="num"><b>${fmtVND(thu)}</b></td><td>${c.laTrungTam?'<span class="pill blue">Điều hành</span>':'<span class="pill green">Hoạt động</span>'}</td></tr>`;
-  }).join('');
-  return `${head('Danh mục cơ sở','15 chi nhánh thành viên và Trung tâm chính')}
-  <div class="table-wrap"><table><thead><tr><th>Cơ sở</th><th>Giáo viên</th><th>Lớp</th><th>Học sinh</th><th>Đã thu T${CUR_MONTH}</th><th>Trạng thái</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+/* sidebar mobile */
+function openSide(){$('#side').classList.add('open');$('#scrim').classList.add('on');}
+function closeSide(){$('#side').classList.remove('open');$('#scrim').classList.remove('on');}
+$('#burger').onclick=openSide; $('#scrim').onclick=closeSide;
+
+/* ============ ROUTER ============ */
+const TITLES={dashboard:['Tổng quan','Bức tranh toàn hệ thống'],gv:['Giáo viên','Danh sách & hồ sơ giáo viên'],coso:['Cơ sở','Mạng lưới các trung tâm'],lop:['Lớp học','Lớp học & sĩ số'],thu:['Khoản thu','Dự thu học phí theo cơ sở']};
+function go(k){
+  VIEW=k;
+  const scopeTxt=USER.role==='admin'?(scope==='all'?'Toàn hệ thống':csName(Number(scope))):csName(USER.coSoId);
+  $('#pgTitle').textContent=TITLES[k][0];
+  $('#pgSub').textContent=TITLES[k][1]+' · '+scopeTxt;
+  syncNav(); renderNavCounts();
+  ({dashboard:renderDash,gv:renderGV,coso:renderCoso,lop:renderLop,thu:renderThu}[k])();
+  window.scrollTo(0,0);
 }
 
-/* ===== GIÁO VIÊN ===== */
-function viewGiaoVien(){
-  return `${head('Giáo viên','Hồ sơ và phân công giảng dạy',canEdit()?'giaovien':null)}
-  ${toolbar('gvSearch',['Tất cả môn',...MON],'monFilter')}
-  <div class="table-wrap"><table><thead><tr><th>Họ tên</th><th>Môn phụ trách</th><th>Cơ sở</th><th>Số lớp</th><th>Trạng thái</th>${canEdit()?'<th class="right">Thao tác</th>':''}</tr></thead><tbody id="gvBody">${gvRows(DB.giaoVien.filter(inScope))}</tbody></table></div>`;
-}
-function gvRows(list){
-  if(!list.length) return emptyRow(canEdit()?6:5);
-  return list.map(g=>{const n=DB.lopHoc.filter(l=>l.gvId===g.id).length;
-    return `<tr><td><div class="cell"><div class="ava">${initials(g.ten)}</div><div><b>${esc(g.ten)}</b><small>${esc(g.sdt)}</small></div></div></td><td>${esc(g.mon)}</td><td>${esc(coSoName(g.coSoId))}</td><td class="num">${n} lớp</td><td>${n>0?'<span class="pill green">Đang dạy</span>':'<span class="pill gray">Chờ phân công</span>'}</td>${actCell('giaovien',g.id)}</tr>`;}).join('');
-}
+/* ============ DASHBOARD ============ */
+function renderDash(){
+  const ids=scopeIds();
+  const g=GV.filter(x=>ids.includes(x.coSoId)).length;
+  const ls=LOP.filter(x=>ids.includes(x.coSoId));
+  const hs=ls.reduce((s,x)=>s+(x.siso||0),0), thu=ls.reduce((s,x)=>s+(x.duthu||0),0);
+  const active=inCOSO().filter(c=>!c.build).length;
+  const kpis=[
+    {ic:'ic-teal',i:IC.coso,v:USER.role==='admin'?active:1,l:USER.role==='admin'?'Cơ sở hoạt động':'Cơ sở của bạn'},
+    {ic:'ic-em',i:IC.gv,v:g,l:'Giáo viên'},
+    {ic:'ic-sky',i:IC.lop,v:ls.length,l:'Lớp học'},
+    {ic:'ic-am',i:IC.thu,v:fmtShort(thu),l:'Dự thu học phí'},
+  ];
+  let h=`<div class="kpis">${kpis.map(k=>`<div class="kpi"><div class="kpi-top"><div class="kpi-ic ${k.ic}">${svg(k.i)}</div></div><b>${k.v}</b><span>${k.l}</span></div>`).join('')}</div>`;
 
-/* ===== LỚP HỌC ===== */
-function viewLopHoc(){
-  return `${head('Lớp học','Danh sách lớp, giáo viên và học phí',canEdit()?'lophoc':null)}
-  ${toolbar('lopSearch')}
-  <div class="table-wrap"><table><thead><tr><th>Lớp</th><th>Giáo viên</th><th>Cơ sở</th><th>Sĩ số</th><th>Học phí</th>${canEdit()?'<th class="right">Thao tác</th>':''}</tr></thead><tbody id="lopBody">${lopRows(DB.lopHoc.filter(inScope))}</tbody></table></div>`;
-}
-function lopRows(list){
-  if(!list.length) return emptyRow(canEdit()?6:5);
-  return list.map(l=>{const si=DB.hocSinh.filter(h=>h.lopId===l.id).length;
-    return `<tr><td><div class="cell"><div class="ava">${ic2('M4 4h16v14H4z',18)}</div><div><b>${esc(l.ten)}</b><small>Lịch ${esc(l.lich)}</small></div></div></td><td>${esc(gvName(l.gvId))}</td><td>${esc(coSoName(l.coSoId))}</td><td class="num">${si} HS</td><td class="num"><b>${fmtVND(l.hocPhi)}</b>/tháng</td>${actCell('lophoc',l.id)}</tr>`;}).join('');
-}
-
-/* ===== HỌC SINH ===== */
-function viewHocSinh(){
-  return `${head('Học sinh','Danh sách học viên',canEdit()?'hocsinh':null)}
-  ${toolbar('hsSearch')}
-  <div class="table-wrap"><table><thead><tr><th>Học sinh</th><th>Lớp</th><th>Cơ sở</th><th>Phụ huynh</th><th>Liên hệ</th><th>Trạng thái</th>${canEdit()?'<th class="right">Thao tác</th>':''}</tr></thead><tbody id="hsBody">${hsRows(DB.hocSinh.filter(inScope))}</tbody></table></div>`;
-}
-function hsRows(list){
-  if(!list.length) return emptyRow(canEdit()?7:6);
-  return list.map(h=>`<tr><td><div class="cell"><div class="ava">${initials(h.ten)}</div><div><b>${esc(h.ten)}</b><small>${h.tuoi} tuổi</small></div></div></td><td>${esc(lopName(h.lopId))}</td><td>${esc(coSoName(h.coSoId))}</td><td>${esc(h.ph)}</td><td>${esc(h.sdt)}</td><td>${h.trangThai==='nghi'?'<span class="pill gray">Nghỉ học</span>':'<span class="pill green">Đang học</span>'}</td>${actCell('hocsinh',h.id)}</tr>`).join('');
-}
-
-/* ===== KHOẢN THU ===== */
-function viewKhoanThu(){
-  const isAll=USER.role==='admin'&&scope==='all';
-  const ids=visibleCoSoIds();
-  const kt=DB.khoanThu.filter(k=>ids.includes(k.coSoId)&&k.thang===ktThangSel);
-  const phai=kt.reduce((s,k)=>s+k.phai,0),da=kt.reduce((s,k)=>s+k.daDong,0),no=phai-da,tyLe=phai?Math.round(da/phai*100):0;
-  const soNo=kt.filter(k=>k.daDong<k.phai).length;
-  const mOpts=[CUR_MONTH-2,CUR_MONTH-1,CUR_MONTH].map(m=>`<option value="${m}" ${m===ktThangSel?'selected':''}>Tháng ${m}/${YEAR}</option>`).join('');
-  const acts=`<div style="display:flex;gap:8px;flex-wrap:wrap">${canEdit()?`<button class="btn btn-light btn-sm" id="ktExport"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg> Xuất Excel công nợ</button>`:''}${canEdit()?`<button class="btn btn-primary btn-sm" data-add="khoanthu"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg> Thêm khoản thu</button>`:''}</div>`;
-  const subTitle=isAll?'Tổng hợp theo cơ sở — bấm một cơ sở để xem chi tiết':(USER.role==='admin'?`Chi tiết cơ sở: ${esc(coSoName(Number(scope)))}`:'Theo dõi thu học phí và công nợ theo tháng');
-  const kpis=`<div class="kpi-grid">
-    <div class="kpi"><div class="kpi-top"><div class="kpi-ico ico-navy">${ic('M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6')}</div></div><b>${fmtShort(phai)}</b><span>Tổng phải thu</span></div>
-    <div class="kpi"><div class="kpi-top"><div class="kpi-ico ico-green">${ic('M20 6 9 17l-5-5')}</div><span class="delta up">${tyLe}%</span></div><b>${fmtShort(da)}</b><span>Đã thu</span></div>
-    <div class="kpi"><div class="kpi-top"><div class="kpi-ico ico-amber">${ic('M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z')}</div></div><b>${fmtShort(no)}</b><span>Còn nợ · ${soNo} HS</span></div>
-    <div class="kpi"><div class="kpi-top"><div class="kpi-ico ico-blue">${ic('M3 3v18h18M8 15l3-4 3 2 4-6')}</div></div><b>${tyLe}%</b><span>Tỷ lệ thu tháng ${ktThangSel}</span></div>
-  </div>`;
-  const header=`<div class="view-head"><div><h2>Khoản thu học phí</h2><p>${subTitle}</p></div>${acts}</div>${kpis}`;
-  if(isAll){
-    const per=DB.coSo.map(c=>{
-      const kk=DB.khoanThu.filter(k=>k.coSoId===c.id&&k.thang===ktThangSel);
-      const p=kk.reduce((s,k)=>s+k.phai,0),d=kk.reduce((s,k)=>s+k.daDong,0),n=p-d;
-      return {c,p,d,n,soNo:kk.filter(k=>k.daDong<k.phai).length,soHS:DB.hocSinh.filter(h=>h.coSoId===c.id).length,ty:p?Math.round(d/p*100):0};
-    });
-    const rows=per.map(o=>`<tr class="row-link" data-coso="${o.c.id}"><td><div class="cell"><div class="ava">${o.c.laTrungTam?'TT':'CS'}</div><div><b>${esc(o.c.ten)}</b><small>${o.soHS} học sinh</small></div></div></td>
-      <td class="num">${fmtVND(o.p)}</td><td class="num" style="color:var(--green);font-weight:700">${fmtVND(o.d)}</td>
-      <td class="num" style="color:${o.n>0?'var(--red)':'var(--muted)'};font-weight:700">${o.n>0?fmtVND(o.n):'—'}</td>
-      <td class="num">${o.soNo} HS</td>
-      <td><div class="prog"><i style="width:${o.ty}%"></i></div><small class="muted">${o.ty}%</small></td>
-      <td class="right"><span class="row-act">Xem chi tiết ›</span></td></tr>`).join('');
-    return `${header}
-    <div class="toolbar"><select id="ktThang">${mOpts}</select></div>
-    <div class="table-wrap"><table><thead><tr><th>Cơ sở</th><th>Phải thu</th><th>Đã thu</th><th>Còn nợ</th><th>HS nợ</th><th>Tỷ lệ thu</th><th class="right"></th></tr></thead><tbody>${rows}</tbody></table></div>`;
-  }
-  const back=USER.role==='admin'?`<button class="btn btn-light btn-sm" data-back style="margin-bottom:13px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Tất cả cơ sở</button>`:'';
-  return `${header}${back}
-  <div class="toolbar">
-    <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input id="ktSearch" placeholder="Tìm học sinh..."></div>
-    <select id="ktThang">${mOpts}</select>
-    <select id="ktTT"><option value="all" ${ktTrangThai==='all'?'selected':''}>Tất cả trạng thái</option><option value="no" ${ktTrangThai==='no'?'selected':''}>Còn nợ</option><option value="du" ${ktTrangThai==='du'?'selected':''}>Đã đủ</option></select>
-  </div>
-  <div class="table-wrap"><table><thead><tr><th>Học sinh</th><th>Lớp / Cơ sở</th><th>Phải đóng</th><th>Đã đóng</th><th>Còn nợ</th><th>Trạng thái</th><th class="right">Thao tác</th></tr></thead><tbody id="ktBody">${ktRows(kt)}</tbody></table></div>`;
-}
-function ktRows(kt){
-  let list=kt.slice();
-  if(ktTrangThai==='no') list=list.filter(k=>k.daDong<k.phai);
-  if(ktTrangThai==='du') list=list.filter(k=>k.daDong>=k.phai);
-  const q=(document.getElementById('ktSearch')?.value||'').toLowerCase();
-  list=list.map(k=>({k,hs:hsOf(k.hsId)})).filter(o=>o.hs&&o.hs.ten.toLowerCase().includes(q)).sort((a,b)=>(b.k.phai-b.k.daDong)-(a.k.phai-a.k.daDong));
-  if(!list.length) return emptyRow(7);
-  return list.map(({k,hs})=>{
-    const no=k.phai-k.daDong;
-    const st=no<=0?'<span class="pill green">Đã đủ</span>':k.daDong>0?'<span class="pill amber">Đóng một phần</span>':'<span class="pill red">Chưa đóng</span>';
-    let acts='';
-    if(canEdit()){ acts=`<div class="row-acts">${no>0?`<button class="row-act" data-pay="${k.id}">Thu tiền</button>`:''}<button class="icon-act" data-hist="${k.id}" title="Lịch sử / phiếu thu">${ip('M5 3v18l2-1 2 1 2-1 2 1 2-1 2 1V3M9 8h6M9 12h6')}</button></div>`; }
-    return `<tr><td><div class="cell"><div class="ava">${initials(hs.ten)}</div><div><b>${esc(hs.ten)}</b><small>Thu gần nhất: ${esc(k.ngayThu)}</small></div></div></td><td>${esc(lopName(hs.lopId))}<br><small class="muted">${esc(coSoName(k.coSoId))}</small></td><td class="num">${fmtVND(k.phai)}</td><td class="num" style="color:var(--green);font-weight:700">${fmtVND(k.daDong)}</td><td class="num" style="color:${no>0?'var(--red)':'var(--muted)'};font-weight:700">${no>0?fmtVND(no):'—'}</td><td>${st}</td><td class="right">${acts}</td></tr>`;
-  }).join('');
-}
-
-/* ===== BÁO CÁO ===== */
-function viewBaoCao(){
-  const ids=visibleCoSoIds();
-  const perCoSo=ids.map(id=>({ten:coSoName(id),thu:DB.khoanThu.filter(k=>k.coSoId===id&&k.thang===CUR_MONTH).reduce((s,k)=>s+k.daDong,0)})).sort((a,b)=>b.thu-a.thu);
-  const maxThu=Math.max(1,...perCoSo.map(p=>p.thu));
-  const perMonth=[CUR_MONTH-2,CUR_MONTH-1,CUR_MONTH].map(m=>({m,thu:DB.khoanThu.filter(k=>ids.includes(k.coSoId)&&k.thang===m).reduce((s,k)=>s+k.daDong,0)}));
-  const maxM=Math.max(1,...perMonth.map(p=>p.thu));
-  return `${head('Báo cáo tổng hợp','Doanh thu đã thu và công nợ')}
-  <div class="report-grid">
-    <div class="panel"><div class="panel-head"><h3>Doanh thu theo cơ sở</h3><div class="sub">Tháng ${CUR_MONTH}</div></div>
-      <div class="panel-body">${perCoSo.map(p=>`<div class="rep-row"><div class="name">${esc(p.ten)}</div><div class="rep-bar"><i style="width:${Math.max(3,p.thu/maxThu*100)}%"></i></div><div class="val">${fmtShort(p.thu)}</div></div>`).join('')}</div></div>
-    <div class="panel"><div class="panel-head"><h3>Xu hướng 3 tháng</h3><div class="sub">Toàn phạm vi đang xem</div></div>
-      <div class="panel-body"><div class="bars" style="height:210px">${perMonth.map(p=>`<div class="bar-col"><b>${fmtShort(p.thu)}</b><div class="bar-track" style="height:150px"><div class="bar" style="height:${Math.max(6,p.thu/maxM*100)}%"></div></div><small>Tháng ${p.m}</small></div>`).join('')}</div></div></div>
-  </div>`;
-}
-
-/* ===== ĐIỂM DANH ===== */
-function loadAttState(lopId,ngay){
-  const st={};
-  DB.hocSinh.filter(h=>h.lopId===lopId&&h.trangThai!=='nghi').forEach(h=>st[h.id]='co');
-  DB.diemDanh.filter(d=>d.lopId===lopId&&d.ngay===ngay).forEach(d=>{ if(st[d.hsId]!==undefined) st[d.hsId]=d.tt; });
-  return st;
-}
-function viewDiemDanh(){
-  const lops=DB.lopHoc.filter(inScope);
-  if(!lops.length) return head('Điểm danh','Điểm danh học viên theo buổi')+'<div class="table-wrap"><div class="empty">Chưa có lớp trong phạm vi này</div></div>';
-  if(!ddNgay) ddNgay=todayISO();
-  if(ddLop==null||!lops.some(l=>l.id===ddLop)) ddLop=lops[0].id;
-  const key=ddLop+'|'+ddNgay;
-  if(key!==ddKey){ ddState=loadAttState(ddLop,ddNgay); ddKey=key; }
-  const hsList=DB.hocSinh.filter(h=>h.lopId===ddLop&&h.trangThai!=='nghi');
-  const co=hsList.filter(h=>ddState[h.id]==='co').length, muon=hsList.filter(h=>ddState[h.id]==='muon').length, vang=hsList.filter(h=>ddState[h.id]==='vang').length;
-  const recs=DB.diemDanh.filter(d=>d.lopId===ddLop);
-  const cc=recs.length?Math.round(recs.filter(d=>d.tt!=='vang').length/recs.length*100):100;
-  const lopOpts=lops.map(l=>`<option value="${l.id}" ${l.id===ddLop?'selected':''}>${esc(l.ten)} — ${esc(coSoName(l.coSoId))}</option>`).join('');
-  const rows=hsList.length?hsList.map(h=>{const t=ddState[h.id]||'co';
-    return `<div class="att-row"><div class="ava">${initials(h.ten)}</div><div style="min-width:0"><b>${esc(h.ten)}</b><small>${h.tuoi} tuổi</small></div>
-      <div class="seg"><button class="${t==='co'?'on-co':''}" data-att="${h.id}:co">Có mặt</button><button class="${t==='muon'?'on-muon':''}" data-att="${h.id}:muon">Muộn</button><button class="${t==='vang'?'on-vang':''}" data-att="${h.id}:vang">Vắng</button></div></div>`;}).join(''):'<div class="table-wrap"><div class="empty">Lớp chưa có học viên đang học</div></div>';
-  return `${head('Điểm danh','Điểm danh học viên theo buổi')}
-  <div class="toolbar"><select id="ddLopSel" style="flex:1;min-width:180px">${lopOpts}</select><input type="date" id="ddNgaySel" value="${ddNgay}"></div>
-  <div class="kpi-grid">
-    <div class="kpi"><div class="kpi-top"><div class="kpi-ico ico-blue">${ic('M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 20c0-3.3 3.6-6 8-6s8 2.7 8 6')}</div></div><b>${hsList.length}</b><span>Sĩ số</span></div>
-    <div class="kpi"><div class="kpi-top"><div class="kpi-ico ico-green">${ic('M20 6 9 17l-5-5')}</div></div><b>${co}</b><span>Có mặt</span></div>
-    <div class="kpi"><div class="kpi-top"><div class="kpi-ico ico-amber">${ic('M12 7v5l3 2M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z')}</div></div><b>${muon}</b><span>Đi muộn</span></div>
-    <div class="kpi"><div class="kpi-top"><div class="kpi-ico ico-navy">${ic('M18 6 6 18M6 6l12 12')}</div><span class="delta up">${cc}%</span></div><b>${vang}</b><span>Vắng · chuyên cần ${cc}%</span></div>
-  </div>
-  <div class="att-list">${rows}</div>
-  ${hsList.length?`<div style="margin-top:14px;display:flex;justify-content:flex-end"><button class="btn btn-primary" id="ddSave"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2zM17 21v-8H7v8M7 3v5h8"/></svg> Lưu điểm danh buổi ${isoToDM(ddNgay)}</button></div>`:''}`;
-}
-function saveAttendance(){
-  const other=DB.diemDanh.filter(d=>!(d.lopId===ddLop&&d.ngay===ddNgay));
-  const hsList=DB.hocSinh.filter(h=>h.lopId===ddLop&&h.trangThai!=='nghi');
-  let id=Math.max(0,...DB.diemDanh.map(x=>x.id),0)+1;
-  const add=hsList.map(h=>({id:id++,lopId:ddLop,hsId:h.id,ngay:ddNgay,tt:ddState[h.id]||'co'}));
-  DB.diemDanh=other.concat(add);
-  ddKey=''; saveDB(); toast('Đã lưu điểm danh buổi '+isoToDM(ddNgay)); render();
-}
-
-/* ===== XUẤT EXCEL CÔNG NỢ ===== */
-function exportDebt(){
-  const ids=visibleCoSoIds();
-  const rows=DB.khoanThu.filter(k=>ids.includes(k.coSoId)&&k.thang===ktThangSel&&k.daDong<k.phai)
-    .map(k=>({k,hs:hsOf(k.hsId)})).filter(o=>o.hs).sort((a,b)=>(b.k.phai-b.k.daDong)-(a.k.phai-a.k.daDong));
-  if(!rows.length) return toast('Không có công nợ để xuất',1);
-  const total=rows.reduce((s,o)=>s+(o.k.phai-o.k.daDong),0);
-  const scopeLabel=USER.role==='admin'?(scope==='all'?'Toàn hệ thống':coSoName(Number(scope))):coSoName(USER.coSoId);
-  const body=rows.map((o,i)=>`<tr><td>${i+1}</td><td>${esc(o.hs.ten)}</td><td>${esc(lopName(o.hs.lopId))}</td><td>${esc(coSoName(o.k.coSoId))}</td><td>${esc(o.hs.ph)}</td><td>${esc(o.hs.sdt)}</td><td>${o.k.phai}</td><td>${o.k.daDong}</td><td>${o.k.phai-o.k.daDong}</td></tr>`).join('');
-  const html=`<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="utf-8"></head><body>
-    <table border="1" cellspacing="0">
-    <tr><td colspan="9" style="font-size:15px;font-weight:bold">DANH SÁCH CÔNG NỢ HỌC PHÍ — Tháng ${ktThangSel}/${YEAR}</td></tr>
-    <tr><td colspan="9">Phạm vi: ${esc(scopeLabel)} · Ngày xuất: ${isoToDM(todayISO())}/${YEAR}</td></tr>
-    <tr><td colspan="9"></td></tr>
-    <tr style="background:#0f2044;color:#fff;font-weight:bold"><td>STT</td><td>Học viên</td><td>Lớp</td><td>Cơ sở</td><td>Phụ huynh</td><td>Điện thoại</td><td>Phải đóng</td><td>Đã đóng</td><td>Còn nợ</td></tr>
-    ${body}
-    <tr style="font-weight:bold"><td colspan="8" style="text-align:right">TỔNG CỘNG CÒN NỢ</td><td>${total}</td></tr>
-    </table></body></html>`;
-  const blob=new Blob(['﻿'+html],{type:'application/vnd.ms-excel'});
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement('a'); a.href=url; a.download=`cong-no-thang-${ktThangSel}-${YEAR}.xls`; document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(()=>URL.revokeObjectURL(url),1500);
-  toast(`Đã xuất ${rows.length} công nợ ra Excel`);
-}
-
-/* ---------- UI helpers ---------- */
-function ic(d){ return `<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="${d}"/></svg>`; }
-function ic2(d,s){ return `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="var(--accent-600)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="${d}"/></svg>`; }
-function ip(d){ return `<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="${d}"/></svg>`; }
-function head(t,s,addKind,addLabel){
-  const btn=addKind?`<button class="btn btn-primary btn-sm" data-add="${addKind}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg> ${addLabel||'Thêm mới'}</button>`:'';
-  return `<div class="view-head"><div><h2>${t}</h2><p>${s}</p></div>${btn}</div>`;
-}
-function toolbar(sid,opts,selId){
-  const sel=opts?`<select id="${selId}">${opts.map((o,i)=>`<option value="${i}">${o}</option>`).join('')}</select>`:'';
-  return `<div class="toolbar"><div class="search"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input id="${sid}" placeholder="Tìm kiếm..."></div>${sel}</div>`;
-}
-function actCell(kind,id){
-  if(!canEdit()) return '';
-  return `<td class="right"><div class="row-acts"><button class="icon-act" data-edit="${kind}:${id}" title="Sửa">${ip('M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z')}</button><button class="icon-act danger" data-del="${kind}:${id}" title="Xóa">${ip('M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14')}</button></div></td>`;
-}
-function emptyRow(c){ return `<tr><td colspan="${c}"><div class="empty">Chưa có dữ liệu trong phạm vi này</div></td></tr>`; }
-
-/* ---------- Bind sau render ---------- */
-function bindViewEvents(){
-  if(VIEW==='giaovien'){
-    const rb=()=>{const q=(document.getElementById('gvSearch').value||'').toLowerCase();const mf=document.getElementById('monFilter').value;let l=DB.giaoVien.filter(inScope).filter(g=>g.ten.toLowerCase().includes(q));if(mf!=='0')l=l.filter(g=>g.mon===MON[mf-1]);document.getElementById('gvBody').innerHTML=gvRows(l);bindRowActs();};
-    document.getElementById('gvSearch').oninput=rb; document.getElementById('monFilter').onchange=rb;
-  }
-  if(VIEW==='lophoc'){
-    document.getElementById('lopSearch').oninput=()=>{const q=document.getElementById('lopSearch').value.toLowerCase();document.getElementById('lopBody').innerHTML=lopRows(DB.lopHoc.filter(inScope).filter(l=>l.ten.toLowerCase().includes(q)));bindRowActs();};
-  }
-  if(VIEW==='hocsinh'){
-    document.getElementById('hsSearch').oninput=()=>{const q=document.getElementById('hsSearch').value.toLowerCase();document.getElementById('hsBody').innerHTML=hsRows(DB.hocSinh.filter(inScope).filter(h=>h.ten.toLowerCase().includes(q)||h.ph.toLowerCase().includes(q)));bindRowActs();};
-  }
-  if(VIEW==='khoanthu'){
-    const rf=()=>{const ids=visibleCoSoIds();const b=document.getElementById('ktBody');if(b){b.innerHTML=ktRows(DB.khoanThu.filter(k=>ids.includes(k.coSoId)&&k.thang===ktThangSel));bindRowActs();}};
-    const th=document.getElementById('ktThang'); if(th) th.onchange=e=>{ktThangSel=Number(e.target.value);render();};
-    const tt=document.getElementById('ktTT'); if(tt) tt.onchange=e=>{ktTrangThai=e.target.value;rf();};
-    const sc=document.getElementById('ktSearch'); if(sc) sc.oninput=rf;
-    const ex=document.getElementById('ktExport'); if(ex) ex.onclick=exportDebt;
-    document.querySelectorAll('[data-coso]').forEach(r=>r.onclick=()=>setScope(r.dataset.coso));
-    const bk=document.querySelector('[data-back]'); if(bk) bk.onclick=()=>setScope('all');
-  }
-  if(VIEW==='diemdanh'){
-    const ls=document.getElementById('ddLopSel'); if(ls) ls.onchange=e=>{ddLop=Number(e.target.value);ddKey='';render();};
-    const ns=document.getElementById('ddNgaySel'); if(ns) ns.onchange=e=>{ddNgay=e.target.value;ddKey='';render();};
-    document.querySelectorAll('[data-att]').forEach(b=>b.onclick=()=>{const[hs,tt]=b.dataset.att.split(':');ddState[Number(hs)]=tt;render();});
-    const sv=document.getElementById('ddSave'); if(sv) sv.onclick=saveAttendance;
-  }
-  document.querySelectorAll('[data-add]').forEach(b=>b.onclick=()=>openFormModal(b.dataset.add));
-  bindRowActs();
-}
-function bindRowActs(){
-  document.querySelectorAll('[data-pay]').forEach(b=>b.onclick=()=>openPaymentModal(Number(b.dataset.pay)));
-  document.querySelectorAll('[data-hist]').forEach(b=>b.onclick=()=>openHistoryModal(Number(b.dataset.hist)));
-  document.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>{const[k,id]=b.dataset.edit.split(':');openFormModal(k,Number(id));});
-  document.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{const[k,id]=b.dataset.del.split(':');delItem(k,Number(id));});
-}
-
-/* ---------- Modal chung ---------- */
-const MB=document.getElementById('modalBody'),MSAVE=document.getElementById('modalSave'),MCANCEL=document.getElementById('modalCancel'),MTITLE=document.getElementById('modalTitle');
-function showModal(s){ document.getElementById('backdrop').classList.toggle('show',s); }
-function footMode(saveLabel){ if(saveLabel){MSAVE.style.display='';MSAVE.textContent=saveLabel;MCANCEL.textContent='Hủy';} else {MSAVE.style.display='none';MCANCEL.textContent='Đóng';} }
-document.getElementById('modalClose').onclick=()=>showModal(false);
-MCANCEL.onclick=()=>showModal(false);
-document.getElementById('backdrop').onclick=e=>{ if(e.target.id==='backdrop') showModal(false); };
-
-/* ---------- Form thêm / sửa ---------- */
-function scopeCoSoOptions(sel){ return (USER.role==='admin'?DB.coSo:DB.coSo.filter(c=>c.id===USER.coSoId)).map(c=>`<option value="${c.id}" ${c.id===sel?'selected':''}>${esc(c.ten)}</option>`).join(''); }
-function openFormModal(kind,id){
-  const edit=id!=null;
-  if(kind==='giaovien'){
-    const g=edit?DB.giaoVien.find(x=>x.id===id):{};
-    MTITLE.textContent=edit?'Cập nhật giáo viên':'Thêm giáo viên';
-    MB.innerHTML=`<div class="wide"><label>Họ tên</label><input id="f_ten" value="${esc(g.ten||'')}" placeholder="VD: Nguyễn Thị Lan"></div>
-      <div><label>Môn phụ trách</label><select id="f_mon">${MON.map(m=>`<option ${g.mon===m?'selected':''}>${m}</option>`).join('')}</select></div>
-      <div><label>Số điện thoại</label><input id="f_sdt" value="${esc(g.sdt||'')}" placeholder="09..."></div>
-      <div class="wide"><label>Cơ sở</label><select id="f_coso">${scopeCoSoOptions(g.coSoId)}</select></div>`;
-  }else if(kind==='lophoc'){
-    const l=edit?DB.lopHoc.find(x=>x.id===id):{};
-    const gvList=DB.giaoVien.filter(x=>USER.role==='admin'||x.coSoId===USER.coSoId);
-    MTITLE.textContent=edit?'Cập nhật lớp học':'Thêm lớp học';
-    MB.innerHTML=`<div class="wide"><label>Tên lớp</label><input id="f_ten" value="${esc(l.ten||'')}" placeholder="VD: Starters A1"></div>
-      <div><label>Giáo viên</label><select id="f_gv">${gvList.map(g=>`<option value="${g.id}" ${l.gvId===g.id?'selected':''}>${esc(g.ten)}</option>`).join('')}</select></div>
-      <div><label>Học phí / tháng</label><input id="f_hp" type="number" value="${l.hocPhi||''}" placeholder="850000"></div>
-      <div><label>Lịch học</label><select id="f_lich">${LICH.map(x=>`<option ${l.lich===x?'selected':''}>${x}</option>`).join('')}</select></div>
-      <div><label>Cơ sở</label><select id="f_coso">${scopeCoSoOptions(l.coSoId)}</select></div>`;
-  }else if(kind==='hocsinh'){
-    const h=edit?DB.hocSinh.find(x=>x.id===id):{};
-    const lopList=DB.lopHoc.filter(x=>USER.role==='admin'||x.coSoId===USER.coSoId);
-    MTITLE.textContent=edit?'Cập nhật học viên':'Thêm học viên';
-    MB.innerHTML=`<div class="wide"><label>Họ tên học sinh</label><input id="f_ten" value="${esc(h.ten||'')}" placeholder="VD: Trần Gia Bảo"></div>
-      <div><label>Tuổi</label><input id="f_tuoi" type="number" value="${h.tuoi||''}" placeholder="8"></div>
-      <div><label>Lớp</label><select id="f_lop">${lopList.map(l=>`<option value="${l.id}" ${h.lopId===l.id?'selected':''}>${esc(l.ten)} — ${esc(coSoName(l.coSoId))}</option>`).join('')}</select></div>
-      <div><label>Phụ huynh</label><input id="f_ph" value="${esc(h.ph||'')}" placeholder="Họ tên phụ huynh"></div>
-      <div><label>Điện thoại</label><input id="f_sdt" value="${esc(h.sdt||'')}" placeholder="03..."></div>
-      ${edit?`<div class="wide"><label>Trạng thái</label><select id="f_tt"><option value="active" ${h.trangThai!=='nghi'?'selected':''}>Đang học</option><option value="nghi" ${h.trangThai==='nghi'?'selected':''}>Nghỉ học</option></select></div>`:''}`;
-  }else if(kind==='khoanthu'){
-    const hsList=DB.hocSinh.filter(x=>inScope(x)&&x.trangThai!=='nghi');
-    MTITLE.textContent='Thêm khoản thu';
-    MB.innerHTML=`<div class="wide"><label>Học viên</label><select id="f_hs">${hsList.map(h=>`<option value="${h.id}">${esc(h.ten)} — ${esc(lopName(h.lopId))}</option>`).join('')}</select></div>
-      <div><label>Tháng</label><select id="f_thang">${[CUR_MONTH-2,CUR_MONTH-1,CUR_MONTH].map(m=>`<option value="${m}" ${m===CUR_MONTH?'selected':''}>Tháng ${m}/${YEAR}</option>`).join('')}</select></div>
-      <div><label>Số tiền phải đóng</label><input id="f_phai" type="number" placeholder="Mặc định = học phí lớp"></div>`;
-  }
-  footMode(edit?'Cập nhật':'Lưu lại');
-  MSAVE.onclick=()=>saveForm(kind,id);
-  showModal(true);
-}
-function saveForm(kind,id){
-  const val=x=>document.getElementById(x)?.value.trim();
-  const edit=id!=null;
-  if(kind==='giaovien'){
-    if(!val('f_ten')) return toast('Vui lòng nhập họ tên',1);
-    if(edit){ const g=DB.giaoVien.find(x=>x.id===id); Object.assign(g,{ten:val('f_ten'),mon:val('f_mon'),sdt:val('f_sdt')||'—',coSoId:Number(val('f_coso'))}); }
-    else DB.giaoVien.push({id:newId(DB.giaoVien),ten:val('f_ten'),coSoId:Number(val('f_coso')),mon:val('f_mon'),sdt:val('f_sdt')||'—'});
-  }else if(kind==='lophoc'){
-    if(!val('f_ten')) return toast('Vui lòng nhập tên lớp',1);
-    const o={ten:val('f_ten'),coSoId:Number(val('f_coso')),gvId:Number(val('f_gv')),hocPhi:Number(val('f_hp'))||0,lich:val('f_lich')};
-    if(edit) Object.assign(DB.lopHoc.find(x=>x.id===id),o); else DB.lopHoc.push({id:newId(DB.lopHoc),...o});
-  }else if(kind==='hocsinh'){
-    if(!val('f_ten')) return toast('Vui lòng nhập họ tên',1);
-    const lop=lopOf(Number(val('f_lop'))); if(!lop) return toast('Chưa có lớp để gán học viên',1);
-    if(edit){ const h=DB.hocSinh.find(x=>x.id===id); Object.assign(h,{ten:val('f_ten'),tuoi:Number(val('f_tuoi'))||0,lopId:lop.id,coSoId:lop.coSoId,ph:val('f_ph')||'—',sdt:val('f_sdt')||'—',trangThai:val('f_tt')||'active'}); }
-    else DB.hocSinh.push({id:newId(DB.hocSinh),ten:val('f_ten'),tuoi:Number(val('f_tuoi'))||0,lopId:lop.id,coSoId:lop.coSoId,ph:val('f_ph')||'—',sdt:val('f_sdt')||'—',trangThai:'active'});
-  }else if(kind==='khoanthu'){
-    const hs=hsOf(Number(val('f_hs'))); if(!hs) return toast('Chưa chọn học viên',1);
-    const thang=Number(val('f_thang'));
-    if(DB.khoanThu.some(k=>k.hsId===hs.id&&k.thang===thang)) return toast('Học viên đã có khoản thu tháng này',1);
-    const lop=lopOf(hs.lopId);
-    const phai=Number(val('f_phai'))||(lop?lop.hocPhi:0);
-    DB.khoanThu.push({id:newId(DB.khoanThu),hsId:hs.id,coSoId:hs.coSoId,lopId:hs.lopId,thang,phai,daDong:0,ngayThu:'—'});
-  }
-  saveDB(); showModal(false); toast(edit?'Đã cập nhật':'Đã thêm thành công'); render();
-}
-
-/* ---------- Xóa ---------- */
-function delItem(kind,id){
-  if(kind==='hocsinh'){
-    const h=hsOf(id); if(!confirm(`Xóa học viên "${h.ten}"? Mọi khoản thu liên quan cũng bị xóa.`)) return;
-    const kts=DB.khoanThu.filter(k=>k.hsId===id).map(k=>k.id);
-    DB.hocSinh=DB.hocSinh.filter(x=>x.id!==id);
-    DB.khoanThu=DB.khoanThu.filter(k=>k.hsId!==id);
-    DB.thanhToan=DB.thanhToan.filter(p=>!kts.includes(p.ktId));
-  }else if(kind==='giaovien'){
-    if(DB.lopHoc.some(l=>l.gvId===id)) return toast('Giáo viên còn lớp phụ trách — hãy đổi giáo viên của lớp trước',1);
-    const g=DB.giaoVien.find(x=>x.id===id); if(!confirm(`Xóa giáo viên "${g.ten}"?`)) return;
-    DB.giaoVien=DB.giaoVien.filter(x=>x.id!==id);
-  }else if(kind==='lophoc'){
-    if(DB.hocSinh.some(h=>h.lopId===id)) return toast('Lớp còn học sinh — hãy chuyển học sinh sang lớp khác trước',1);
-    const l=DB.lopHoc.find(x=>x.id===id); if(!confirm(`Xóa lớp "${l.ten}"?`)) return;
-    const kts=DB.khoanThu.filter(k=>k.lopId===id).map(k=>k.id);
-    DB.lopHoc=DB.lopHoc.filter(x=>x.id!==id);
-    DB.khoanThu=DB.khoanThu.filter(k=>k.lopId!==id);
-    DB.thanhToan=DB.thanhToan.filter(p=>!kts.includes(p.ktId));
-  }
-  saveDB(); toast('Đã xóa'); render();
-}
-
-/* ---------- Thu tiền linh hoạt ---------- */
-function openPaymentModal(ktId){
-  const k=ktOf(ktId),hs=hsOf(k.hsId),no=k.phai-k.daDong;
-  const pays=DB.thanhToan.filter(p=>p.ktId===ktId);
-  MTITLE.textContent='Thu học phí — '+hs.ten;
-  MB.innerHTML=`
-    <div class="sum-box">
-      <div><small>Phải đóng</small><b>${fmtVND(k.phai)}</b></div>
-      <div><small>Đã đóng</small><b style="color:var(--green)">${fmtVND(k.daDong)}</b></div>
-      <div><small>Còn nợ</small><b style="color:var(--red)">${fmtVND(no)}</b></div>
+  // ranking (admin) + info
+  const ranks=inCOSO().filter(c=>!c.build).map(c=>({c,...csStat(c.id)})).sort((a,b)=>b.thu-a.thu);
+  const maxThu=Math.max(1,...ranks.map(r=>r.thu));
+  h+=`<div class="grid2">
+    <div class="panel"><div class="phead"><h3>Xếp hạng cơ sở theo dự thu</h3><span class="sub">${ranks.length} cơ sở</span></div>
+      <div class="pbody">${ranks.slice(0,10).map((r,i)=>`
+        <div class="rank">
+          <div class="no ${i<3?'top':''}">${i+1}</div>
+          <div class="rn"><b>${esc(r.c.ten)}</b><div class="bar"><i style="width:${Math.max(4,r.thu/maxThu*100)}%"></i></div></div>
+          <div class="rv">${fmtShort(r.thu)}</div>
+        </div>`).join('')||'<div class="empty">Chưa có dữ liệu</div>'}
+      </div>
     </div>
-    <div><label>Số tiền thu</label><input id="p_tien" type="number" value="${no}" max="${no}"></div>
-    <div><label>Ngày thu</label><input id="p_ngay" type="date" value="${todayISO()}"></div>
-    <button class="quick-fill" id="p_full">Điền đủ số còn nợ (${fmtVND(no)})</button>
-    <div class="wide"><label>Ghi chú</label><input id="p_note" placeholder="VD: Đóng học phí tháng ${k.thang}"></div>
-    ${pays.length?`<div class="hist"><h4>Lịch sử đã thu (${pays.length})</h4>${pays.map(p=>histRow(p)).join('')}</div>`:''}`;
-  footMode('Lưu khoản thu');
-  MSAVE.onclick=()=>savePayment(ktId);
-  showModal(true);
-  document.getElementById('p_full').onclick=()=>{document.getElementById('p_tien').value=no;};
-  bindPrintBtns();
+    <div class="panel"><div class="phead"><h3>Tổng hợp nhanh</h3></div>
+      <div class="pbody">
+        ${miniRow(IC.users,'Tổng học sinh (sĩ số)',hs.toLocaleString('vi-VN')+' HS')}
+        ${miniRow(IC.cap,'Giáo viên Văn hóa',GV.filter(x=>ids.includes(x.coSoId)&&x.mon==='VH').length+' GV')}
+        ${miniRow(IC.gv,'Giáo viên Tiếng Anh',GV.filter(x=>ids.includes(x.coSoId)&&x.mon==='TA').length+' GV')}
+        ${miniRow(IC.lop,'Sĩ số bình quân/lớp',(ls.length?Math.round(hs/ls.length):0)+' HS')}
+        ${miniRow(IC.thu,'Dự thu bình quân/HS',fmtVND(hs?thu/hs:0))}
+      </div>
+    </div>
+  </div>`;
+  $('#view').innerHTML=h;
 }
-function savePayment(ktId){
-  const k=ktOf(ktId),no=k.phai-k.daDong;
-  let tien=Number(document.getElementById('p_tien').value);
-  if(!tien||tien<=0) return toast('Nhập số tiền hợp lệ',1);
-  if(tien>no){ if(!confirm('Số tiền lớn hơn còn nợ. Vẫn ghi nhận?')) return; }
-  const ngay=isoToDM(document.getElementById('p_ngay').value);
-  const note=document.getElementById('p_note').value.trim()||'Thu học phí';
-  DB.thanhToan.push({id:newId(DB.thanhToan),ktId,hsId:k.hsId,coSoId:k.coSoId,soTien:tien,ngay,ghiChu:note});
-  recompute(k); saveDB(); showModal(false); toast(`Đã thu ${fmtVND(tien)} — ${hsOf(k.hsId).ten}`); render();
+function miniRow(ic,label,val){
+  return `<div class="mrow"><div class="mi">${svg(ic)}</div><div style="flex:1"><small>${label}</small><b>${val}</b></div></div>`;
 }
 
-/* ---------- Lịch sử & phiếu thu ---------- */
-function openHistoryModal(ktId){
-  const k=ktOf(ktId),hs=hsOf(k.hsId),no=k.phai-k.daDong;
-  const pays=DB.thanhToan.filter(p=>p.ktId===ktId);
-  MTITLE.textContent='Lịch sử thu — '+hs.ten;
-  MB.innerHTML=`<div class="sum-box"><div><small>Phải đóng</small><b>${fmtVND(k.phai)}</b></div><div><small>Đã đóng</small><b style="color:var(--green)">${fmtVND(k.daDong)}</b></div><div><small>Còn nợ</small><b style="color:${no>0?'var(--red)':'var(--muted)'}">${fmtVND(no)}</b></div></div>
-    <div class="hist">${pays.length?pays.map(p=>histRow(p)).join(''):'<div class="empty">Chưa có lần thu nào</div>'}</div>`;
-  footMode(null);
-  showModal(true);
-  bindPrintBtns();
+/* ============ GIÁO VIÊN ============ */
+function renderGV(){
+  const opts=inCOSO().filter(c=>!c.build);
+  let h=`<div class="toolbar">
+    <div class="search">${svg(IC.search,2)}<input id="gvq" placeholder="Tìm theo tên, SĐT, địa chỉ…" value="${esc(gvSearch)}"/></div>
+    ${USER.role==='admin'?`<select class="fsel" id="gvcs"><option value="all">Tất cả cơ sở</option>${opts.map(c=>`<option value="${c.id}" ${String(gvCs)===String(c.id)?'selected':''}>${esc(c.ten)}</option>`).join('')}</select>`:''}
+  </div>
+  <div class="chips" style="margin-bottom:14px">
+    ${[['all','Tất cả môn'],['VH','Văn hóa'],['TA','Tiếng Anh']].map(([k,t])=>`<button class="chip ${gvMon===k?'on':''}" data-mon="${k}">${t}</button>`).join('')}
+  </div>`;
+
+  let list=inGV();
+  if(USER.role==='admin'&&gvCs!=='all') list=list.filter(g=>g.coSoId===Number(gvCs));
+  if(gvMon!=='all') list=list.filter(g=>g.mon===gvMon);
+  if(gvSearch.trim()){const q=gvSearch.trim().toLowerCase();list=list.filter(g=>(g.ten+' '+g.sdt+' '+g.dc).toLowerCase().includes(q));}
+  list=list.slice().sort((a,b)=>a.coSoId-b.coSoId||a.ten.localeCompare(b.ten,'vi'));
+
+  h+=`<div class="panel"><div class="phead"><h3>Danh sách giáo viên</h3><span class="sub">${list.length} người</span></div>
+    <div class="twrap"><table><thead><tr>
+      <th>Giáo viên</th><th>Môn</th>${USER.role==='admin'?'<th>Cơ sở</th>':''}<th>Ngày sinh</th><th>Trình độ</th><th>Điện thoại</th><th></th>
+    </tr></thead><tbody>`;
+  if(!list.length){
+    h+=`<tr><td colspan="7"><div class="empty">${svg(IC.gv,1.6)}Không tìm thấy giáo viên phù hợp</div></td></tr>`;
+  }else{
+    list.forEach(g=>{
+      h+=`<tr data-gid="${g.id}" class="gvRow" style="cursor:pointer">
+        <td><div class="gvcell"><div class="gvava" style="background:${avaColor(g.ten)}">${initials(g.ten)}</div><div><b>${esc(g.ten)}</b><small>${esc((g.dc||'').split(',')[0]||'—')}</small></div></div></td>
+        <td><span class="badge ${g.mon==='TA'?'bg-ta':'bg-vh'}">${g.mon==='TA'?'Tiếng Anh':'Văn hóa'}</span></td>
+        ${USER.role==='admin'?`<td>${esc(csName(g.coSoId))}</td>`:''}
+        <td class="num">${esc(g.ns||'—')}</td>
+        <td>${esc(g.td||'—')}</td>
+        <td class="num">${esc(g.sdt||'—')}</td>
+        <td class="tright"><span class="linkbtn">Chi tiết →</span></td>
+      </tr>`;
+    });
+  }
+  h+='</tbody></table></div></div>';
+  $('#view').innerHTML=h;
+
+  $('#gvq').oninput=e=>{gvSearch=e.target.value;refreshGVTable();};
+  const cs=$('#gvcs'); if(cs)cs.onchange=e=>{gvCs=e.target.value;renderGV();};
+  $$('#view .chip').forEach(b=>b.onclick=()=>{gvMon=b.dataset.mon;renderGV();});
+  bindGVRows();
 }
-function histRow(p){
-  return `<div class="hist-row"><div><b>${fmtVND(p.soTien)}</b><small> · ${esc(p.ghiChu)}</small></div><div class="r"><small>${esc(p.ngay)}</small><button class="icon-act" data-print="${p.id}" title="In phiếu thu">${ip('M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v8H6z')}</button></div></div>`;
+function refreshGVTable(){renderGV();$('#gvq').focus();const v=$('#gvq').value;$('#gvq').setSelectionRange(v.length,v.length);}
+function bindGVRows(){$$('#view .gvRow').forEach(r=>r.onclick=()=>showGV(Number(r.dataset.gid)));}
+
+function showGV(id){
+  const g=GV.find(x=>x.id===id); if(!g)return;
+  const lops=LOP.filter(l=>l.coSoId===g.coSoId && (l.gv||'').trim()===g.ten.trim());
+  const hs=lops.reduce((s,l)=>s+(l.siso||0),0);
+  $('#mcard').innerHTML=`
+    <div class="mhead">
+      <div class="mava">${initials(g.ten)}</div>
+      <div style="flex:1"><h3>${esc(g.ten)}</h3><p>${g.mon==='TA'?'Giáo viên Tiếng Anh':'Giáo viên Văn hóa'} · ${esc(csName(g.coSoId))}</p></div>
+      <button class="mclose" onclick="closeModal()">${svg('<path d="M6 6l12 12M18 6L6 18"/>')}</button>
+    </div>
+    <div class="mbody">
+      ${mrow(IC.cake,'Ngày sinh',esc(g.ns||'—'))}
+      ${mrow(IC.cap,'Trình độ chuyên môn',esc(g.td||'—'))}
+      ${mrow(IC.phone,'Số điện thoại',g.sdt?`<a href="tel:${g.sdt.replace(/\s/g,'')}">${esc(g.sdt)}</a>`:'—')}
+      ${mrow(IC.pin,'Địa chỉ',esc(g.dc||'—'))}
+      ${mrow(IC.coso,'Cơ sở công tác',esc(csName(g.coSoId)))}
+      ${lops.length?mrow(IC.lop,'Phụ trách lớp',`${lops.length} lớp · ${hs} HS<br><small class="muted">${lops.map(l=>esc(l.lop)).join(', ')}</small>`):''}
+    </div>`;
+  $('#modal').classList.add('on');
 }
-function bindPrintBtns(){ document.querySelectorAll('[data-print]').forEach(b=>b.onclick=()=>printReceipt(Number(b.dataset.print))); }
-function printReceipt(payId){
-  const p=DB.thanhToan.find(x=>x.id===payId); const k=ktOf(p.ktId); const hs=hsOf(p.hsId);
-  const no=k.phai-k.daDong;
-  const html=`<!DOCTYPE html><html lang="vi"><head><meta charset="utf-8"><title>Phiếu thu học phí</title>
-  <style>body{font-family:"Segoe UI",Arial,sans-serif;color:#16233d;max-width:420px;margin:0 auto;padding:22px}
-  .h{text-align:center;border-bottom:2px solid #0f2044;padding-bottom:12px;margin-bottom:16px}
-  .h b{font-size:1.25rem;color:#0f2044;letter-spacing:.05em}.h div{font-size:.8rem;color:#69748c;margin-top:2px}
-  h2{text-align:center;font-size:1.05rem;letter-spacing:.08em;margin:14px 0}
-  table{width:100%;border-collapse:collapse;font-size:.9rem}td{padding:7px 0;vertical-align:top}
-  td.l{color:#69748c;width:42%}td.r{text-align:right;font-weight:700}
-  .big{font-size:1.35rem;color:#12a367;font-weight:800;text-align:right}
-  .words{font-style:italic;font-size:.85rem;color:#16233d;margin-top:2px;text-align:right}
-  .sign{display:flex;justify-content:space-between;margin-top:34px;font-size:.82rem;text-align:center}
-  .sign div{width:46%}.sign small{color:#69748c}
-  .ft{margin-top:22px;text-align:center;font-size:.72rem;color:#9aa3b5}
-  @media print{.noprint{display:none}}</style></head><body>
-  <div class="h"><b>TRUNG TÂM ANH NGỮ AVATAR</b><div>${esc(coSoName(k.coSoId))}</div></div>
-  <h2>PHIẾU THU HỌC PHÍ</h2>
-  <table>
-    <tr><td class="l">Học viên</td><td class="r">${esc(hs.ten)}</td></tr>
-    <tr><td class="l">Lớp</td><td class="r">${esc(lopName(hs.lopId))}</td></tr>
-    <tr><td class="l">Phụ huynh</td><td class="r">${esc(hs.ph)}</td></tr>
-    <tr><td class="l">Nội dung</td><td class="r">Học phí tháng ${k.thang}/${YEAR}</td></tr>
-    <tr><td class="l">Ngày thu</td><td class="r">${esc(p.ngay)}/${YEAR}</td></tr>
-    <tr><td class="l">Số tiền thu</td><td class="big">${fmtVND(p.soTien)}</td></tr>
-    <tr><td class="l"></td><td class="words">(${docTien(p.soTien)})</td></tr>
-    <tr><td class="l">Còn nợ tháng này</td><td class="r" style="color:${no>0?'#e5484d':'#69748c'}">${fmtVND(no)}</td></tr>
-  </table>
-  <div class="sign"><div><b>Người nộp tiền</b><br><small>(Ký, ghi rõ họ tên)</small></div><div><b>Người thu tiền</b><br><small>(Ký, ghi rõ họ tên)</small></div></div>
-  <div class="ft">Phiếu in từ hệ thống AVATAR Center · ${esc(p.ghiChu)}</div>
-  <script>window.onload=function(){window.print();}<\/script>
-  </body></html>`;
-  const w=window.open('','_blank','width=460,height=680');
-  if(!w){ toast('Trình duyệt chặn cửa sổ in — hãy cho phép popup',1); return; }
-  w.document.write(html); w.document.close();
+function mrow(ic,label,val){return `<div class="mrow"><div class="mi">${svg(ic)}</div><div style="flex:1"><small>${label}</small><b>${val}</b></div></div>`;}
+function closeModal(){$('#modal').classList.remove('on');}
+$('#modal').onclick=e=>{if(e.target.id==='modal')closeModal();};
+
+/* ============ CƠ SỞ ============ */
+function renderCoso(){
+  const list=inCOSO();
+  let h=`<div class="cscards">`;
+  list.forEach(c=>{
+    const s=csStat(c.id), col=avaColor(c.ten);
+    if(c.build){
+      h+=`<div class="cscard build">
+        <div class="cs-top"><div class="cs-badge" style="background:#94a7a4">${initials(c.ten)}</div>
+          <div><h4>${esc(c.ten)}</h4><div class="cs-sub">Đang xây dựng</div></div></div>
+        <div class="empty" style="padding:14px 0">Cơ sở mới · chưa nhập dữ liệu</div></div>`;
+      return;
+    }
+    h+=`<div class="cscard" data-cs="${c.id}">
+      <div class="cs-top"><div class="cs-badge" style="background:${col}">${initials(c.ten)}</div>
+        <div><h4>${esc(c.ten)}</h4><div class="cs-sub">${s.lop} lớp · ${s.hs} học sinh</div></div></div>
+      <div class="cs-stats">
+        <div class="cs-stat"><b>${s.gv}</b><span>Giáo viên</span></div>
+        <div class="cs-stat"><b>${s.hs}</b><span>Học sinh</span></div>
+      </div>
+      <div class="cs-rev"><small>Dự thu học phí</small><b>${fmtShort(s.thu)}</b></div>
+    </div>`;
+  });
+  h+='</div>';
+  $('#view').innerHTML=h;
+  $$('#view .cscard[data-cs]').forEach(c=>c.onclick=()=>{
+    if(USER.role==='admin'){scope=c.dataset.cs;$('#scope').value=scope;}
+    gvCs=c.dataset.cs; go('gv');
+  });
 }
 
-/* ---------- Toast / sidebar ---------- */
-let toastT;
-function toast(msg,warn){ const t=document.getElementById('toast'); document.getElementById('toastMsg').textContent=msg; t.style.background=warn?'var(--red)':'var(--navy-800)'; t.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),2400); }
-function openSidebar(){ document.getElementById('sidebar').classList.add('open'); document.getElementById('scrim').classList.add('show'); }
-function closeSidebar(){ document.getElementById('sidebar').classList.remove('open'); document.getElementById('scrim').classList.remove('show'); }
-document.getElementById('hamburger').onclick=openSidebar;
-document.getElementById('scrim').onclick=closeSidebar;
-document.getElementById('logoutBtn').onclick=()=>{ document.getElementById('app').style.display='none'; document.getElementById('loginScreen').classList.remove('hidden'); };
+/* ============ LỚP HỌC ============ */
+function renderLop(){
+  const opts=inCOSO().filter(c=>!c.build);
+  let list=inLOP();
+  if(USER.role==='admin'&&lopCs!=='all') list=list.filter(l=>l.coSoId===Number(lopCs));
+  if(lopSearch.trim()){const q=lopSearch.trim().toLowerCase();list=list.filter(l=>((l.lop||'')+' '+(l.gv||'')).toLowerCase().includes(q));}
+  list=list.slice().sort((a,b)=>a.coSoId-b.coSoId);
+  const hs=list.reduce((s,l)=>s+(l.siso||0),0), thu=list.reduce((s,l)=>s+(l.duthu||0),0);
 
-/* ---------- Khởi động ---------- */
-DB=loadDB();
-initLogin();
+  let h=`<div class="toolbar">
+    <div class="search">${svg(IC.search,2)}<input id="lopq" placeholder="Tìm lớp hoặc giáo viên…" value="${esc(lopSearch)}"/></div>
+    ${USER.role==='admin'?`<select class="fsel" id="lopcs"><option value="all">Tất cả cơ sở</option>${opts.map(c=>`<option value="${c.id}" ${String(lopCs)===String(c.id)?'selected':''}>${esc(c.ten)}</option>`).join('')}</select>`:''}
+  </div>`;
+  h+=`<div class="panel"><div class="phead"><h3>Danh sách lớp học</h3><span class="sub">${list.length} lớp · ${hs} HS · dự thu ${fmtShort(thu)}</span></div>
+    <div class="twrap"><table><thead><tr><th>Lớp</th><th>Giáo viên phụ trách</th>${USER.role==='admin'?'<th>Cơ sở</th>':''}<th class="tright">Sĩ số</th><th class="tright">Dự thu</th></tr></thead><tbody>`;
+  if(!list.length){h+=`<tr><td colspan="5"><div class="empty">${svg(IC.lop,1.6)}Chưa có lớp học trong phạm vi này</div></td></tr>`;}
+  else list.forEach(l=>{
+    h+=`<tr><td><b>${esc(l.lop||'—')}</b> ${l.mon==='TA'?'<span class="badge bg-ta" style="margin-left:4px">TA</span>':''}</td>
+      <td>${esc(l.gv||'—')}</td>
+      ${USER.role==='admin'?`<td>${esc(csName(l.coSoId))}</td>`:''}
+      <td class="tright num">${l.siso||0}</td>
+      <td class="tright num">${l.duthu?fmtVND(l.duthu):'—'}</td></tr>`;
+  });
+  h+='</tbody></table></div></div>';
+  $('#view').innerHTML=h;
+  $('#lopq').oninput=e=>{lopSearch=e.target.value;const v=e.target.value;renderLop();$('#lopq').focus();$('#lopq').setSelectionRange(v.length,v.length);};
+  const cs=$('#lopcs'); if(cs)cs.onchange=e=>{lopCs=e.target.value;renderLop();};
+}
+
+/* ============ KHOẢN THU ============ */
+function renderThu(){
+  const rows=inCOSO().filter(c=>!c.build).map(c=>({c,...csStat(c.id)})).sort((a,b)=>b.thu-a.thu);
+  const total=rows.reduce((s,r)=>s+r.thu,0), totHs=rows.reduce((s,r)=>s+r.hs,0);
+  const maxThu=Math.max(1,...rows.map(r=>r.thu));
+  let h=`<div class="kpis">
+    <div class="kpi"><div class="kpi-top"><div class="kpi-ic ic-am">${svg(IC.thu)}</div></div><b>${fmtShort(total)}</b><span>Tổng dự thu</span></div>
+    <div class="kpi"><div class="kpi-top"><div class="kpi-ic ic-sky">${svg(IC.users)}</div></div><b>${totHs.toLocaleString('vi-VN')}</b><span>Tổng học sinh</span></div>
+    <div class="kpi"><div class="kpi-top"><div class="kpi-ic ic-em">${svg(IC.coso)}</div></div><b>${rows.length}</b><span>Cơ sở có thu</span></div>
+    <div class="kpi"><div class="kpi-top"><div class="kpi-ic ic-teal">${svg(IC.thu)}</div></div><b>${fmtShort(totHs?total/totHs:0)}</b><span>BQ mỗi học sinh</span></div>
+  </div>`;
+  h+=`<div class="panel"><div class="phead"><h3>Dự thu theo cơ sở</h3><span class="sub">Tổng ${fmtVND(total)}</span></div>
+    <div class="twrap"><table><thead><tr><th>Cơ sở</th><th class="tright">Lớp</th><th class="tright">Học sinh</th><th class="tright">Dự thu</th><th>Tỷ trọng</th></tr></thead><tbody>`;
+  rows.forEach(r=>{
+    h+=`<tr style="cursor:pointer" data-cs="${r.c.id}"><td><div class="gvcell"><div class="gvava" style="width:32px;height:32px;font-size:.72rem;background:${avaColor(r.c.ten)}">${initials(r.c.ten)}</div><b>${esc(r.c.ten)}</b></div></td>
+      <td class="tright num">${r.lop}</td><td class="tright num">${r.hs}</td>
+      <td class="tright num">${fmtVND(r.thu)}</td>
+      <td style="min-width:120px"><div class="bar" style="height:7px;border-radius:99px;background:var(--soft)"><i style="display:block;height:100%;border-radius:99px;width:${Math.max(3,r.thu/maxThu*100)}%;background:linear-gradient(90deg,var(--brand),var(--emerald))"></i></div></td></tr>`;
+  });
+  h+='</tbody></table></div></div>';
+  $('#view').innerHTML=h;
+  $$('#view tr[data-cs]').forEach(t=>t.onclick=()=>{if(USER.role==='admin'){scope=t.dataset.cs;$('#scope').value=scope;}lopCs=t.dataset.cs;go('lop');});
+}
+
+/* ẩn/hiện mật khẩu */
+const EYE_ON='<svg viewBox="0 0 24 24" fill="none" stroke-width="1.9"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>';
+const EYE_OFF='<svg viewBox="0 0 24 24" fill="none" stroke-width="1.9"><path d="M3 3l18 18"/><path d="M10.6 6.2A9.7 9.7 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.3 4"/><path d="M6.2 6.3A17 17 0 0 0 2 12s3.6 7 10 7a9.6 9.6 0 0 0 4-.9"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>';
+$('#eyeBtn').innerHTML=EYE_ON;
+$('#eyeBtn').onclick=()=>{const i=$('#upass');const show=i.type==='password';i.type=show?'text':'password';$('#eyeBtn').innerHTML=show?EYE_OFF:EYE_ON;$('#eyeBtn').setAttribute('aria-label',show?'Ẩn mật khẩu':'Hiện mật khẩu');i.focus();};
+
+fillCsPick();
 </script>
 </body>
 </html>
