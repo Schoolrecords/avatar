@@ -4,8 +4,13 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
 <meta name="theme-color" content="#0b1d3d"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="AVATAR"/>
 <link rel="icon" type="image/png" href="logo-mark.png"/>
 <link rel="apple-touch-icon" href="logo-mark.png"/>
+<link rel="manifest" href="manifest.webmanifest"/>
 <title>AVATAR English Center · Hệ thống quản trị chuỗi</title>
 <style>
 :root{
@@ -535,7 +540,7 @@ const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 /* ===== SUPABASE (kho dữ liệu online) ===== */
 const SB_URL='https://hdvtlbeozyumvnhgejxp.supabase.co';
 const SB_KEY='sb_publishable_eGYgGZpxRRdIgLeO6_S_JQ_N7rHsINZ';
-const SB=window.supabase.createClient(SB_URL,SB_KEY);
+const SB=window.supabase.createClient(SB_URL,SB_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:false,storageKey:'avatar-auth'}});
 /* ánh xạ giữa cột CSDL (chữ_gạch) và tên dùng trong app (chữHoa) */
 const hvFromDb=r=>({id:r.id,ten:r.ten,ns:r.ns||'',ph:r.ph||'',sdt:r.sdt||'',hocPhi:Number(r.hoc_phi)||0,daDong:!!r.da_dong,lopId:r.lop_id,coSoId:r.coso_id,mau:!!r.mau});
 const hvToDb=o=>({ten:o.ten,ns:o.ns||'',ph:o.ph||'',sdt:o.sdt||'',hoc_phi:o.hocPhi||0,da_dong:!!o.daDong,lop_id:o.lopId,coso_id:o.coSoId,mau:!!o.mau});
@@ -851,8 +856,9 @@ $('#loginBtn').onclick=async()=>{
   if(error){showLoginErr('Sai tên đăng nhập hoặc mật khẩu.');return;}
   await afterAuth();
 };
-async function afterAuth(){
-  const {data:{user}}=await SB.auth.getUser();
+async function afterAuth(preUser){
+  let user=preUser;
+  if(!user){const r=await SB.auth.getUser(); user=r.data&&r.data.user;}
   if(!user)return;
   const {data:prof,error}=await SB.from('profiles').select('*').eq('id',user.id).single();
   if(error||!prof||!prof.role){showLoginErr('Tài khoản chưa được phân quyền. Liên hệ quản trị viên.');await SB.auth.signOut();return;}
@@ -1887,8 +1893,8 @@ const EYE_OFF='<svg viewBox="0 0 24 24" fill="none" stroke-width="1.9"><path d="
 $('#eyeBtn').innerHTML=EYE_ON;
 $('#eyeBtn').onclick=()=>{const i=$('#upass');const show=i.type==='password';i.type=show?'text':'password';$('#eyeBtn').innerHTML=show?EYE_OFF:EYE_ON;$('#eyeBtn').setAttribute('aria-label',show?'Ẩn mật khẩu':'Hiện mật khẩu');i.focus();};
 
-/* Giữ đăng nhập: nếu còn phiên hợp lệ thì vào thẳng app */
-(async()=>{ try{ const {data:{session}}=await SB.auth.getSession(); if(session) await afterAuth(); }catch(e){} })();
+/* Giữ đăng nhập: nếu còn phiên hợp lệ thì vào thẳng app (không cần nhập lại) */
+(async()=>{ try{ const {data:{session}}=await SB.auth.getSession(); if(session&&session.user) await afterAuth(session.user); }catch(e){} })();
 </script>
 </body>
 </html>

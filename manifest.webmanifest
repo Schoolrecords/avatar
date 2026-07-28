@@ -1,0 +1,17 @@
+{
+  "name": "AVATAR English Center",
+  "short_name": "AVATAR",
+  "description": "Hệ thống quản trị chuỗi trung tâm Anh ngữ AVATAR",
+  "lang": "vi",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0b1d3d",
+  "theme_color": "#0b1d3d",
+  "icons": [
+    { "src": "logo-mark.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "logo-mark.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "logo-mark.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
