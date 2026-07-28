@@ -237,6 +237,14 @@ tbody tr:hover{background:var(--soft)}
 .csd-prog-bar{flex:1;height:9px;border-radius:99px;background:#eef1f6;overflow:hidden}
 .csd-prog-bar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,var(--brand),var(--emerald))}
 .csd-prog span{font-size:.8rem;color:var(--muted);white-space:nowrap}
+/* nút trạng thái đóng học phí */
+.hv-paid{display:flex;gap:8px}
+.hv-paid button{flex:1;padding:10px;border:1.5px solid var(--line);border-radius:11px;background:#fff;font-weight:700;font-size:.86rem;color:var(--muted);cursor:pointer;transition:.12s}
+.hv-paid button[data-p="1"].sel{background:#eafaf1;border-color:var(--emerald);color:var(--emerald)}
+.hv-paid button[data-p="0"].sel{background:#fdf1ec;border-color:#d9663b;color:#d9663b}
+.paidtag{display:inline-block;font-size:.66rem;font-weight:800;padding:1px 7px;border-radius:99px;margin-left:5px;vertical-align:middle}
+.paidtag.yes{background:#eafaf1;color:var(--emerald)}
+.paidtag.no{background:#fdf1ec;color:#d9663b}
 
 /* ===== GHI DANH / ĐIỂM DANH ===== */
 .form2{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
@@ -529,8 +537,8 @@ const SB_URL='https://hdvtlbeozyumvnhgejxp.supabase.co';
 const SB_KEY='sb_publishable_eGYgGZpxRRdIgLeO6_S_JQ_N7rHsINZ';
 const SB=window.supabase.createClient(SB_URL,SB_KEY);
 /* ánh xạ giữa cột CSDL (chữ_gạch) và tên dùng trong app (chữHoa) */
-const hvFromDb=r=>({id:r.id,ten:r.ten,ns:r.ns||'',ph:r.ph||'',sdt:r.sdt||'',hocPhi:Number(r.hoc_phi)||0,lopId:r.lop_id,coSoId:r.coso_id,mau:!!r.mau});
-const hvToDb=o=>({ten:o.ten,ns:o.ns||'',ph:o.ph||'',sdt:o.sdt||'',hoc_phi:o.hocPhi||0,lop_id:o.lopId,coso_id:o.coSoId,mau:!!o.mau});
+const hvFromDb=r=>({id:r.id,ten:r.ten,ns:r.ns||'',ph:r.ph||'',sdt:r.sdt||'',hocPhi:Number(r.hoc_phi)||0,daDong:!!r.da_dong,lopId:r.lop_id,coSoId:r.coso_id,mau:!!r.mau});
+const hvToDb=o=>({ten:o.ten,ns:o.ns||'',ph:o.ph||'',sdt:o.sdt||'',hoc_phi:o.hocPhi||0,da_dong:!!o.daDong,lop_id:o.lopId,coso_id:o.coSoId,mau:!!o.mau});
 const gdFromDb=r=>({id:r.id,ngay:r.ngay,loai:r.loai,hangMuc:r.hang_muc,coSoId:r.coso_id,soTien:Number(r.so_tien)||0,noiDung:r.noi_dung||'',nguoiLap:r.nguoi_lap||''});
 const gdToDb=o=>({ngay:o.ngay,loai:o.loai,hang_muc:o.hangMuc,coso_id:o.coSoId,so_tien:o.soTien,noi_dung:o.noiDung||'',nguoi_lap:o.nguoiLap||''});
 async function loadCloud(){
@@ -584,11 +592,35 @@ function csStat(id){
   const g=GV.filter(x=>x.coSoId===id), l=LOP.filter(x=>x.coSoId===id);
   return {gv:g.length,lop:l.length,hs:l.reduce((s,x)=>s+(x.siso||0),0),thu:l.reduce((s,x)=>s+(x.duthu||0),0)};
 }
-/* mô phỏng cố định (deterministic) cho phần chưa có nguồn vận hành */
-function seed(str){let h=2166136261;str=String(str);for(let i=0;i<str.length;i++){h^=str.charCodeAt(i);h=Math.imul(h,16777619);}return (h>>>0)/4294967296;}
-const thuRate=name=>0.63+seed('t'+name)*0.30;          // tỷ lệ thực thu 63–93%
-const chuyenCan=key=>0.83+seed('c'+key)*0.15;          // chuyên cần 83–98%
-const SLOTS=['17:15','17:30','18:00','18:30','19:00','19:30','20:00'];
+/* ===== SỐ LIỆU THẬT (từ Supabase) ===== */
+/* Học phí theo phạm vi cơ sở: dự thu = Σ học phí mọi HS; đã thu = HS đã đóng */
+function hpStat(ids){
+  let du=0,da=0,n=0,nDa=0;
+  OPS.hv.forEach(h=>{ if(!ids.includes(h.coSoId))return; const p=h.hocPhi||0; du+=p; n++; if(h.daDong){da+=p;nDa++;} });
+  return {du,da,chua:Math.max(0,du-da),rate:du?da/du:0,n,nDa};
+}
+/* Chuyên cần thật = (có mặt + muộn) / tổng lượt điểm danh; null nếu chưa có dữ liệu */
+function ccStat(ids){
+  let pres=0,tot=0;
+  for(const k in OPS.ddHV){
+    const lopId=Number(k.split('|')[0]), lop=LOP.find(l=>l.id===lopId);
+    if(!lop||!ids.includes(lop.coSoId))continue;
+    const obj=OPS.ddHV[k];
+    for(const hid in obj){ tot++; const st=obj[hid]; if(st==='co'||st==='muon')pres++; }
+  }
+  return tot?pres/tot:null;
+}
+/* Các buổi đã điểm danh HÔM NAY trong phạm vi (thật) */
+function ddToday(ids){
+  const t=todayISO(), out=[];
+  for(const k in OPS.ddHV){
+    const parts=k.split('|'), lop=LOP.find(l=>l.id===Number(parts[0]));
+    if(parts[1]!==t||!lop||!ids.includes(lop.coSoId))continue;
+    const m=Object.values(OPS.ddHV[k]);
+    out.push({lop,co:m.filter(s=>s==='co'||s==='muon').length,tot:m.length});
+  }
+  return out;
+}
 const DOW=['Chủ nhật','Thứ hai','Thứ ba','Thứ tư','Thứ năm','Thứ sáu','Thứ bảy'];
 
 /* ===== NGHIỆP VỤ: ghi danh & điểm danh — lưu trên Supabase (đồng bộ mọi máy) ===== */
@@ -601,46 +633,13 @@ const isoVN=s=>{if(!s)return'';const p=String(s).split('-');return `${p[2]}/${p[
 let ktThang='all', ktLoai='all';
 function ensureXLSX(){return new Promise((res,rej)=>{if(window.XLSX)return res();const s=document.createElement('script');s.src='xlsx.full.min.js';s.onload=()=>res();s.onerror=()=>rej(new Error('load'));document.head.appendChild(s);});}
 const hvOfLop=id=>OPS.hv.filter(h=>h.lopId===id);
+const lopHP=id=>OPS.hv.filter(h=>h.lopId===id).reduce((s,h)=>s+(h.hocPhi||0),0);
 const inHV=()=>OPS.hv.filter(h=>scopeIds().includes(h.coSoId));
 const lopName=id=>{const l=LOP.find(x=>x.id===id);return l?l.lop:'—';};
 const nextHvId=()=>OPS.hv.reduce((m,h)=>Math.max(m,h.id),0)+1;
 function todayISO(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
 const CC_LABEL={day:'Lên lớp',nghi:'Nghỉ',bu:'Dạy bù'};
 let ddDate=todayISO(), ddLopId=null, ghiLopId=null;
-const HO2=['Nguyễn','Trần','Lê','Phạm','Hoàng','Phan','Vũ','Hồ','Ngô','Đặng','Bùi','Dương'];
-const DEM2=['Thị','Văn','Hữu','Đức','Ngọc','Minh','Thanh','Gia','Bảo','Hải','Khánh','Nhật'];
-const TEN2=['An','Bình','Chi','Dũng','Giang','Hà','Hùng','Khánh','Lan','Linh','Mai','Nam','Ngân','Phúc','Quân','Sơn','Trang','Tú','Vy','Yến','Đạt','Hương','Khoa','Thảo'];
-/* tạo danh sách tên mẫu cho 1 lớp (đủ sĩ số) — trả về mảng bản ghi CSDL */
-function genSampleRows(lop){
-  const have=hvOfLop(lop.id).length, need=Math.max(0,(lop.siso||12)-have);
-  const rows=[];
-  for(let i=0;i<need;i++){const r=seed(lop.lop+lop.id+(have+i));
-    const nm=HO2[Math.floor(seed('a'+r+i)*HO2.length)]+' '+DEM2[Math.floor(seed('b'+r+i)*DEM2.length)]+' '+TEN2[Math.floor(seed('c'+r+i)*TEN2.length)];
-    rows.push(hvToDb({ten:nm,ns:'',ph:'',sdt:'',hocPhi:0,lopId:lop.id,coSoId:lop.coSoId,mau:true}));}
-  return rows;
-}
-async function insertHvChunks(rows){
-  for(let i=0;i<rows.length;i+=500){
-    const {data,error}=await SB.from('hoc_vien').insert(rows.slice(i,i+500)).select();
-    if(error){alert('Lỗi tạo danh sách: '+error.message);return false;}
-    (data||[]).forEach(r=>OPS.hv.push(hvFromDb(r)));
-  }
-  return true;
-}
-async function seedHV(lop){
-  const rows=genSampleRows(lop); if(!rows.length)return;
-  await insertHvChunks(rows);
-}
-/* tạo mẫu cho TẤT CẢ lớp còn thiếu trong phạm vi hiện tại */
-async function seedAllHV(){
-  const lops=inLOP().filter(l=>l.siso>0);
-  let rows=[]; let nLop=0;
-  lops.forEach(l=>{const r=genSampleRows(l); if(r.length){rows=rows.concat(r);nLop++;}});
-  if(!rows.length){alert('Tất cả lớp trong phạm vi đã đủ danh sách mẫu rồi.');return false;}
-  const pv=USER.role==='admin'?(scope==='all'?'toàn hệ thống':csName(Number(scope))):csName(USER.coSoId);
-  if(!confirm(`Tạo nhanh ${rows.length} học sinh mẫu cho ${nLop} lớp còn thiếu (phạm vi: ${pv}).\n\nCác em được đánh dấu "học sinh mẫu", có thể xóa sau. Tiếp tục?`))return false;
-  return await insertHvChunks(rows);
-}
 function lopPickHTML(selId){
   return inLOP().filter(l=>l.siso>0||hvOfLop(l.id).length).slice().sort((a,b)=>a.coSoId-b.coSoId)
     .map(l=>`<option value="${l.id}" ${l.id===selId?'selected':''}>${USER.role==='admin'?csAbbr(l.coSoId)+' · ':''}${esc(l.lop)} — ${esc(l.gv||'?')}</option>`).join('');
@@ -649,7 +648,7 @@ function lopPickHTML(selId){
 /* ============ STATE ============ */
 let USER={role:'admin',coSoId:null}, VIEW='dashboard', scope='all';
 let gvSearch='',gvCs='all',gvMon='all', lopSearch='',lopCs='all', csSort='thu';
-let hvSearch='',hvCs='all',hvLop='all';
+let hvSearch='',hvCs='all',hvLop='all',hvPaid='all';
 let csDetailId=null;
 
 /* ============ ICONS ============ */
@@ -730,8 +729,26 @@ function startApp(){
   $('#uRole').textContent=USER.role==='admin'?'Toàn hệ thống':'Lễ tân Cơ Sở';
   $('#uAva').textContent=USER.role==='admin'?'QT':initials(csName(USER.coSoId));
   buildScope(); renderNav(); go('dashboard');
+  subscribeRealtime();
 }
-$('#logout').onclick=async()=>{ try{await SB.auth.signOut();}catch(e){} location.reload(); };
+/* ===== REALTIME: tự cập nhật khi bất kỳ cơ sở nào lưu thay đổi ===== */
+let rtChannel=null;
+function renderCurrent(){
+  ({dashboard:renderDash,gv:renderGV,coso:renderCoso,lop:renderLop,hocvien:renderHocVien,ghidanh:renderGhiDanh,diemdanh:renderDiemDanh,thu:renderThu}[VIEW]||renderDash)();
+  renderNavCounts();
+}
+function subscribeRealtime(){
+  if(rtChannel)return;
+  let timer=null;
+  const bump=()=>{ clearTimeout(timer); timer=setTimeout(async()=>{
+    try{ await loadCloud(); if(!$('#modal').classList.contains('on')) renderCurrent(); }catch(e){}
+  },600); };
+  rtChannel=SB.channel('avatar-rt');
+  ['hoc_vien','so_quy','diem_danh_hv','cham_cong_gv','gv_edits'].forEach(t=>
+    rtChannel.on('postgres_changes',{event:'*',schema:'public',table:t},bump));
+  rtChannel.subscribe();
+}
+$('#logout').onclick=async()=>{ try{if(rtChannel)SB.removeChannel(rtChannel);}catch(e){} try{await SB.auth.signOut();}catch(e){} location.reload(); };
 $('#chgPass').onclick=openChgPass;
 function openChgPass(){
   $('#mcard').innerHTML=`
@@ -823,25 +840,20 @@ function renderDash(){
   const cosos=inCOSO().filter(c=>!c.build);
   const g=GV.filter(x=>ids.includes(x.coSoId)).length;
   const ls=LOP.filter(x=>ids.includes(x.coSoId));
-  const hs=ls.reduce((s,x)=>s+(x.siso||0),0), duThu=ls.reduce((s,x)=>s+(x.duthu||0),0);
+  const hs=ls.reduce((s,x)=>s+(x.siso||0),0);
 
-  // ---- tài chính: thực thu (mô phỏng cố định) ----
-  let thucThu=0;
-  cosos.forEach(c=>{ if(ids.includes(c.id)) thucThu+=csStat(c.id).thu*thuRate(c.ten); });
-  const rate=duThu?thucThu/duThu*100:0, conNo=Math.max(0,duThu-thucThu);
+  // ---- tài chính THẬT: học phí từng học sinh ----
+  const money=hpStat(ids);
+  const duThu=money.du, thucThu=money.da, conNo=money.chua, rate=money.rate*100;
 
-  // ---- lớp học hôm nay + chuyên cần (mô phỏng) ----
-  const today=ls.filter(l=>l.siso>0 && seed(l.lop+l.gv+l.coSoId)>0.45)
-    .map(l=>({...l,gio:SLOTS[Math.floor(seed('g'+l.lop+l.coSoId)*SLOTS.length)],cc:chuyenCan(l.lop+l.gv),done:seed('d'+l.gv+l.lop)>0.3}))
-    .sort((a,b)=>a.gio.localeCompare(b.gio));
-  const ccAvg=today.length?today.reduce((s,l)=>s+l.cc,0)/today.length*100:0;
-  const doneCnt=today.filter(l=>l.done).length;
-  const coMat=today.reduce((s,l)=>s+Math.round(l.siso*l.cc),0);
-  const siToday=today.reduce((s,l)=>s+l.siso,0);
+  // ---- chuyên cần THẬT: từ điểm danh đã ghi ----
+  const ccReal=ccStat(ids);                 // null nếu chưa có dữ liệu
+  const ccAvg=ccReal==null?0:ccReal*100;
+  const today=ddToday(ids);                 // buổi đã điểm danh hôm nay
+  const coMat=today.reduce((s,l)=>s+l.co,0);
+  const siToday=today.reduce((s,l)=>s+l.tot,0);
 
   const now=new Date(), gio=now.getHours();
-  const chao=gio<11?'Chào buổi sáng':gio<13?'Chào buổi trưa':gio<18?'Chào buổi chiều':'Chào buổi tối';
-  const who=USER.role==='admin'?'Ban Giám đốc':('Lễ tân '+csName(USER.coSoId));
   const scopeTxt=USER.role==='admin'?(scope==='all'?'toàn hệ thống '+cosos.length+' cơ sở':csName(Number(scope))):csName(USER.coSoId);
 
   let h=`<div class="hello">
@@ -851,46 +863,45 @@ function renderDash(){
 
   // KPI hero
   const kpis=[
-    {i:IC.thu,v:fmtShort(duThu),l:'Dự thu tháng'},
-    {i:IC.thu,v:fmtShort(thucThu),l:'Thực thu (dự kiến)'},
+    {i:IC.thu,v:fmtShort(duThu),l:'Dự thu học phí'},
+    {i:IC.thu,v:fmtShort(thucThu),l:'Đã thu học phí'},
     {i:IC.users,v:hs.toLocaleString('vi-VN'),l:'Học sinh'},
     {i:IC.lop,v:ls.length,l:'Lớp học'},
   ];
   h+=`<div class="kcards">${kpis.map((k,i)=>`<div class="kcard kc${i+1}"><span class="kdeco"></span><div class="kic">${svg(k.i)}</div><b>${k.v}</b><span class="kl">${k.l}</span></div>`).join('')}</div>`;
 
-  // Tài chính + Chuyên cần
+  // Tài chính + Chuyên cần (SỐ LIỆU THẬT)
   h+=`<div class="grid2">
-    <div class="panel"><div class="phead"><h3>Tài chính học phí</h3><span class="simtag">◐ minh họa</span></div>
-      <div class="pbody"><div class="finrow">
+    <div class="panel"><div class="phead"><h3>Tài chính học phí</h3><span class="sub">${money.nDa}/${money.n} HS đã đóng</span></div>
+      <div class="pbody">${money.n===0?'<div class="empty" style="padding:26px 0">Chưa nhập học phí cho học sinh nào.<br/>Vào <b>Học sinh</b> để nhập học phí & đánh dấu đã đóng.</div>':`<div class="finrow">
         ${ring(rate,'đã thu')}
         <div class="finnums">
-          <div class="finstat"><small>Dự thu kế hoạch</small><b>${fmtVND(duThu)}</b></div>
-          <div class="finstat"><small>Đã thu (dự kiến)</small><b class="pos">${fmtVND(thucThu)}</b></div>
+          <div class="finstat"><small>Dự thu (theo học phí HS)</small><b>${fmtVND(duThu)}</b></div>
+          <div class="finstat"><small>Đã thu</small><b class="pos">${fmtVND(thucThu)}</b></div>
           <div class="finstat"><small>Còn phải thu</small><b class="neg">${fmtVND(conNo)}</b></div>
         </div>
-      </div></div>
+      </div>`}</div>
     </div>
-    <div class="panel"><div class="phead"><h3>Chuyên cần hôm nay</h3><span class="simtag">◐ minh họa</span></div>
-      <div class="pbody"><div class="finrow">
+    <div class="panel"><div class="phead"><h3>Chuyên cần</h3><span class="sub">theo điểm danh đã ghi</span></div>
+      <div class="pbody">${ccReal==null?'<div class="empty" style="padding:26px 0">Chưa có dữ liệu điểm danh trong phạm vi này.<br/>Vào <b>Điểm danh</b> để bắt đầu ghi nhận.</div>':`<div class="finrow">
         ${ring(ccAvg,'có mặt')}
         <div class="finnums">
-          <div class="finstat"><small>Lớp học hôm nay</small><b>${today.length} lớp</b></div>
-          <div class="finstat"><small>GV đã điểm danh</small><b class="pos">${doneCnt}/${today.length}</b></div>
-          <div class="finstat"><small>Học sinh có mặt</small><b>${coMat}/${siToday}</b></div>
+          <div class="finstat"><small>Buổi điểm danh hôm nay</small><b>${today.length} buổi</b></div>
+          <div class="finstat"><small>Lượt có mặt hôm nay</small><b class="pos">${coMat}/${siToday||0}</b></div>
+          <div class="finstat"><small>Chuyên cần chung</small><b>${Math.round(ccAvg)}%</b></div>
         </div>
-      </div></div>
+      </div>`}</div>
     </div>
   </div>`;
 
-  // Lớp hôm nay + Cảnh báo
+  // Điểm danh hôm nay + Cảnh báo
   h+=`<div class="grid2">
-    <div class="panel"><div class="phead"><h3>Lớp đang học hôm nay</h3><span class="simtag">◐ minh họa</span></div>
-      <div class="pbody">${today.length?today.slice(0,7).map(l=>`
+    <div class="panel"><div class="phead"><h3>Điểm danh hôm nay</h3><span class="sub">${today.length} buổi</span></div>
+      <div class="pbody">${today.length?today.slice(0,8).map(l=>`
         <div class="tday">
-          <div class="tm">${l.gio}</div>
-          <div class="ti"><b>${esc(l.lop)}${USER.role==='admin'?' · '+esc(csName(l.coSoId)):''}</b><small>${esc(l.gv||'—')} · ${l.siso} HS</small></div>
-          <span class="badge ${l.done?'bg-em':'bg-am'}">${l.done?'Đã điểm danh':'Chưa ĐD'}</span>
-        </div>`).join(''):'<div class="empty">Hôm nay chưa có lớp trong phạm vi này</div>'}
+          <div class="ti"><b>${esc(l.lop.lop)}${USER.role==='admin'?' · '+esc(csName(l.lop.coSoId)):''}</b><small>${esc(l.lop.gv||'—')}</small></div>
+          <span class="badge bg-em">${l.co}/${l.tot} có mặt</span>
+        </div>`).join(''):'<div class="empty">Hôm nay chưa có lớp nào điểm danh.</div>'}
       </div>
     </div>
     <div class="panel"><div class="phead"><h3>Cảnh báo điều hành</h3></div>
@@ -898,16 +909,16 @@ function renderDash(){
     </div>
   </div>`;
 
-  // Xếp hạng cơ sở (chỉ khi xem toàn hệ thống)
+  // Xếp hạng cơ sở theo dự thu THẬT (chỉ admin toàn hệ thống)
   if(USER.role==='admin' && scope==='all'){
-    const ranks=cosos.map(c=>({c,...csStat(c.id)})).sort((a,b)=>b.thu-a.thu);
-    const maxThu=Math.max(1,...ranks.map(r=>r.thu));
+    const ranks=cosos.map(c=>({c,du:hpStat([c.id]).du})).sort((a,b)=>b.du-a.du);
+    const maxThu=Math.max(1,...ranks.map(r=>r.du));
     h+=`<div class="panel"><div class="phead"><h3>Xếp hạng cơ sở theo dự thu</h3><span class="sub">${ranks.length} cơ sở</span></div>
       <div class="pbody">${ranks.map((r,i)=>`
         <div class="rank">
           <div class="no ${i<3?'top':''}">${i+1}</div>
-          <div class="rn"><b>${esc(r.c.ten)}</b><div class="bar"><i style="width:${Math.max(4,r.thu/maxThu*100)}%"></i></div></div>
-          <div class="rv">${fmtShort(r.thu)}</div>
+          <div class="rn"><b>${esc(r.c.ten)}</b><div class="bar"><i style="width:${Math.max(4,r.du/maxThu*100)}%"></i></div></div>
+          <div class="rv">${fmtShort(r.du)}</div>
         </div>`).join('')}
       </div></div>`;
   }
@@ -922,9 +933,9 @@ function dashWarns(ids){
     const st=csStat(c.id);
     if(st.gv>0&&st.lop===0) rows.push({t:`<b>${esc(c.ten)}</b>: có ${st.gv} GV nhưng chưa nhập lớp học`});
   });
-  // cơ sở thực thu thấp (mô phỏng)
-  const low=inCOSO().filter(c=>!c.build&&ids.includes(c.id)).map(c=>({c,r:thuRate(c.ten)})).filter(x=>x.r<0.72).sort((a,b)=>a.r-b.r).slice(0,2);
-  low.forEach(x=>rows.push({t:`<b>${esc(x.c.ten)}</b>: tỷ lệ thu học phí thấp (~${Math.round(x.r*100)}%), cần đôn đốc`}));
+  // cơ sở thu học phí thấp (số thật — chỉ xét nơi đã nhập học phí)
+  const low=inCOSO().filter(c=>!c.build&&ids.includes(c.id)).map(c=>({c,...hpStat([c.id])})).filter(x=>x.du>0&&x.rate<0.72).sort((a,b)=>a.rate-b.rate).slice(0,2);
+  low.forEach(x=>rows.push({t:`<b>${esc(x.c.ten)}</b>: mới thu ~${Math.round(x.rate*100)}% học phí, cần đôn đốc`}));
   const ic=svg('<path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/>');
   if(!rows.length) return `<div class="warnrow ok">${svg('<path d="M20 6 9 17l-5-5"/>')}<div>Mọi cơ sở đều ổn định, không có cảnh báo.</div></div>`;
   return rows.map(r=>`<div class="warnrow">${ic}<div>${r.t}</div></div>`).join('');
@@ -1026,13 +1037,14 @@ function renderCoso(){
   if(csDetailId!=null){renderCosoDetail(csDetailId);return;}
   const list=inCOSO();
   const active=list.filter(c=>!c.build);
-  const tot=active.reduce((a,c)=>{const s=csStat(c.id);a.gv+=s.gv;a.hs+=s.hs;a.lop+=s.lop;a.thu+=s.thu;return a;},{gv:0,hs:0,lop:0,thu:0});
-  const maxThu=Math.max(1,...active.map(c=>csStat(c.id).thu));
-  const rows=list.map(c=>({c,...csStat(c.id)}));
+  const tot=active.reduce((a,c)=>{const s=csStat(c.id);a.gv+=s.gv;a.hs+=s.hs;a.lop+=s.lop;return a;},{gv:0,hs:0,lop:0});
+  const totDu=hpStat(scopeIds()).du;
+  const rows=list.map(c=>({c,...csStat(c.id),du:hpStat([c.id]).du}));
   rows.sort((a,b)=>{
     if(a.c.build!==b.c.build) return a.c.build?1:-1;   // đang XD xuống cuối
     if(csSort==='ten') return a.c.ten.localeCompare(b.c.ten,'vi');
-    return b[csSort]-a[csSort];
+    const key=csSort==='thu'?'du':csSort;
+    return b[key]-a[key];
   });
 
   let h=`<div class="cssum">
@@ -1040,7 +1052,7 @@ function renderCoso(){
     <div class="s"><b>${tot.gv}</b><span>Giáo viên</span></div>
     <div class="s"><b>${tot.hs.toLocaleString('vi-VN')}</b><span>Học sinh</span></div>
     <div class="s"><b>${tot.lop}</b><span>Lớp học</span></div>
-    <div class="s"><b>${fmtShort(tot.thu)}</b><span>Dự thu học phí</span></div>
+    <div class="s"><b>${fmtShort(totDu)}</b><span>Dự thu học phí</span></div>
   </div>
   <div class="toolbar"><div style="margin-left:auto;display:flex;align-items:center;gap:8px">
     <small class="muted" style="font-weight:700">Sắp xếp:</small>
@@ -1083,12 +1095,12 @@ function renderCosoDetail(id){
   if(!c){csDetailId=null;return renderCoso();}
   const s=csStat(id);
   const lops=LOP.filter(l=>l.coSoId===id).slice().sort((a,b)=>(a.lop||'').localeCompare(b.lop||'','vi'));
-  const duthu=s.thu;
-  const daThu=Math.round(duthu*thuRate(c.ten));
-  const chuaThu=Math.max(0,duthu-daThu);
-  const pct=duthu?Math.round(daThu/duthu*100):0;
+  const money=hpStat([id]);
+  const duthu=money.du, daThu=money.da, chuaThu=money.chua;
+  const pct=duthu?Math.round(money.rate*100):0;
   const siTb=s.lop?Math.round(s.hs/s.lop):0;
-  const cc=Math.round(chuyenCan(c.ten+'cc')*100);
+  const ccR=ccStat([id]);
+  const ccTxt=ccR==null?'—':Math.round(ccR*100)+'%';
 
   let h=`<button class="btn btn-sm btn-ghost cs-back" id="csBack">← Tất cả cơ sở</button>
   <div class="csd-hero" style="background:${csPastel(id)};border-left:5px solid ${avaColor(c.ten)}">
@@ -1101,25 +1113,26 @@ function renderCosoDetail(id){
     <div class="s"><b>${s.hs}</b><span>Học sinh</span></div>
     <div class="s"><b>${s.gv}</b><span>Giáo viên</span></div>
     <div class="s"><b>${siTb}</b><span>Sĩ số TB/lớp</span></div>
-    <div class="s"><b>${cc}%</b><span>Chuyên cần</span></div>
+    <div class="s"><b>${ccTxt}</b><span>Chuyên cần</span></div>
   </div>
   <div class="panel">
-    <div class="phead"><h3>Tổng kinh phí học phí</h3><span class="sub"><span style="color:var(--amber);font-weight:900">◐</span> số liệu minh họa</span></div>
-    <div class="csd-money">
+    <div class="phead"><h3>Tổng kinh phí học phí</h3><span class="sub">${money.nDa}/${money.n} HS đã đóng</span></div>
+    ${money.n===0?'<div class="empty" style="padding:20px">Chưa nhập học phí cho học sinh nào của cơ sở này.</div>':`<div class="csd-money">
       <div class="mbox"><small>Dự thu</small><b>${fmtShort(duthu)}</b></div>
       <div class="mbox done"><small>Đã thu</small><b>${fmtShort(daThu)}</b></div>
       <div class="mbox pend"><small>Chưa thu</small><b>${fmtShort(chuaThu)}</b></div>
     </div>
-    <div class="csd-prog"><div class="csd-prog-bar"><i style="width:${pct}%"></i></div><span>Đã thu <b>${pct}%</b> dự thu</span></div>
+    <div class="csd-prog"><div class="csd-prog-bar"><i style="width:${pct}%"></i></div><span>Đã thu <b>${pct}%</b> dự thu</span></div>`}
   </div>
   <div class="panel"><div class="phead"><h3>Danh sách lớp học</h3><span class="sub">${lops.length} lớp</span></div>
     <div class="twrap"><table><thead><tr><th>Lớp</th><th>Giáo viên phụ trách</th><th class="tright">Sĩ số</th><th class="tright">Dự thu</th></tr></thead><tbody>`;
   if(!lops.length){h+=`<tr><td colspan="4"><div class="empty">${svg(IC.lop,1.6)}Trung tâm chưa có lớp học</div></td></tr>`;}
   else lops.forEach(l=>{
+    const lopDu=OPS.hv.filter(h=>h.lopId===l.id).reduce((sm,h)=>sm+(h.hocPhi||0),0);
     h+=`<tr><td><b>${esc(l.lop||'—')}</b> ${l.mon==='TA'?'<span class="badge bg-ta" style="margin-left:4px">TA</span>':''}</td>
       <td>${esc(l.gv||'—')}</td>
       <td class="tright num">${l.siso||0}</td>
-      <td class="tright num">${l.duthu?fmtVND(l.duthu):'—'}</td></tr>`;
+      <td class="tright num">${lopDu?fmtVND(lopDu):'—'}</td></tr>`;
   });
   h+='</tbody></table></div></div>';
   $('#view').innerHTML=h;
@@ -1133,7 +1146,7 @@ function renderLop(){
   if(USER.role==='admin'&&lopCs!=='all') list=list.filter(l=>l.coSoId===Number(lopCs));
   if(lopSearch.trim()){const q=lopSearch.trim().toLowerCase();list=list.filter(l=>((l.lop||'')+' '+(l.gv||'')).toLowerCase().includes(q));}
   list=list.slice().sort((a,b)=>a.coSoId-b.coSoId);
-  const hs=list.reduce((s,l)=>s+(l.siso||0),0), thu=list.reduce((s,l)=>s+(l.duthu||0),0);
+  const hs=list.reduce((s,l)=>s+(l.siso||0),0), thu=list.reduce((s,l)=>s+lopHP(l.id),0);
 
   let h=`<div class="toolbar">
     <div class="search">${svg(IC.search,2)}<input id="lopq" placeholder="Tìm lớp hoặc giáo viên…" value="${esc(lopSearch)}"/></div>
@@ -1147,7 +1160,7 @@ function renderLop(){
       <td>${esc(l.gv||'—')}</td>
       ${USER.role==='admin'?`<td>${esc(csName(l.coSoId))}</td>`:''}
       <td class="tright num">${l.siso||0}</td>
-      <td class="tright num">${l.duthu?fmtVND(l.duthu):'—'}</td></tr>`;
+      <td class="tright num">${lopHP(l.id)?fmtVND(lopHP(l.id)):'—'}</td></tr>`;
   });
   h+='</tbody></table></div></div>';
   $('#view').innerHTML=h;
@@ -1202,15 +1215,15 @@ function renderThu(){
   }
   h+='</tbody></table></div></div>';
 
-  // Dự thu kế hoạch theo cơ sở (từ Excel) — tham chiếu
+  // Dự thu học phí theo cơ sở (số thật — tổng học phí HS đã nhập)
   const cosos=inCOSO().filter(c=>!c.build);
-  const rows=cosos.map(c=>({c,...csStat(c.id)})).sort((a,b)=>b.thu-a.thu);
-  const totDu=rows.reduce((s,r)=>s+r.thu,0), maxThu=Math.max(1,...rows.map(r=>r.thu));
-  h+=`<div class="panel"><div class="phead"><h3>Dự thu học phí kế hoạch</h3><span class="simtag">theo Excel</span></div>
+  const rows=cosos.map(c=>({c,...csStat(c.id),du:hpStat([c.id]).du})).sort((a,b)=>b.du-a.du);
+  const totDu=rows.reduce((s,r)=>s+r.du,0), maxThu=Math.max(1,...rows.map(r=>r.du));
+  h+=`<div class="panel"><div class="phead"><h3>Dự thu học phí theo cơ sở</h3><span class="sub">theo học phí học sinh</span></div>
     <div class="twrap"><table><thead><tr><th>Cơ sở</th><th class="tright">Lớp</th><th class="tright">Học sinh</th><th class="tright">Dự thu</th><th>Tỷ trọng</th></tr></thead><tbody>`;
   rows.forEach(r=>{h+=`<tr><td><div class="gvcell"><div class="gvava avatar-a" style="width:30px;height:30px;font-size:.95rem;background:${avaColor(r.c.ten)}">A</div><b>${esc(r.c.ten)}</b></div></td>
-    <td class="tright num">${r.lop}</td><td class="tright num">${r.hs}</td><td class="tright num">${fmtVND(r.thu)}</td>
-    <td style="min-width:110px"><div class="cs-bar" style="margin:0"><i style="width:${Math.max(3,r.thu/maxThu*100)}%"></i></div></td></tr>`;});
+    <td class="tright num">${r.lop}</td><td class="tright num">${r.hs}</td><td class="tright num">${r.du?fmtVND(r.du):'—'}</td>
+    <td style="min-width:110px"><div class="cs-bar" style="margin:0"><i style="width:${Math.max(3,r.du/maxThu*100)}%"></i></div></td></tr>`;});
   h+=`</tbody><tfoot><tr style="background:var(--soft)"><td colspan="3" class="tright"><b>TỔNG DỰ THU</b></td><td class="tright"><b>${fmtVND(totDu)}</b></td><td></td></tr></tfoot></table></div></div>`;
 
   $('#view').innerHTML=h;
@@ -1342,28 +1355,32 @@ function renderHocVien(){
   let list=inHV();
   if(isAdmin && hvCs!=='all') list=list.filter(h=>h.coSoId===Number(hvCs));
   if(hvLop!=='all') list=list.filter(h=>h.lopId===Number(hvLop));
+  if(hvPaid==='yes') list=list.filter(h=>h.daDong);
+  else if(hvPaid==='no') list=list.filter(h=>!h.daDong);
   const q=fold(hvSearch).toLowerCase().trim();
   if(q) list=list.filter(h=>fold(h.ten+' '+h.ph+' '+h.sdt).toLowerCase().includes(q));
   list=list.slice().sort((a,b)=>(a.coSoId-b.coSoId)||String(a.ten).localeCompare(String(b.ten),'vi'));
   const tongHP=list.reduce((s,h)=>s+(h.hocPhi||0),0);
-  const soThat=list.filter(h=>!h.mau).length;
+  const daThu=list.filter(h=>h.daDong).reduce((s,h)=>s+(h.hocPhi||0),0);
+  const nDa=list.filter(h=>h.daDong).length, nChua=list.length-nDa;
 
   const csSel=isAdmin?`<select class="fsel" id="hvCsSel"><option value="all">Tất cả cơ sở</option>${COSO.map(c=>`<option value="${c.id}" ${hvCs===String(c.id)?'selected':''}>${esc(c.ten)}</option>`).join('')}</select>`:'';
   const lopPool=inLOP().filter(l=>(isAdmin&&hvCs!=='all')?l.coSoId===Number(hvCs):true).filter(l=>hvOfLop(l.id).length)
     .slice().sort((a,b)=>a.coSoId-b.coSoId);
   const lopSel=`<select class="fsel" id="hvLopSel"><option value="all">Tất cả lớp</option>${lopPool.map(l=>`<option value="${l.id}" ${hvLop===String(l.id)?'selected':''}>${isAdmin?csAbbr(l.coSoId)+' · ':''}${esc(l.lop)}</option>`).join('')}</select>`;
+  const paidSel=`<select class="fsel" id="hvPaidSel">${[['all','Học phí: tất cả'],['yes','Đã đóng'],['no','Chưa đóng']].map(([k,t])=>`<option value="${k}" ${hvPaid===k?'selected':''}>${t}</option>`).join('')}</select>`;
 
   let h=`<div class="toolbar">
     <div class="search" style="flex:1;min-width:200px">${svg(IC.search,1.9)}<input id="hvq" placeholder="Tìm tên học sinh, phụ huynh, SĐT…" value="${esc(hvSearch)}" style="border:0;outline:0;background:none;flex:1;font-weight:600;font-size:.9rem"/></div>
-    ${csSel}${lopSel}
+    ${csSel}${lopSel}${paidSel}
   </div>
   <div class="panel"><div class="phead"><h3>Hồ sơ học sinh</h3><span class="sub">${list.length} học sinh</span></div>
     <div class="pbody">
       <div class="ddsum">
         <div class="p done"><b>${list.length}</b><span>học sinh</span></div>
-        <div class="p co"><b>${soThat}</b><span>hồ sơ thật</span></div>
-        <div class="p muon"><b>${list.length-soThat}</b><span>tạo mẫu</span></div>
-        <div class="p"><b>${fmtShort(tongHP)}</b><span>học phí/tháng</span></div>
+        <div class="p co"><b>${nDa}</b><span>đã đóng HP</span></div>
+        <div class="p muon"><b>${nChua}</b><span>chưa đóng</span></div>
+        <div class="p"><b>${fmtShort(daThu)}</b><span>đã thu / ${fmtShort(tongHP)}</span></div>
       </div>`;
   if(!list.length){
     h+=`<div class="empty">${svg(IC.hocvien,1.5)}Chưa có học sinh nào trong phạm vi này.<br/><button class="btn btn-sm btn-ghost" id="toGhi2" style="margin-top:12px">→ Sang trang Ghi danh</button></div>`;
@@ -1371,8 +1388,9 @@ function renderHocVien(){
     h+=`<div class="ddgrid">`;
     list.forEach((v,i)=>{
       const info=[lopName(v.lopId),isAdmin?csName(v.coSoId):'',v.sdt,v.hocPhi?fmtVND(v.hocPhi):''].filter(Boolean).join(' · ');
+      const paidTag=v.hocPhi?`<span class="paidtag ${v.daDong?'yes':'no'}">${v.daDong?'Đã đóng':'Chưa đóng'}</span>`:'';
       h+=`<div class="ddrow"><div class="idx">${i+1}</div>
-        <div class="nm"><b>${esc(v.ten)}${v.mau?' <span class="tagmau">mẫu</span>':''}</b><small>${esc(info)||'—'}</small></div>
+        <div class="nm"><b>${esc(v.ten)}${paidTag}</b><small>${esc(info)||'—'}</small></div>
         <button class="btn btn-sm btn-light" data-edit="${v.id}" style="flex:none">Hồ sơ</button>
       </div>`;
     });
@@ -1383,6 +1401,7 @@ function renderHocVien(){
   $('#hvq').oninput=e=>{hvSearch=e.target.value;const v=e.target.value;renderHocVien();const n=$('#hvq');n.focus();n.setSelectionRange(v.length,v.length);};
   const cs=$('#hvCsSel'); if(cs)cs.onchange=e=>{hvCs=e.target.value;hvLop='all';renderHocVien();};
   const ls=$('#hvLopSel'); if(ls)ls.onchange=e=>{hvLop=e.target.value;renderHocVien();};
+  const ps=$('#hvPaidSel'); if(ps)ps.onchange=e=>{hvPaid=e.target.value;renderHocVien();};
   const tg=$('#toGhi2'); if(tg)tg.onclick=()=>go('ghidanh');
   $$('#view [data-edit]').forEach(b=>b.onclick=()=>{const hv=OPS.hv.find(x=>x.id===Number(b.dataset.edit));if(hv)openHvEdit(hv);});
 }
@@ -1400,6 +1419,11 @@ function openHvEdit(h){
      <div class="fld full"><label>Họ và tên</label><input id="hv_ten" value="${esc(h.ten)}"/></div>
      <div class="fld"><label>Ngày sinh</label><input id="hv_ns" value="${esc(h.ns)}" placeholder="dd/mm/yyyy"/></div>
      <div class="fld"><label>Học phí (đ/tháng)</label><input id="hv_hp" inputmode="numeric" value="${h.hocPhi||''}" placeholder="VD: 600000"/></div>
+     <div class="fld full"><label>Tình trạng học phí</label>
+       <div class="hv-paid" id="hv_paid">
+         <button type="button" data-p="1" class="${h.daDong?'sel':''}">✓ Đã đóng</button>
+         <button type="button" data-p="0" class="${h.daDong?'':'sel'}">Chưa đóng</button>
+       </div></div>
      <div class="fld"><label>Phụ huynh</label><input id="hv_ph" value="${esc(h.ph)}" placeholder="Tên phụ huynh"/></div>
      <div class="fld"><label>Điện thoại</label><input id="hv_sdt" value="${esc(h.sdt)}" inputmode="tel" placeholder="SĐT liên hệ"/></div>
      <div class="fld full"><label>Lớp đang học</label><select id="hv_lop">${lopsCs.map(l=>`<option value="${l.id}" ${l.id===h.lopId?'selected':''}>${esc(l.lop)} — ${esc(l.gv||'?')}</option>`).join('')}</select></div>
@@ -1407,15 +1431,17 @@ function openHvEdit(h){
      <div class="fld full" style="display:flex;gap:9px"><button class="btn btn-primary" id="hv_save" style="flex:1">✓ Lưu hồ sơ</button><button class="btn btn-light" id="hv_del" style="color:var(--rose)">Xóa</button></div>
    </div></div>`;
   $('#modal').classList.add('on');
+  let paid=!!h.daDong;
+  $$('#hv_paid button').forEach(b=>b.onclick=()=>{paid=b.dataset.p==='1';$$('#hv_paid button').forEach(x=>x.classList.toggle('sel',x===b));});
   const err=m=>{const e=$('#hvErr');e.textContent=m||'';e.style.display=m?'block':'none';};
   $('#hv_save').onclick=async()=>{
     const ten=$('#hv_ten').value.trim();
     if(!ten){err('Vui lòng nhập họ tên.');return;}
     const hp=Number(String($('#hv_hp').value).replace(/[^\d]/g,''))||0;
     const lopId=Number($('#hv_lop').value);
-    const patch={ten,ns:$('#hv_ns').value.trim(),ph:$('#hv_ph').value.trim(),sdt:$('#hv_sdt').value.trim(),hocPhi:hp,lopId};
+    const patch={ten,ns:$('#hv_ns').value.trim(),ph:$('#hv_ph').value.trim(),sdt:$('#hv_sdt').value.trim(),hocPhi:hp,daDong:paid,lopId};
     const btn=$('#hv_save'); btn.disabled=true; btn.textContent='Đang lưu…'; err('');
-    const {error}=await SB.from('hoc_vien').update({ten:patch.ten,ns:patch.ns,ph:patch.ph,sdt:patch.sdt,hoc_phi:hp,lop_id:lopId,mau:false}).eq('id',h.id);
+    const {error}=await SB.from('hoc_vien').update({ten:patch.ten,ns:patch.ns,ph:patch.ph,sdt:patch.sdt,hoc_phi:hp,da_dong:paid,lop_id:lopId,mau:false}).eq('id',h.id);
     btn.disabled=false; btn.textContent='✓ Lưu hồ sơ';
     if(error){err('Lỗi lưu: '+error.message);return;}
     Object.assign(h,patch,{mau:false});
@@ -1437,7 +1463,7 @@ function renderGhiDanh(){
   if(!lops.find(l=>l.id===ghiLopId)) ghiLopId=lops[0].id;
   const lop=LOP.find(l=>l.id===ghiLopId), ds=hvOfLop(ghiLopId);
   const conThieu=Math.max(0,(lop.siso||0)-ds.length);
-  let h=`<div class="toolbar"><select class="fsel" id="ghiLop" style="flex:1;min-width:180px;max-width:100%">${lopPickHTML(ghiLopId)}</select><button class="btn btn-sm btn-ghost" id="seedAll" style="white-space:nowrap">⚡ Tạo mẫu tất cả lớp</button></div>
+  let h=`<div class="toolbar"><select class="fsel" id="ghiLop" style="flex:1;min-width:180px;max-width:100%">${lopPickHTML(ghiLopId)}</select></div>
   <div class="grid2">
     <div class="panel"><div class="phead"><h3>Ghi danh học sinh mới</h3></div>
       <div class="pbody"><div class="form2">
@@ -1456,21 +1482,20 @@ function renderGhiDanh(){
           <div class="nm"><b>${esc(lop.lop)}</b><small>${esc(lop.gv||'—')} · ${esc(csName(lop.coSoId))}</small></div>
         </div>
         <div class="ddsum" style="margin-top:12px">
-          <div class="p"><b>${lop.siso}</b><span>sĩ số Excel</span></div>
+          <div class="p"><b>${lop.siso}</b><span>sĩ số dự kiến</span></div>
           <div class="p"><b>${ds.length}</b><span>đã ghi danh</span></div>
           <div class="p"><b>${conThieu}</b><span>còn thiếu</span></div>
         </div>
-        <button class="btn btn-light btn-block" id="gd_seed" style="margin-top:13px">Tạo nhanh danh sách mẫu (đủ sĩ số ${lop.siso})</button>
-        <p class="muted" style="font-size:.78rem;line-height:1.5;margin:11px 2px 0">💡 Nhập từng em ở form bên trái, hoặc bấm nút trên để tạo nhanh danh sách mẫu đủ sĩ số rồi chỉnh sửa sau.</p>
+        <p class="muted" style="font-size:.78rem;line-height:1.5;margin:13px 2px 0">💡 Nhập thông tin thật của từng em ở form bên trái. Sau đó vào mục <b>Học sinh</b> để cập nhật học phí và đánh dấu đã đóng.</p>
       </div>
     </div>
   </div>
   <div class="panel"><div class="phead"><h3>Danh sách đã ghi danh</h3><span class="sub">${ds.length} học sinh</span></div>
     <div class="pbody">${ds.length?`<div class="ddgrid">${ds.map((v,i)=>`
       <div class="ddrow"><div class="idx">${i+1}</div>
-        <div class="nm"><b>${esc(v.ten)}</b><small>${[v.mau?'học sinh mẫu':'',v.ns,v.sdt,v.hocPhi?fmtVND(v.hocPhi):''].filter(Boolean).join(' · ')||'—'}</small></div>
+        <div class="nm"><b>${esc(v.ten)}</b><small>${[v.ns,v.sdt,v.hocPhi?fmtVND(v.hocPhi):''].filter(Boolean).join(' · ')||'—'}</small></div>
         <button class="btn btn-sm btn-light" data-del="${v.id}">Xóa</button>
-      </div>`).join('')}</div>`:'<div class="empty">Chưa có học sinh. Ghi danh từng em ở form trên, hoặc bấm "Tạo nhanh danh sách mẫu".</div>'}
+      </div>`).join('')}</div>`:'<div class="empty">Chưa có học sinh. Ghi danh từng em ở form trên.</div>'}
     </div>
   </div>`;
   $('#view').innerHTML=h;
@@ -1482,8 +1507,6 @@ function renderGhiDanh(){
     if(error){alert('Lỗi ghi danh: '+error.message);return;}
     OPS.hv.push(hvFromDb(data));renderGhiDanh();
   };
-  $('#gd_seed').onclick=async()=>{await seedHV(lop);renderGhiDanh();};
-  $('#seedAll').onclick=async()=>{const b=$('#seedAll');b.disabled=true;const t=b.textContent;b.textContent='Đang tạo…';const ok=await seedAllHV();b.disabled=false;b.textContent=t;if(ok)renderGhiDanh();};
   $$('#view [data-del]').forEach(b=>b.onclick=async()=>{const id=Number(b.dataset.del);const {error}=await SB.from('hoc_vien').delete().eq('id',id);if(error){alert('Lỗi xóa: '+error.message);return;}OPS.hv=OPS.hv.filter(x=>x.id!==id);renderGhiDanh();});
   renderNavCounts();
 }
@@ -1525,10 +1548,10 @@ function renderDiemDanh(){
     </div>
     <div class="ddgrid">
       <div class="ddrow ddh"><div class="idx">TT</div><div class="nm">HỌC VIÊN</div><span class="hh">ĐIỂM DANH</span></div>
-      <div class="ddrow ddh"><div class="idx">TT</div><div class="nm">HỌC VIÊN</div><span class="hh">ĐIỂM DANH</span></div>`;
+      <div class="ddrow ddh"><div class="idx">TT</div><div class="nm">HỌC SINH</div><span class="hh">ĐIỂM DANH</span></div>`;
     ds.forEach((v,i)=>{
       h+=`<div class="ddrow"><div class="idx">${i+1}</div>
-        <div class="nm"><b>${esc(v.ten)}</b>${v.mau?'<small>học sinh mẫu</small>':(v.ns?`<small>${esc(v.ns)}</small>`:'')}</div>
+        <div class="nm"><b>${esc(v.ten)}</b>${v.ns?`<small>${esc(v.ns)}</small>`:''}</div>
         <div class="attseg ddSeg" data-hv="${v.id}">${[['co','Có'],['muon','Muộn'],['vang','Vắng']].map(([k,t])=>`<button data-v="${k}" class="${state[v.id]===k?'on':''}">${t}</button>`).join('')}</div>
       </div>`;
     });
