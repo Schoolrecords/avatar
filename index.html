@@ -451,8 +451,8 @@ td.chi{color:var(--rose);font-weight:800}
     </div>
     <div class="lbody">
       <div class="field">
-        <label>Email đăng nhập</label>
-        <input id="uname" type="email" placeholder="vd: giamdoc@avatar.vn" autocomplete="username"/>
+        <label>Tên đăng nhập</label>
+        <input id="uname" type="text" placeholder="" autocomplete="username" autocapitalize="none" spellcheck="false"/>
       </div>
       <div class="field">
         <label>Mật khẩu</label>
@@ -840,13 +840,15 @@ const inCOSO=()=>COSO.filter(c=>scopeIds().includes(c.id));
 
 /* ============ LOGIN ============ */
 function showLoginErr(m){const e=$('#loginErr');if(e){e.textContent=m||'';e.style.display=m?'block':'none';}}
+const LOGIN_DOMAIN='@avatar.vn';   // tên đăng nhập ngắn sẽ tự thêm đuôi này
 $('#loginBtn').onclick=async()=>{
-  const email=$('#uname').value.trim(), pass=$('#upass').value;
-  if(!email||!pass){showLoginErr('Vui lòng nhập email và mật khẩu.');return;}
+  let email=$('#uname').value.trim(); const pass=$('#upass').value;
+  if(email && !email.includes('@')) email=email.toLowerCase()+LOGIN_DOMAIN;   // "dienlien" → "dienlien@avatar.vn"
+  if(!email||!pass){showLoginErr('Vui lòng nhập tên đăng nhập và mật khẩu.');return;}
   const btn=$('#loginBtn'); btn.disabled=true; btn.textContent='Đang đăng nhập…'; showLoginErr('');
   const {error}=await SB.auth.signInWithPassword({email,password:pass});
   btn.disabled=false; btn.textContent='Đăng nhập hệ thống';
-  if(error){showLoginErr('Sai email hoặc mật khẩu.');return;}
+  if(error){showLoginErr('Sai tên đăng nhập hoặc mật khẩu.');return;}
   await afterAuth();
 };
 async function afterAuth(){
