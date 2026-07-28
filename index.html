@@ -604,6 +604,25 @@ function attachMoneyFormat(el){
   grp();                       // định dạng luôn giá trị có sẵn
   el.addEventListener('input',grp);
 }
+/* Ô ngày sinh: tự chèn "/" khi gõ (29072015 → 29/07/2015), tối đa dd/mm/yyyy */
+function attachDateFormat(el){
+  if(!el)return;
+  el.setAttribute('inputmode','numeric'); el.setAttribute('maxlength','10');
+  const fmt=()=>{const d=el.value.replace(/\D/g,'').slice(0,8);
+    el.value = d.length>4 ? d.slice(0,2)+'/'+d.slice(2,4)+'/'+d.slice(4)
+             : d.length>2 ? d.slice(0,2)+'/'+d.slice(2) : d;};
+  fmt(); el.addEventListener('input',fmt);
+}
+/* Kiểm tra ngày sinh: để trống = hợp lệ; nếu có phải đúng dd/mm/yyyy, năm ≤ hiện tại */
+function isValidDob(s){
+  s=String(s||'').trim(); if(!s)return true;
+  const m=/^(\d{2})\/(\d{2})\/(\d{4})$/.exec(s); if(!m)return false;
+  const d=+m[1],mo=+m[2],y=+m[3],now=new Date().getFullYear();
+  if(mo<1||mo>12||y<1900||y>now)return false;
+  const leap=(y%4===0&&y%100!==0)||y%400===0;
+  const dim=[31,leap?29:28,31,30,31,30,31,31,30,31,30,31][mo-1];
+  return d>=1&&d<=dim;
+}
 const initials=s=>{const p=String(s).trim().split(/\s+/);return ((p[p.length-2]?.[0]||'')+(p[p.length-1]?.[0]||'')).toUpperCase()||'?';};
 const AVCOL=['#1f4276','#2a5490','#0e7fb0','#3a5db0','#5b6fb8','#7c5cd6','#2f6fd0','#17335f'];
 const avaColor=s=>AVCOL[[...String(s)].reduce((a,c)=>a+c.charCodeAt(0),0)%AVCOL.length];
@@ -1181,10 +1200,12 @@ function showGV(id){
       <div class="fld full" style="padding:0"><small class="muted">Thay đổi được lưu online, đồng bộ mọi máy.</small></div>
     </div></div>`;
   $('#modal').classList.add('on');
+  attachDateFormat($('#ev_ns'));
   const err=$('#ev_err'); const showErr=m=>{err.textContent=m||'';err.style.display=m?'block':'none';};
   $('#ev_save').onclick=async()=>{
     const rec={ten:$('#ev_ten').value.trim(),ns:$('#ev_ns').value.trim(),td:$('#ev_td').value.trim(),sdt:$('#ev_sdt').value.trim(),dc:$('#ev_dc').value.trim(),mon:$('#ev_mon').value};
     if(!rec.ten){showErr('Vui lòng nhập họ tên.');$('#ev_ten').focus();return;}
+    if(!isValidDob(rec.ns)){showErr('Ngày sinh chưa đúng dạng ngày/tháng/năm (VD: 12/10/1990).');$('#ev_ns').focus();return;}
     const btn=$('#ev_save'); btn.disabled=true; btn.textContent='Đang lưu…'; showErr('');
     const {error}= gvLive
       ? await SB.from('giao_vien').update({ten:rec.ten,ns:rec.ns,td:rec.td,dc:rec.dc,sdt:rec.sdt,mon:rec.mon}).eq('id',g.id)
@@ -1224,10 +1245,12 @@ function openGvNew(){
       <div class="fld full" style="display:flex;gap:8px"><button class="btn btn-light" style="flex:1" onclick="closeModal()">Hủy</button><button class="btn btn-primary" style="flex:2" id="nv_save">＋ Thêm giáo viên</button></div>
     </div></div>`;
   $('#modal').classList.add('on');
+  attachDateFormat($('#nv_ns'));
   const err=m=>{const e=$('#nv_err');e.textContent=m||'';e.style.display=m?'block':'none';};
   $('#nv_save').onclick=async()=>{
     const ten=$('#nv_ten').value.trim();
     if(!ten){err('Vui lòng nhập họ tên.');$('#nv_ten').focus();return;}
+    if(!isValidDob($('#nv_ns').value)){err('Ngày sinh chưa đúng dạng ngày/tháng/năm (VD: 12/10/1990).');$('#nv_ns').focus();return;}
     const coSoId=USER.role==='admin'?Number($('#nv_cs').value):USER.coSoId;
     const rec={ten,ns:$('#nv_ns').value.trim(),td:$('#nv_td').value.trim(),sdt:$('#nv_sdt').value.trim(),dc:$('#nv_dc').value.trim(),mon:$('#nv_mon').value,coSoId};
     const btn=$('#nv_save'); btn.disabled=true; btn.textContent='Đang lưu…'; err('');
@@ -1731,13 +1754,14 @@ function openHvEdit(h){
      <div class="fld full" style="display:flex;gap:9px"><button class="btn btn-primary" id="hv_save" style="flex:1">✓ Lưu hồ sơ</button><button class="btn btn-light" id="hv_del" style="color:var(--rose)">Xóa</button></div>
    </div></div>`;
   $('#modal').classList.add('on');
-  attachMoneyFormat($('#hv_hp'));
+  attachMoneyFormat($('#hv_hp')); attachDateFormat($('#hv_ns'));
   let paid=!!h.daDong;
   $$('#hv_paid button').forEach(b=>b.onclick=()=>{paid=b.dataset.p==='1';$$('#hv_paid button').forEach(x=>x.classList.toggle('sel',x===b));});
   const err=m=>{const e=$('#hvErr');e.textContent=m||'';e.style.display=m?'block':'none';};
   $('#hv_save').onclick=async()=>{
     const ten=$('#hv_ten').value.trim();
     if(!ten){err('Vui lòng nhập họ tên.');return;}
+    if(!isValidDob($('#hv_ns').value)){err('Ngày sinh chưa đúng dạng ngày/tháng/năm (VD: 01/09/2015).');$('#hv_ns').focus();return;}
     const hp=Number(String($('#hv_hp').value).replace(/[^\d]/g,''))||0;
     const lopId=Number($('#hv_lop').value);
     const patch={ten,ns:$('#hv_ns').value.trim(),ph:$('#hv_ph').value.trim(),sdt:$('#hv_sdt').value.trim(),hocPhi:hp,daDong:paid,lopId};
@@ -1807,9 +1831,10 @@ function renderGhiDanh(){
   $('#ghiLop').onchange=e=>{ghiLopId=Number(e.target.value);renderGhiDanh();};
   $('#hsTpl').onclick=()=>hsDownloadTemplate(lop);
   $('#hsImp').onclick=()=>hsImportExcel(lop);
-  attachMoneyFormat($('#gd_hp'));
+  attachMoneyFormat($('#gd_hp')); attachDateFormat($('#gd_ns'));
   $('#gd_add').onclick=async()=>{
     const ten=$('#gd_ten').value.trim(); if(!ten){$('#gd_ten').focus();return;}
+    if(!isValidDob($('#gd_ns').value)){alert('Ngày sinh chưa đúng dạng ngày/tháng/năm (VD: 01/09/2015).');$('#gd_ns').focus();return;}
     const rec={ten,ns:$('#gd_ns').value.trim(),ph:$('#gd_ph').value.trim(),sdt:$('#gd_sdt').value.trim(),hocPhi:Number($('#gd_hp').value.replace(/\D/g,''))||0,lopId:ghiLopId,coSoId:lop.coSoId,mau:false};
     const {data,error}=await SB.from('hoc_vien').insert(hvToDb(rec)).select().single();
     if(error){alert('Lỗi ghi danh: '+error.message);return;}
