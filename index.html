@@ -647,6 +647,122 @@ const HM_CHI=['Lương giáo viên','Thuê mặt bằng','Điện nước','Vậ
 const isoVN=s=>{if(!s)return'';const p=String(s).split('-');return `${p[2]}/${p[1]}/${p[0]}`;};
 let ktThang='all', ktLoai='all';
 function ensureXLSX(){return new Promise((res,rej)=>{if(window.XLSX)return res();const s=document.createElement('script');s.src='xlsx.full.min.js';s.onload=()=>res();s.onerror=()=>rej(new Error('load'));document.head.appendChild(s);});}
+
+/* ===== NHẬP/XUẤT EXCEL ĐẸP (ExcelJS) — mẫu tải về + đọc file upload ===== */
+function ensureExcelJS(){return new Promise((res,rej)=>{if(window.ExcelJS)return res();const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js';s.onload=()=>res();s.onerror=()=>rej(new Error('load'));document.head.appendChild(s);});}
+const XL_NAVY='FF1F4276', XL_LINE='FFB9C6DA';
+function xlBorder(argb){const s={style:'thin',color:{argb:argb||XL_LINE}};return{top:s,left:s,bottom:s,right:s};}
+function dlBlob(buf,filename){const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),3000);}
+/* Tạo file mẫu .xlsx trang trọng: tiêu đề nền navy chữ trắng, kẻ viền, cố định dòng đầu, lọc, dòng ví dụ + sheet Hướng dẫn */
+async function makeTemplate({sheet,columns,example,filename,title,guide}){
+  await ensureExcelJS();
+  const wb=new ExcelJS.Workbook(); wb.creator='AVATAR';
+  const ws=wb.addWorksheet(sheet,{views:[{state:'frozen',ySplit:2}]});
+  // Dòng 1: tiêu đề gộp ô
+  ws.mergeCells(1,1,1,columns.length);
+  const tc=ws.getCell(1,1); tc.value=title; tc.font={bold:true,size:14,color:{argb:XL_NAVY},name:'Calibri'};
+  tc.alignment={vertical:'middle',horizontal:'left'}; ws.getRow(1).height=28;
+  // Dòng 2: tiêu đề cột
+  ws.columns=columns.map(c=>({key:c.k,width:c.w||18}));
+  const hr=ws.getRow(2); hr.height=24;
+  columns.forEach((c,i)=>{const cell=hr.getCell(i+1); cell.value=c.h; cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:XL_NAVY}};
+    cell.font={bold:true,color:{argb:'FFFFFFFF'},size:12,name:'Calibri'}; cell.alignment={vertical:'middle',horizontal:'center',wrapText:true}; cell.border=xlBorder('FF2A5490');});
+  // Dòng 3: ví dụ (chữ xám nghiêng)
+  const ex=ws.getRow(3); columns.forEach((c,i)=>{const cell=ex.getCell(i+1); cell.value=example[c.k]!=null?example[c.k]:''; cell.font={italic:true,color:{argb:'FF9AA6BC'},size:11}; cell.border=xlBorder(); cell.alignment={vertical:'middle'};});
+  // 20 dòng trống kẻ viền sẵn để điền
+  for(let r=0;r<20;r++){const row=ws.getRow(4+r); row.height=20; columns.forEach((c,i)=>{row.getCell(i+1).border=xlBorder();});}
+  ws.autoFilter={from:{row:2,column:1},to:{row:2,column:columns.length}};
+  // Sheet hướng dẫn
+  if(guide&&guide.length){const g=wb.addWorksheet('Hướng dẫn'); g.getColumn(1).width=90;
+    g.getCell(1,1).value='HƯỚNG DẪN NHẬP DỮ LIỆU — AVATAR'; g.getCell(1,1).font={bold:true,size:13,color:{argb:XL_NAVY}};
+    guide.forEach((line,i)=>{const cell=g.getCell(3+i,1); cell.value=line; cell.alignment={wrapText:true,vertical:'top'}; cell.font={size:11};});}
+  dlBlob(await wb.xlsx.writeBuffer(),filename);
+}
+/* Đọc file .xlsx người dùng tải lên → mảng object (khóa = tiêu đề cột đã bỏ dấu, chữ thường) */
+function xlCellStr(v){if(v==null)return'';if(v instanceof Date){const d=v;return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear();}if(typeof v==='object'){if(v.text!=null)return String(v.text);if(v.result!=null)return String(v.result);if(v.richText)return v.richText.map(t=>t.text).join('');if(v.hyperlink)return String(v.hyperlink);return '';}return String(v);}
+async function readSheet(file){
+  await ensureExcelJS();
+  const wb=new ExcelJS.Workbook(); await wb.xlsx.load(await file.arrayBuffer());
+  let ws=wb.worksheets[0]; wb.worksheets.forEach(w=>{if((w.rowCount||0)>((ws&&ws.rowCount)||0))ws=w;});
+  if(!ws)return [];
+  // tìm dòng tiêu đề: dòng đầu tiên có >=2 ô chữ
+  let hRow=1; for(let r=1;r<=Math.min(5,ws.rowCount);r++){let n=0;ws.getRow(r).eachCell(c=>{if(xlCellStr(c.value).trim())n++;});if(n>=2){hRow=r;break;}}
+  const headers=[]; ws.getRow(hRow).eachCell((c,col)=>{headers[col]=fold(xlCellStr(c.value)).toLowerCase().trim();});
+  const rows=[];
+  for(let r=hRow+1;r<=ws.rowCount;r++){const row=ws.getRow(r);const obj={};let any=false;
+    for(let col=1;col<headers.length;col++){const h=headers[col];if(!h)continue;const val=xlCellStr(row.getCell(col).value).trim();obj[h]=val;if(val)any=true;}
+    if(any)rows.push(obj);}
+  return rows;
+}
+const xlPick=(o,keys)=>{for(const k in o){if(keys.some(x=>k.includes(x)))return o[k];}return '';};
+/* Nạp hàng loạt lên Supabase theo lô 500 */
+async function importRows(table,dbRows,fromDb,targetArr){
+  for(let i=0;i<dbRows.length;i+=500){
+    const {data,error}=await SB.from(table).insert(dbRows.slice(i,i+500)).select();
+    if(error){alert('Lỗi nhập dữ liệu: '+error.message);return false;}
+    (data||[]).forEach(r=>targetArr.push(fromDb(r)));
+  }
+  return true;
+}
+/* Cửa sổ xem trước trước khi nạp */
+function previewImport(label,recs,badLines,onConfirm){
+  const list=recs.slice(0,60).map((r,i)=>`<div class="ddrow"><div class="idx">${i+1}</div><div class="nm"><b>${esc(r.ten)}</b><small>${esc([r.ns,r.sdt,r.hocPhi?fmtVND(r.hocPhi):(r.mon==='TA'?'Tiếng Anh':r.mon==='VH'?'Văn hóa':'')].filter(Boolean).join(' · ')||'—')}</small></div></div>`).join('');
+  $('#mcard').innerHTML=`
+    <div class="mhead" style="background:var(--dots),linear-gradient(150deg,#10264c,#2f6fd0);background-size:18px 18px,auto">
+      <div class="mava">${svg('<path d="M4 4h16v16H4z"/><path d="M4 9h16M9 9v11"/>')}</div>
+      <div style="flex:1"><h3>Xem trước nhập ${esc(label)}</h3><p>Kiểm tra danh sách trước khi lưu</p></div>
+      <button class="mclose" onclick="closeModal()">${svg('<path d="M6 6l12 12M18 6L6 18"/>')}</button>
+    </div>
+    <div class="mbody">
+      <div class="ddsum">
+        <div class="p co"><b>${recs.length}</b><span>dòng hợp lệ</span></div>
+        <div class="p muon"><b>${badLines.length}</b><span>dòng bỏ qua</span></div>
+      </div>
+      ${badLines.length?`<p class="muted" style="font-size:.8rem;margin:2px 2px 8px">Bỏ qua ${badLines.length} dòng thiếu họ tên (dòng ${badLines.slice(0,20).join(', ')}${badLines.length>20?'…':''}).</p>`:''}
+      ${recs.length?`<div class="ddgrid" style="max-height:44vh;overflow:auto">${list}${recs.length>60?`<div class="muted" style="padding:8px 2px">… và ${recs.length-60} dòng nữa</div>`:''}</div>`:'<div class="empty">Không có dòng hợp lệ nào trong file.</div>'}
+      <div style="display:flex;gap:8px;margin-top:12px"><button class="btn btn-light" style="flex:1" onclick="closeModal()">Hủy</button><button class="btn btn-primary" style="flex:2" id="imp_ok" ${recs.length?'':'disabled'}>✓ Nhập ${recs.length} ${esc(label)}</button></div>
+    </div>`;
+  $('#modal').classList.add('on');
+  const ok=$('#imp_ok'); if(ok&&recs.length)ok.onclick=async()=>{ok.disabled=true;ok.textContent='Đang nhập…';await onConfirm();};
+}
+const HS_COLS=[{h:'Họ và tên',k:'ten',w:26},{h:'Ngày sinh',k:'ns',w:14},{h:'Phụ huynh',k:'ph',w:22},{h:'Điện thoại',k:'sdt',w:16},{h:'Học phí (đ/tháng)',k:'hp',w:18}];
+const GV_COLS=[{h:'Họ và tên',k:'ten',w:26},{h:'Ngày sinh',k:'ns',w:14},{h:'Môn (VH/TA)',k:'mon',w:14},{h:'Trình độ',k:'td',w:16},{h:'Điện thoại',k:'sdt',w:16},{h:'Địa chỉ',k:'dc',w:32}];
+function pickFile(cb){const inp=document.createElement('input');inp.type='file';inp.accept='.xlsx,.xls';inp.onchange=()=>{if(inp.files&&inp.files[0])cb(inp.files[0]);};inp.click();}
+async function hsDownloadTemplate(lop){
+  await makeTemplate({sheet:'DanhSach',columns:HS_COLS,
+    example:{ten:'Nguyễn Văn An',ns:'01/09/2015',ph:'Nguyễn Văn Ba',sdt:'0901234567',hp:600000},
+    filename:'Mau-hoc-sinh-'+((lop&&lop.lop)||'lop').replace(/[\\/:*?"<>|\s]+/g,'-')+'.xlsx',
+    title:'DANH SÁCH HỌC SINH'+(lop?' — '+lop.lop:''),
+    guide:['• Điền mỗi học sinh 1 dòng, ngay dưới hàng tiêu đề màu xanh.','• "Họ và tên" là bắt buộc; dòng để trống tên sẽ bị bỏ qua.','• Ngày sinh ghi dạng ngày/tháng/năm (VD: 01/09/2015).','• Học phí ghi số, không dấu chấm (VD: 600000).','• Dòng chữ xám nghiêng là ví dụ — có thể xóa hoặc ghi đè.','• Lưu file rồi vào web, chọn đúng lớp và bấm "Nhập Excel".']});
+}
+function hsImportExcel(lop){
+  pickFile(async file=>{
+    let rows; try{rows=await readSheet(file);}catch(e){alert('Không đọc được file. Hãy dùng file .xlsx theo mẫu tải về.');return;}
+    const recs=[],bad=[];
+    rows.forEach((r,i)=>{const ten=String(xlPick(r,['ho va ten','ho ten','ten'])).trim(); if(!ten){bad.push(i+2);return;}
+      recs.push({ten,ns:String(xlPick(r,['ngay sinh','sinh'])).trim(),ph:String(xlPick(r,['phu huynh','huynh','cha me'])).trim(),sdt:String(xlPick(r,['dien thoai','sdt','so dt','phone'])).trim(),hocPhi:Number(String(xlPick(r,['hoc phi','phi'])).replace(/\D/g,''))||0,daDong:false,lopId:lop.id,coSoId:lop.coSoId,mau:false});});
+    previewImport('học sinh vào lớp '+lop.lop,recs,bad,async()=>{const okAll=await importRows('hoc_vien',recs.map(hvToDb),hvFromDb,OPS.hv);if(okAll){closeModal();renderGhiDanh();}});
+  });
+}
+async function gvDownloadTemplate(){
+  await makeTemplate({sheet:'DanhSach',columns:GV_COLS,
+    example:{ten:'Trần Thị B',ns:'12/10/1990',mon:'TA',td:'Đại học',sdt:'0907654321',dc:'Xã Quảng Châu, Nghệ An'},
+    filename:'Mau-giao-vien.xlsx',title:'DANH SÁCH GIÁO VIÊN',
+    guide:['• Điền mỗi giáo viên 1 dòng, ngay dưới hàng tiêu đề màu xanh.','• "Họ và tên" là bắt buộc.','• Cột Môn ghi "VH" (Văn hóa) hoặc "TA" (Tiếng Anh).','• Ngày sinh ghi dạng ngày/tháng/năm (VD: 12/10/1990).','• Dòng chữ xám nghiêng là ví dụ — có thể xóa hoặc ghi đè.']});
+}
+function gvImportExcel(){
+  let coSoId;
+  if(USER.role==='admin'){ if(gvCs==='all'){alert('Anh hãy chọn 1 cơ sở ở ô lọc (góc trên) trước khi nhập Excel giáo viên.');return;} coSoId=Number(gvCs);}
+  else coSoId=USER.coSoId;
+  pickFile(async file=>{
+    let rows; try{rows=await readSheet(file);}catch(e){alert('Không đọc được file. Hãy dùng file .xlsx theo mẫu tải về.');return;}
+    const recs=[],bad=[];
+    rows.forEach((r,i)=>{const ten=String(xlPick(r,['ho va ten','ho ten','ten'])).trim(); if(!ten){bad.push(i+2);return;}
+      const mraw=fold(String(xlPick(r,['mon']))).toLowerCase();
+      recs.push({ten,ns:String(xlPick(r,['ngay sinh','sinh'])).trim(),mon:(mraw.includes('ta')||mraw.includes('anh'))?'TA':'VH',td:String(xlPick(r,['trinh do','bang cap'])).trim(),sdt:String(xlPick(r,['dien thoai','sdt','so dt','phone'])).trim(),dc:String(xlPick(r,['dia chi','address'])).trim(),coSoId});});
+    previewImport('giáo viên — '+csName(coSoId),recs,bad,async()=>{const okAll=await importRows('giao_vien',recs.map(gvToDb),gvFromDb,GV);if(okAll){closeModal();renderGV();}});
+  });
+}
 const hvOfLop=id=>OPS.hv.filter(h=>h.lopId===id);
 const lopHP=id=>OPS.hv.filter(h=>h.lopId===id).reduce((s,h)=>s+(h.hocPhi||0),0);
 const inHV=()=>OPS.hv.filter(h=>scopeIds().includes(h.coSoId));
@@ -962,7 +1078,9 @@ function renderGV(){
   let h=`<div class="toolbar">
     <div class="search">${svg(IC.search,2)}<input id="gvq" placeholder="Tìm theo tên, SĐT, địa chỉ…" value="${esc(gvSearch)}"/></div>
     ${USER.role==='admin'?`<select class="fsel" id="gvcs"><option value="all">Tất cả cơ sở</option>${opts.map(c=>`<option value="${c.id}" ${String(gvCs)===String(c.id)?'selected':''}>${esc(c.ten)}</option>`).join('')}</select>`:''}
-    ${gvLive?`<button class="btn btn-sm btn-primary" id="gvAdd" style="white-space:nowrap">＋ Thêm giáo viên</button>`:''}
+    ${gvLive?`<button class="btn btn-sm btn-ghost" id="gvTpl" style="white-space:nowrap">⬇ Tải mẫu Excel</button>
+    <button class="btn btn-sm btn-ghost" id="gvImp" style="white-space:nowrap">⬆ Nhập Excel</button>
+    <button class="btn btn-sm btn-primary" id="gvAdd" style="white-space:nowrap">＋ Thêm giáo viên</button>`:''}
   </div>
   <div class="chips" style="margin-bottom:14px">
     ${[['all','Tất cả môn'],['VH','Văn hóa'],['TA','Tiếng Anh']].map(([k,t])=>`<button class="chip ${gvMon===k?'on':''}" data-mon="${k}">${t}</button>`).join('')}
@@ -1000,6 +1118,8 @@ function renderGV(){
   const cs=$('#gvcs'); if(cs)cs.onchange=e=>{gvCs=e.target.value;renderGV();};
   $$('#view .chip').forEach(b=>b.onclick=()=>{gvMon=b.dataset.mon;renderGV();});
   const ga=$('#gvAdd'); if(ga)ga.onclick=openGvNew;
+  const gt=$('#gvTpl'); if(gt)gt.onclick=gvDownloadTemplate;
+  const gi=$('#gvImp'); if(gi)gi.onclick=gvImportExcel;
   bindGVRows();
 }
 function refreshGVTable(){renderGV();$('#gvq').focus();const v=$('#gvq').value;$('#gvq').setSelectionRange(v.length,v.length);}
@@ -1612,7 +1732,9 @@ function renderGhiDanh(){
   if(!lops.find(l=>l.id===ghiLopId)) ghiLopId=lops[0].id;
   const lop=LOP.find(l=>l.id===ghiLopId), ds=hvOfLop(ghiLopId);
   const conThieu=Math.max(0,(lop.siso||0)-ds.length);
-  let h=`<div class="toolbar"><select class="fsel" id="ghiLop" style="flex:1;min-width:180px;max-width:100%">${lopPickHTML(ghiLopId)}</select></div>
+  let h=`<div class="toolbar"><select class="fsel" id="ghiLop" style="flex:1;min-width:180px;max-width:100%">${lopPickHTML(ghiLopId)}</select>
+    <button class="btn btn-sm btn-ghost" id="hsTpl" style="white-space:nowrap">⬇ Tải mẫu Excel</button>
+    <button class="btn btn-sm btn-primary" id="hsImp" style="white-space:nowrap">⬆ Nhập Excel</button></div>
   <div class="grid2">
     <div class="panel"><div class="phead"><h3>Ghi danh học sinh mới</h3></div>
       <div class="pbody"><div class="form2">
@@ -1649,6 +1771,8 @@ function renderGhiDanh(){
   </div>`;
   $('#view').innerHTML=h;
   $('#ghiLop').onchange=e=>{ghiLopId=Number(e.target.value);renderGhiDanh();};
+  $('#hsTpl').onclick=()=>hsDownloadTemplate(lop);
+  $('#hsImp').onclick=()=>hsImportExcel(lop);
   $('#gd_add').onclick=async()=>{
     const ten=$('#gd_ten').value.trim(); if(!ten){$('#gd_ten').focus();return;}
     const rec={ten,ns:$('#gd_ns').value.trim(),ph:$('#gd_ph').value.trim(),sdt:$('#gd_sdt').value.trim(),hocPhi:Number($('#gd_hp').value.replace(/\D/g,''))||0,lopId:ghiLopId,coSoId:lop.coSoId,mau:false};
