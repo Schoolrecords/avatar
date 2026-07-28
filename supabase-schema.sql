@@ -175,6 +175,28 @@ create policy cc_upd on public.cham_cong_gv for update to authenticated
 create policy cc_del on public.cham_cong_gv for delete to authenticated
   using (my_role() = 'admin' or coso_id = my_coso());
 
+-- ----- gv_edits: chỉnh sửa hồ sơ giáo viên (đè lên data.js tĩnh) -----
+create table if not exists public.gv_edits (
+  gv_id   int primary key,          -- id giáo viên trong data.js
+  coso_id int not null,
+  ten text, ns text, td text, dc text, sdt text, mon text,
+  updated_at timestamptz default now()
+);
+alter table public.gv_edits enable row level security;
+drop policy if exists gv_sel on public.gv_edits;
+drop policy if exists gv_ins on public.gv_edits;
+drop policy if exists gv_upd on public.gv_edits;
+drop policy if exists gv_del on public.gv_edits;
+create policy gv_sel on public.gv_edits for select to authenticated
+  using (my_role() = 'admin' or coso_id = my_coso());
+create policy gv_ins on public.gv_edits for insert to authenticated
+  with check (my_role() = 'admin' or coso_id = my_coso());
+create policy gv_upd on public.gv_edits for update to authenticated
+  using (my_role() = 'admin' or coso_id = my_coso())
+  with check (my_role() = 'admin' or coso_id = my_coso());
+create policy gv_del on public.gv_edits for delete to authenticated
+  using (my_role() = 'admin' or coso_id = my_coso());
+
 -- ============================================================
 -- XONG PHẦN TẠO BẢNG. Bấm "Run".
 -- ============================================================
