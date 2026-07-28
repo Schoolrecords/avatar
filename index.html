@@ -541,20 +541,35 @@ const hvFromDb=r=>({id:r.id,ten:r.ten,ns:r.ns||'',ph:r.ph||'',sdt:r.sdt||'',hocP
 const hvToDb=o=>({ten:o.ten,ns:o.ns||'',ph:o.ph||'',sdt:o.sdt||'',hoc_phi:o.hocPhi||0,da_dong:!!o.daDong,lop_id:o.lopId,coso_id:o.coSoId,mau:!!o.mau});
 const gdFromDb=r=>({id:r.id,ngay:r.ngay,loai:r.loai,hangMuc:r.hang_muc,coSoId:r.coso_id,soTien:Number(r.so_tien)||0,noiDung:r.noi_dung||'',nguoiLap:r.nguoi_lap||''});
 const gdToDb=o=>({ngay:o.ngay,loai:o.loai,hang_muc:o.hangMuc,coso_id:o.coSoId,so_tien:o.soTien,noi_dung:o.noiDung||'',nguoi_lap:o.nguoiLap||''});
+/* Giáo viên & Lớp học sống (Giai đoạn 2) */
+const gvFromDb=r=>({id:r.id,ten:r.ten,ns:r.ns||'',td:r.td||'',dc:r.dc||'',sdt:r.sdt||'',mon:r.mon||'VH',coSoId:r.coso_id});
+const gvToDb=o=>({ten:o.ten,ns:o.ns||'',td:o.td||'',dc:o.dc||'',sdt:o.sdt||'',mon:o.mon||'VH',coso_id:o.coSoId});
+const lopFromDb=r=>({id:r.id,lop:r.lop,gv:r.gv||'',siso:Number(r.siso)||0,mon:r.mon||'VH',coSoId:r.coso_id});
+const lopToDb=o=>({lop:o.lop,gv:o.gv||'',siso:Number(o.siso)||0,mon:o.mon||'VH',coso_id:o.coSoId});
+let gvLive=false;   // true khi đã chạy SQL Giai đoạn 2 (GV/Lớp lấy từ Supabase)
 async function loadCloud(){
-  const [hv,gd,dd,cc,ge]=await Promise.all([
+  const [hv,gd,dd,cc,ge,gvR,lopR]=await Promise.all([
     SB.from('hoc_vien').select('*'),
     SB.from('so_quy').select('*'),
     SB.from('diem_danh_hv').select('*'),
     SB.from('cham_cong_gv').select('*'),
-    SB.from('gv_edits').select('*')
+    SB.from('gv_edits').select('*'),
+    SB.from('giao_vien').select('*'),
+    SB.from('lop_hoc').select('*')
   ]);
   if(hv.error||gd.error||dd.error||cc.error) throw (hv.error||gd.error||dd.error||cc.error);
   OPS.hv=(hv.data||[]).map(hvFromDb);
   OPS.gd=(gd.data||[]).map(gdFromDb);
   OPS.ddHV={}; (dd.data||[]).forEach(r=>{const k=r.lop_id+'|'+r.ngay;(OPS.ddHV[k]=OPS.ddHV[k]||{})[r.hv_id]=r.trang_thai;});
   OPS.ccGV={}; (cc.data||[]).forEach(r=>{OPS.ccGV['cc|'+r.lop_id+'|'+r.ngay]=r.trang_thai;});
-  if(!ge.error) applyGvEdits(ge.data||[]);
+  // Nếu đã migrate (bảng giao_vien có dữ liệu) → dùng bản SỐNG; chưa thì giữ data.js
+  gvLive = !gvR.error && !lopR.error && (gvR.data||[]).length>0;
+  if(gvLive){
+    GV.length=0; (gvR.data||[]).forEach(r=>GV.push(gvFromDb(r)));
+    LOP.length=0; (lopR.data||[]).forEach(r=>LOP.push(lopFromDb(r)));
+  } else if(!ge.error){
+    applyGvEdits(ge.data||[]);
+  }
 }
 /* gộp các chỉnh sửa giáo viên (lưu ở Supabase) đè lên dữ liệu tĩnh data.js */
 function applyGvEdits(rows){
@@ -744,7 +759,7 @@ function subscribeRealtime(){
     try{ await loadCloud(); if(!$('#modal').classList.contains('on')) renderCurrent(); }catch(e){}
   },600); };
   rtChannel=SB.channel('avatar-rt');
-  ['hoc_vien','so_quy','diem_danh_hv','cham_cong_gv','gv_edits'].forEach(t=>
+  ['hoc_vien','so_quy','diem_danh_hv','cham_cong_gv','gv_edits','giao_vien','lop_hoc'].forEach(t=>
     rtChannel.on('postgres_changes',{event:'*',schema:'public',table:t},bump));
   rtChannel.subscribe();
 }
@@ -947,6 +962,7 @@ function renderGV(){
   let h=`<div class="toolbar">
     <div class="search">${svg(IC.search,2)}<input id="gvq" placeholder="Tìm theo tên, SĐT, địa chỉ…" value="${esc(gvSearch)}"/></div>
     ${USER.role==='admin'?`<select class="fsel" id="gvcs"><option value="all">Tất cả cơ sở</option>${opts.map(c=>`<option value="${c.id}" ${String(gvCs)===String(c.id)?'selected':''}>${esc(c.ten)}</option>`).join('')}</select>`:''}
+    ${gvLive?`<button class="btn btn-sm btn-primary" id="gvAdd" style="white-space:nowrap">＋ Thêm giáo viên</button>`:''}
   </div>
   <div class="chips" style="margin-bottom:14px">
     ${[['all','Tất cả môn'],['VH','Văn hóa'],['TA','Tiếng Anh']].map(([k,t])=>`<button class="chip ${gvMon===k?'on':''}" data-mon="${k}">${t}</button>`).join('')}
@@ -983,6 +999,7 @@ function renderGV(){
   $('#gvq').oninput=e=>{gvSearch=e.target.value;refreshGVTable();};
   const cs=$('#gvcs'); if(cs)cs.onchange=e=>{gvCs=e.target.value;renderGV();};
   $$('#view .chip').forEach(b=>b.onclick=()=>{gvMon=b.dataset.mon;renderGV();});
+  const ga=$('#gvAdd'); if(ga)ga.onclick=openGvNew;
   bindGVRows();
 }
 function refreshGVTable(){renderGV();$('#gvq').focus();const v=$('#gvq').value;$('#gvq').setSelectionRange(v.length,v.length);}
@@ -1009,23 +1026,68 @@ function showGV(id){
       ${lops.length?`<div class="fld full"><label>Phụ trách lớp</label><input value="${lops.length} lớp · ${hs} HS — ${esc(lops.map(l=>l.lop).join(', '))}" disabled style="opacity:.7"/></div>`:''}
       <div id="ev_err" class="fld full" style="display:none;color:#c0392b;font-size:.84rem;font-weight:600;padding:0"></div>
       <div class="fld full" style="display:flex;gap:8px;margin-top:2px">
+        ${gvLive?`<button class="btn btn-light" style="color:var(--rose)" id="ev_del">Xóa</button>`:''}
         <button class="btn btn-light" style="flex:1" onclick="closeModal()">Đóng</button>
         <button class="btn btn-primary" style="flex:2" id="ev_save">💾 Lưu thay đổi</button>
       </div>
       <div class="fld full" style="padding:0"><small class="muted">Thay đổi được lưu online, đồng bộ mọi máy.</small></div>
     </div></div>`;
   $('#modal').classList.add('on');
+  const err=$('#ev_err'); const showErr=m=>{err.textContent=m||'';err.style.display=m?'block':'none';};
   $('#ev_save').onclick=async()=>{
-    const rec={gv_id:g.id,coso_id:g.coSoId,ten:$('#ev_ten').value.trim(),ns:$('#ev_ns').value.trim(),td:$('#ev_td').value.trim(),sdt:$('#ev_sdt').value.trim(),dc:$('#ev_dc').value.trim(),mon:$('#ev_mon').value};
-    const err=$('#ev_err'); const showErr=m=>{err.textContent=m||'';err.style.display=m?'block':'none';};
+    const rec={ten:$('#ev_ten').value.trim(),ns:$('#ev_ns').value.trim(),td:$('#ev_td').value.trim(),sdt:$('#ev_sdt').value.trim(),dc:$('#ev_dc').value.trim(),mon:$('#ev_mon').value};
     if(!rec.ten){showErr('Vui lòng nhập họ tên.');$('#ev_ten').focus();return;}
     const btn=$('#ev_save'); btn.disabled=true; btn.textContent='Đang lưu…'; showErr('');
-    const {error}=await SB.from('gv_edits').upsert(rec,{onConflict:'gv_id'});
+    const {error}= gvLive
+      ? await SB.from('giao_vien').update({ten:rec.ten,ns:rec.ns,td:rec.td,dc:rec.dc,sdt:rec.sdt,mon:rec.mon}).eq('id',g.id)
+      : await SB.from('gv_edits').upsert({gv_id:g.id,coso_id:g.coSoId,...rec},{onConflict:'gv_id'});
     btn.disabled=false; btn.textContent='💾 Lưu thay đổi';
     if(error){showErr('Lỗi lưu: '+error.message);return;}
     ['ten','ns','td','sdt','dc','mon'].forEach(k=>{g[k]=rec[k];});
     closeModal();
     if(VIEW==='gv')renderGV();
+  };
+  const del=$('#ev_del'); if(del)del.onclick=async()=>{
+    if(!confirm('Xóa giáo viên "'+g.ten+'"? Thao tác này không thể hoàn tác.'))return;
+    const {error}=await SB.from('giao_vien').delete().eq('id',g.id);
+    if(error){showErr('Lỗi xóa: '+error.message);return;}
+    const i=GV.findIndex(x=>x.id===g.id); if(i>=0)GV.splice(i,1);
+    closeModal(); if(VIEW==='gv')renderGV();
+  };
+}
+/* ＋ Thêm giáo viên mới (bảng giao_vien sống) */
+function openGvNew(){
+  const csOpts=inCOSO().filter(c=>!c.build).map(c=>`<option value="${c.id}">${esc(c.ten)}</option>`).join('');
+  $('#mcard').innerHTML=`
+    <div class="mhead">
+      <div class="mava">＋</div>
+      <div style="flex:1"><h3>Thêm giáo viên</h3><p>${USER.role==='admin'?'Chọn cơ sở công tác':esc(csName(USER.coSoId))}</p></div>
+      <button class="mclose" onclick="closeModal()">${svg('<path d="M6 6l12 12M18 6L6 18"/>')}</button>
+    </div>
+    <div class="mbody"><div class="form2">
+      <div class="fld full"><label>Họ và tên *</label><input id="nv_ten" placeholder="VD: Nguyễn Văn An"/></div>
+      <div class="fld"><label>Ngày sinh</label><input id="nv_ns" placeholder="dd/mm/yyyy"/></div>
+      <div class="fld"><label>Môn</label><select id="nv_mon"><option value="VH">Văn hóa</option><option value="TA">Tiếng Anh</option></select></div>
+      <div class="fld"><label>Trình độ chuyên môn</label><input id="nv_td" placeholder="VD: Đại học"/></div>
+      <div class="fld"><label>Số điện thoại</label><input id="nv_sdt" inputmode="tel"/></div>
+      <div class="fld full"><label>Địa chỉ</label><input id="nv_dc"/></div>
+      ${USER.role==='admin'?`<div class="fld full"><label>Cơ sở công tác *</label><select id="nv_cs">${csOpts}</select></div>`:''}
+      <div id="nv_err" class="fld full" style="display:none;color:#c0392b;font-size:.84rem;font-weight:600;padding:0"></div>
+      <div class="fld full" style="display:flex;gap:8px"><button class="btn btn-light" style="flex:1" onclick="closeModal()">Hủy</button><button class="btn btn-primary" style="flex:2" id="nv_save">＋ Thêm giáo viên</button></div>
+    </div></div>`;
+  $('#modal').classList.add('on');
+  const err=m=>{const e=$('#nv_err');e.textContent=m||'';e.style.display=m?'block':'none';};
+  $('#nv_save').onclick=async()=>{
+    const ten=$('#nv_ten').value.trim();
+    if(!ten){err('Vui lòng nhập họ tên.');$('#nv_ten').focus();return;}
+    const coSoId=USER.role==='admin'?Number($('#nv_cs').value):USER.coSoId;
+    const rec={ten,ns:$('#nv_ns').value.trim(),td:$('#nv_td').value.trim(),sdt:$('#nv_sdt').value.trim(),dc:$('#nv_dc').value.trim(),mon:$('#nv_mon').value,coSoId};
+    const btn=$('#nv_save'); btn.disabled=true; btn.textContent='Đang lưu…'; err('');
+    const {data,error}=await SB.from('giao_vien').insert(gvToDb(rec)).select().single();
+    btn.disabled=false; btn.textContent='＋ Thêm giáo viên';
+    if(error){err('Lỗi thêm: '+error.message);return;}
+    GV.push(gvFromDb(data));
+    closeModal(); renderGV();
   };
 }
 function mrow(ic,label,val){return `<div class="mrow"><div class="mi">${svg(ic)}</div><div style="flex:1"><small>${label}</small><b>${val}</b></div></div>`;}
@@ -1151,12 +1213,13 @@ function renderLop(){
   let h=`<div class="toolbar">
     <div class="search">${svg(IC.search,2)}<input id="lopq" placeholder="Tìm lớp hoặc giáo viên…" value="${esc(lopSearch)}"/></div>
     ${USER.role==='admin'?`<select class="fsel" id="lopcs"><option value="all">Tất cả cơ sở</option>${opts.map(c=>`<option value="${c.id}" ${String(lopCs)===String(c.id)?'selected':''}>${esc(c.ten)}</option>`).join('')}</select>`:''}
+    ${gvLive?`<button class="btn btn-sm btn-primary" id="lopAdd" style="white-space:nowrap">＋ Thêm lớp</button>`:''}
   </div>`;
-  h+=`<div class="panel"><div class="phead"><h3>Danh sách lớp học</h3><span class="sub">${list.length} lớp · ${hs} HS · dự thu ${fmtShort(thu)}</span></div>
+  h+=`<div class="panel"><div class="phead"><h3>Danh sách lớp học</h3><span class="sub">${list.length} lớp · ${hs} HS · dự thu ${fmtShort(thu)}${gvLive?' · bấm dòng để sửa':''}</span></div>
     <div class="twrap"><table><thead><tr><th>Lớp</th><th>Giáo viên phụ trách</th>${USER.role==='admin'?'<th>Cơ sở</th>':''}<th class="tright">Sĩ số</th><th class="tright">Dự thu</th></tr></thead><tbody>`;
   if(!list.length){h+=`<tr><td colspan="5"><div class="empty">${svg(IC.lop,1.6)}Chưa có lớp học trong phạm vi này</div></td></tr>`;}
   else list.forEach(l=>{
-    h+=`<tr><td><b>${esc(l.lop||'—')}</b> ${l.mon==='TA'?'<span class="badge bg-ta" style="margin-left:4px">TA</span>':''}</td>
+    h+=`<tr ${gvLive?`data-lid="${l.id}" class="lopRow" style="cursor:pointer"`:''}><td><b>${esc(l.lop||'—')}</b> ${l.mon==='TA'?'<span class="badge bg-ta" style="margin-left:4px">TA</span>':''}</td>
       <td>${esc(l.gv||'—')}</td>
       ${USER.role==='admin'?`<td>${esc(csName(l.coSoId))}</td>`:''}
       <td class="tright num">${l.siso||0}</td>
@@ -1166,6 +1229,92 @@ function renderLop(){
   $('#view').innerHTML=h;
   $('#lopq').oninput=e=>{lopSearch=e.target.value;const v=e.target.value;renderLop();$('#lopq').focus();$('#lopq').setSelectionRange(v.length,v.length);};
   const cs=$('#lopcs'); if(cs)cs.onchange=e=>{lopCs=e.target.value;renderLop();};
+  const la=$('#lopAdd'); if(la)la.onclick=openLopNew;
+  if(gvLive)$$('#view .lopRow').forEach(r=>r.onclick=()=>{const l=LOP.find(x=>x.id===Number(r.dataset.lid));if(l)openLopEdit(l);});
+}
+/* select danh sách GV của 1 cơ sở để chọn GV phụ trách lớp */
+function gvOptions(coSoId,sel){
+  return GV.filter(g=>g.coSoId===coSoId).slice().sort((a,b)=>a.ten.localeCompare(b.ten,'vi'))
+    .map(g=>`<option value="${esc(g.ten)}" ${g.ten===sel?'selected':''}>${esc(g.ten)}</option>`).join('');
+}
+/* ＋ Thêm lớp mới */
+function openLopNew(){
+  const isAdmin=USER.role==='admin';
+  const csOpts=inCOSO().filter(c=>!c.build).map(c=>`<option value="${c.id}">${esc(c.ten)}</option>`).join('');
+  const firstCs=isAdmin?inCOSO().filter(c=>!c.build)[0]?.id:USER.coSoId;
+  $('#mcard').innerHTML=`
+    <div class="mhead">
+      <div class="mava">＋</div>
+      <div style="flex:1"><h3>Thêm lớp học</h3><p>${isAdmin?'Chọn cơ sở':esc(csName(USER.coSoId))}</p></div>
+      <button class="mclose" onclick="closeModal()">${svg('<path d="M6 6l12 12M18 6L6 18"/>')}</button>
+    </div>
+    <div class="mbody"><div class="form2">
+      ${isAdmin?`<div class="fld full"><label>Cơ sở *</label><select id="lp_cs">${csOpts}</select></div>`:''}
+      <div class="fld full"><label>Tên lớp *</label><input id="lp_ten" placeholder="VD: Lớp 3, 8N1, TA A1…"/></div>
+      <div class="fld"><label>Môn</label><select id="lp_mon"><option value="VH">Văn hóa</option><option value="TA">Tiếng Anh</option></select></div>
+      <div class="fld"><label>Sĩ số dự kiến</label><input id="lp_siso" inputmode="numeric" placeholder="VD: 20"/></div>
+      <div class="fld full"><label>Giáo viên phụ trách</label><select id="lp_gv"><option value="">— Chưa phân công —</option>${gvOptions(firstCs,'')}</select></div>
+      <div id="lp_err" class="fld full" style="display:none;color:#c0392b;font-size:.84rem;font-weight:600;padding:0"></div>
+      <div class="fld full" style="display:flex;gap:8px"><button class="btn btn-light" style="flex:1" onclick="closeModal()">Hủy</button><button class="btn btn-primary" style="flex:2" id="lp_save">＋ Thêm lớp</button></div>
+    </div></div>`;
+  $('#modal').classList.add('on');
+  const err=m=>{const e=$('#lp_err');e.textContent=m||'';e.style.display=m?'block':'none';};
+  if(isAdmin){const csSel=$('#lp_cs'); csSel.onchange=()=>{$('#lp_gv').innerHTML='<option value="">— Chưa phân công —</option>'+gvOptions(Number(csSel.value),'');};}
+  $('#lp_save').onclick=async()=>{
+    const ten=$('#lp_ten').value.trim();
+    if(!ten){err('Vui lòng nhập tên lớp.');$('#lp_ten').focus();return;}
+    const coSoId=isAdmin?Number($('#lp_cs').value):USER.coSoId;
+    const rec={lop:ten,gv:$('#lp_gv').value,siso:Number(String($('#lp_siso').value).replace(/\D/g,''))||0,mon:$('#lp_mon').value,coSoId};
+    const btn=$('#lp_save'); btn.disabled=true; btn.textContent='Đang lưu…'; err('');
+    const {data,error}=await SB.from('lop_hoc').insert(lopToDb(rec)).select().single();
+    btn.disabled=false; btn.textContent='＋ Thêm lớp';
+    if(error){err('Lỗi thêm: '+error.message);return;}
+    LOP.push(lopFromDb(data));
+    closeModal(); renderLop();
+  };
+}
+/* Sửa / xóa 1 lớp */
+function openLopEdit(l){
+  const soHS=hvOfLop(l.id).length;
+  $('#mcard').innerHTML=`
+    <div class="mhead">
+      <div class="mava">${svg(IC.lop)}</div>
+      <div style="flex:1"><h3>${esc(l.lop)}</h3><p>${esc(csName(l.coSoId))} · ${soHS} học sinh</p></div>
+      <button class="mclose" onclick="closeModal()">${svg('<path d="M6 6l12 12M18 6L6 18"/>')}</button>
+    </div>
+    <div class="mbody"><div class="form2">
+      <div class="fld full"><label>Tên lớp *</label><input id="lp_ten" value="${esc(l.lop)}"/></div>
+      <div class="fld"><label>Môn</label><select id="lp_mon"><option value="VH" ${l.mon!=='TA'?'selected':''}>Văn hóa</option><option value="TA" ${l.mon==='TA'?'selected':''}>Tiếng Anh</option></select></div>
+      <div class="fld"><label>Sĩ số dự kiến</label><input id="lp_siso" inputmode="numeric" value="${l.siso||''}"/></div>
+      <div class="fld full"><label>Giáo viên phụ trách</label><select id="lp_gv"><option value="">— Chưa phân công —</option>${gvOptions(l.coSoId,l.gv)}</select></div>
+      <div id="lp_err" class="fld full" style="display:none;color:#c0392b;font-size:.84rem;font-weight:600;padding:0"></div>
+      <div class="fld full" style="display:flex;gap:8px;margin-top:2px">
+        <button class="btn btn-light" style="color:var(--rose)" id="lp_del">Xóa lớp</button>
+        <button class="btn btn-light" style="flex:1" onclick="closeModal()">Đóng</button>
+        <button class="btn btn-primary" style="flex:2" id="lp_save">💾 Lưu</button>
+      </div>
+    </div></div>`;
+  $('#modal').classList.add('on');
+  const err=m=>{const e=$('#lp_err');e.textContent=m||'';e.style.display=m?'block':'none';};
+  $('#lp_save').onclick=async()=>{
+    const ten=$('#lp_ten').value.trim();
+    if(!ten){err('Vui lòng nhập tên lớp.');return;}
+    const patch={lop:ten,gv:$('#lp_gv').value,siso:Number(String($('#lp_siso').value).replace(/\D/g,''))||0,mon:$('#lp_mon').value};
+    const btn=$('#lp_save'); btn.disabled=true; btn.textContent='Đang lưu…'; err('');
+    const {error}=await SB.from('lop_hoc').update(patch).eq('id',l.id);
+    btn.disabled=false; btn.textContent='💾 Lưu';
+    if(error){err('Lỗi lưu: '+error.message);return;}
+    Object.assign(l,patch);
+    closeModal(); renderLop();
+  };
+  $('#lp_del').onclick=async()=>{
+    if(soHS>0){err('Lớp còn '+soHS+' học sinh. Hãy chuyển các em sang lớp khác (trong mục Học sinh) trước khi xóa.');return;}
+    if(!confirm('Xóa lớp "'+l.lop+'"? Thao tác này không thể hoàn tác.'))return;
+    const {error}=await SB.from('lop_hoc').delete().eq('id',l.id);
+    if(error){err('Lỗi xóa: '+error.message);return;}
+    const i=LOP.findIndex(x=>x.id===l.id); if(i>=0)LOP.splice(i,1);
+    closeModal(); renderLop();
+  };
 }
 
 /* ============ KHOẢN THU ============ */
