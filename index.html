@@ -195,11 +195,12 @@ tbody tr:hover{background:var(--soft)}
 .cscard.build{opacity:.72;border-style:dashed}
 .cscard .cs-top{display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px;margin-bottom:15px}
 .cs-badge{width:54px;height:54px;border-radius:16px;display:grid;place-items:center;font-weight:900;color:#fff;font-size:1.18rem;flex:none}
+.avatar-a{font-weight:900;font-style:italic;letter-spacing:-.02em;text-shadow:0 1px 2px rgba(0,0,0,.18)}
 .cscard h4{margin:0;font-size:1.22rem;line-height:1.2;text-align:center}
 .cscard .cs-sub{font-size:.82rem;color:var(--muted);text-align:center}
 .cs-stats{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .cs-stat{background:rgba(255,255,255,.68);border-radius:13px;padding:13px 10px;text-align:center}
-.cs-stat b{display:block;font-size:1.7rem;line-height:1.05;color:var(--ink)}
+.cs-stat b{display:block;font-size:1.7rem;line-height:1.05;color:var(--brand);font-weight:900}
 .cs-stat span{font-size:.74rem;color:var(--muted)}
 .cs-rev{margin-top:11px;padding-top:11px;border-top:1px solid var(--line);display:flex;align-items:center;justify-content:space-between}
 .cs-rev small{font-size:.72rem;color:var(--muted)}
@@ -213,7 +214,7 @@ tbody tr:hover{background:var(--soft)}
 .cs-bar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,var(--brand),var(--emerald))}
 .cssum{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
 .cssum .s{flex:1;min-width:110px;background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px 15px;box-shadow:var(--shadow-sm)}
-.cssum .s b{display:block;font-size:1.28rem;line-height:1}
+.cssum .s b{display:block;font-size:1.28rem;line-height:1;color:var(--brand);font-weight:900}
 .cssum .s span{font-size:.71rem;color:var(--muted)}
 .cs-back{margin-bottom:14px}
 .csd-hero{display:flex;align-items:center;gap:16px;padding:20px 22px;border-radius:var(--radius);box-shadow:var(--shadow-sm)}
@@ -1044,7 +1045,7 @@ function renderCoso(){
   rows.forEach(({c,gv,lop,hs,thu})=>{
     if(c.build){
       h+=`<div class="cscard build">
-        <div class="cs-top"><div class="cs-badge" style="background:#8a97b3">${csAbbr(c.id)}</div>
+        <div class="cs-top"><div class="cs-badge avatar-a" style="background:#8a97b3">A</div>
           <div><h4>${esc(c.ten)}</h4><div class="cs-sub">Đang xây dựng</div></div></div>
         <div class="empty" style="padding:18px 0">Cơ sở mới · chưa nhập dữ liệu</div></div>`;
       return;
@@ -1053,7 +1054,7 @@ function renderCoso(){
     if(lop===0&&gv>0) warn=`<span class="cs-warn">⚠ Chưa nhập lớp</span>`;
     else if(lop>0&&hs/lop<6) warn=`<span class="cs-warn">⚠ Sĩ số bất thường</span>`;
     h+=`<div class="cscard" data-cs="${c.id}" style="background:${csPastel(c.id)};border-left:4px solid ${avaColor(c.ten)}">
-      <div class="cs-top"><div class="cs-badge" style="background:${avaColor(c.ten)}">${csAbbr(c.id)}</div>
+      <div class="cs-top"><div class="cs-badge avatar-a" style="background:${avaColor(c.ten)}">A</div>
         <div class="cs-head"><h4>${esc(c.ten)}${warn}</h4><div class="cs-sub">${lop} lớp · ${hs} học sinh</div></div></div>
       <div class="cs-stats">
         <div class="cs-stat"><b>${gv}</b><span>Giáo viên</span></div>
@@ -1084,7 +1085,7 @@ function renderCosoDetail(id){
 
   let h=`<button class="btn btn-sm btn-ghost cs-back" id="csBack">← Tất cả cơ sở</button>
   <div class="csd-hero" style="background:${csPastel(id)};border-left:5px solid ${avaColor(c.ten)}">
-    <div class="cs-badge" style="background:${avaColor(c.ten)};width:62px;height:62px;font-size:1.35rem">${csAbbr(id)}</div>
+    <div class="cs-badge avatar-a" style="background:${avaColor(c.ten)};width:62px;height:62px;font-size:1.7rem">A</div>
     <div><h2>${esc(c.ten)}</h2><div class="cs-sub" style="font-size:.9rem">${s.lop} lớp · ${s.hs} học sinh · ${s.gv} giáo viên</div></div>
   </div>
   <div class="cssum" style="margin-top:14px">
@@ -1199,7 +1200,7 @@ function renderThu(){
   const totDu=rows.reduce((s,r)=>s+r.thu,0), maxThu=Math.max(1,...rows.map(r=>r.thu));
   h+=`<div class="panel"><div class="phead"><h3>Dự thu học phí kế hoạch</h3><span class="simtag">theo Excel</span></div>
     <div class="twrap"><table><thead><tr><th>Cơ sở</th><th class="tright">Lớp</th><th class="tright">Học sinh</th><th class="tright">Dự thu</th><th>Tỷ trọng</th></tr></thead><tbody>`;
-  rows.forEach(r=>{h+=`<tr><td><div class="gvcell"><div class="gvava" style="width:30px;height:30px;font-size:.7rem;background:${avaColor(r.c.ten)}">${csAbbr(r.c.id)}</div><b>${esc(r.c.ten)}</b></div></td>
+  rows.forEach(r=>{h+=`<tr><td><div class="gvcell"><div class="gvava avatar-a" style="width:30px;height:30px;font-size:.95rem;background:${avaColor(r.c.ten)}">A</div><b>${esc(r.c.ten)}</b></div></td>
     <td class="tright num">${r.lop}</td><td class="tright num">${r.hs}</td><td class="tright num">${fmtVND(r.thu)}</td>
     <td style="min-width:110px"><div class="cs-bar" style="margin:0"><i style="width:${Math.max(3,r.thu/maxThu*100)}%"></i></div></td></tr>`;});
   h+=`</tbody><tfoot><tr style="background:var(--soft)"><td colspan="3" class="tright"><b>TỔNG DỰ THU</b></td><td class="tright"><b>${fmtVND(totDu)}</b></td><td></td></tr></tfoot></table></div></div>`;
