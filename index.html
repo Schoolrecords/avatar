@@ -440,11 +440,11 @@ const svg=(p,sw=1.9)=>`<svg viewBox="0 0 24 24" fill="none" stroke-width="${sw}"
 const NAV=[
   {k:'dashboard',t:'Điều hành',i:IC.dashboard},
   {k:'gv',t:'Giáo viên',i:IC.gv,cnt:()=>inGV().length},
-  {k:'coso',t:'Cơ sở',i:IC.coso,cnt:()=>USER.role==='admin'?COSO.length:1},
+  {k:'coso',t:'Cơ sở',i:IC.coso,cnt:()=>COSO.length,adminOnly:true},
   {k:'lop',t:'Lớp học',i:IC.lop,cnt:()=>inLOP().length},
   {k:'thu',t:'Khoản thu',i:IC.thu},
 ];
-const BOT=[NAV[0],NAV[1],NAV[2],NAV[3],NAV[4]];
+const visibleNav=()=>NAV.filter(n=>!n.adminOnly||USER.role==='admin');
 
 function scopeIds(){
   if(USER.role!=='admin') return [USER.coSoId];
@@ -498,9 +498,10 @@ function buildScope(){
 
 /* ============ NAV RENDER ============ */
 function renderNav(){
-  $('#nav').innerHTML=NAV.map(n=>`<button data-k="${n.k}" class="${n.k===VIEW?'on':''}">${svg(n.i)}<span>${n.t}</span>${n.cnt?`<span class="cnt">${n.cnt()}</span>`:''}</button>`).join('');
+  const vis=visibleNav();
+  $('#nav').innerHTML=vis.map(n=>`<button data-k="${n.k}" class="${n.k===VIEW?'on':''}">${svg(n.i)}<span>${n.t}</span>${n.cnt?`<span class="cnt">${n.cnt()}</span>`:''}</button>`).join('');
   $$('#nav button').forEach(b=>b.onclick=()=>{go(b.dataset.k);closeSide();});
-  $('#botnav').innerHTML=BOT.map(n=>`<button data-k="${n.k}" class="${n.k===VIEW?'on':''}">${svg(n.i,1.9)}<span>${n.t}</span></button>`).join('');
+  $('#botnav').innerHTML=vis.map(n=>`<button data-k="${n.k}" class="${n.k===VIEW?'on':''}">${svg(n.i,1.9)}<span>${n.t}</span></button>`).join('');
   $$('#botnav button').forEach(b=>b.onclick=()=>go(b.dataset.k));
 }
 function syncNav(){
@@ -521,6 +522,7 @@ $('#burger').onclick=openSide; $('#scrim').onclick=closeSide;
 /* ============ ROUTER ============ */
 const TITLES={dashboard:['Bảng điều hành','Toàn cảnh điều hành'],gv:['Giáo viên','Danh sách & hồ sơ giáo viên'],coso:['Cơ sở','Mạng lưới các trung tâm'],lop:['Lớp học','Lớp học & sĩ số'],thu:['Khoản thu','Dự thu học phí theo cơ sở']};
 function go(k){
+  if(k==='coso'&&USER.role!=='admin')k='dashboard';
   VIEW=k;
   const scopeTxt=USER.role==='admin'?(scope==='all'?'Toàn hệ thống':csName(Number(scope))):csName(USER.coSoId);
   $('#pgTitle').textContent=TITLES[k][0];
