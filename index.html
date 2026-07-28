@@ -532,16 +532,36 @@ let ddDate=todayISO(), ddLopId=null, ghiLopId=null;
 const HO2=['Nguyễn','Trần','Lê','Phạm','Hoàng','Phan','Vũ','Hồ','Ngô','Đặng','Bùi','Dương'];
 const DEM2=['Thị','Văn','Hữu','Đức','Ngọc','Minh','Thanh','Gia','Bảo','Hải','Khánh','Nhật'];
 const TEN2=['An','Bình','Chi','Dũng','Giang','Hà','Hùng','Khánh','Lan','Linh','Mai','Nam','Ngân','Phúc','Quân','Sơn','Trang','Tú','Vy','Yến','Đạt','Hương','Khoa','Thảo'];
-async function seedHV(lop){
+/* tạo danh sách tên mẫu cho 1 lớp (đủ sĩ số) — trả về mảng bản ghi CSDL */
+function genSampleRows(lop){
   const have=hvOfLop(lop.id).length, need=Math.max(0,(lop.siso||12)-have);
   const rows=[];
   for(let i=0;i<need;i++){const r=seed(lop.lop+lop.id+(have+i));
     const nm=HO2[Math.floor(seed('a'+r+i)*HO2.length)]+' '+DEM2[Math.floor(seed('b'+r+i)*DEM2.length)]+' '+TEN2[Math.floor(seed('c'+r+i)*TEN2.length)];
     rows.push(hvToDb({ten:nm,ns:'',ph:'',sdt:'',hocPhi:0,lopId:lop.id,coSoId:lop.coSoId,mau:true}));}
-  if(!rows.length)return;
-  const {data,error}=await SB.from('hoc_vien').insert(rows).select();
-  if(error){alert('Lỗi tạo danh sách mẫu: '+error.message);return;}
-  (data||[]).forEach(r=>OPS.hv.push(hvFromDb(r)));
+  return rows;
+}
+async function insertHvChunks(rows){
+  for(let i=0;i<rows.length;i+=500){
+    const {data,error}=await SB.from('hoc_vien').insert(rows.slice(i,i+500)).select();
+    if(error){alert('Lỗi tạo danh sách: '+error.message);return false;}
+    (data||[]).forEach(r=>OPS.hv.push(hvFromDb(r)));
+  }
+  return true;
+}
+async function seedHV(lop){
+  const rows=genSampleRows(lop); if(!rows.length)return;
+  await insertHvChunks(rows);
+}
+/* tạo mẫu cho TẤT CẢ lớp còn thiếu trong phạm vi hiện tại */
+async function seedAllHV(){
+  const lops=inLOP().filter(l=>l.siso>0);
+  let rows=[]; let nLop=0;
+  lops.forEach(l=>{const r=genSampleRows(l); if(r.length){rows=rows.concat(r);nLop++;}});
+  if(!rows.length){alert('Tất cả lớp trong phạm vi đã đủ danh sách mẫu rồi.');return false;}
+  const pv=USER.role==='admin'?(scope==='all'?'toàn hệ thống':csName(Number(scope))):csName(USER.coSoId);
+  if(!confirm(`Tạo nhanh ${rows.length} học viên mẫu cho ${nLop} lớp còn thiếu (phạm vi: ${pv}).\n\nCác em được đánh dấu "học viên mẫu", có thể xóa sau. Tiếp tục?`))return false;
+  return await insertHvChunks(rows);
 }
 function lopPickHTML(selId){
   return inLOP().filter(l=>l.siso>0||hvOfLop(l.id).length).slice().sort((a,b)=>a.coSoId-b.coSoId)
@@ -1173,7 +1193,7 @@ function renderGhiDanh(){
   if(!lops.length){$('#view').innerHTML=`<div class="panel"><div class="pbody"><div class="empty">Chưa có lớp học trong phạm vi này</div></div></div>`;return;}
   if(!lops.find(l=>l.id===ghiLopId)) ghiLopId=lops[0].id;
   const lop=LOP.find(l=>l.id===ghiLopId), ds=hvOfLop(ghiLopId);
-  let h=`<div class="toolbar"><select class="fsel" id="ghiLop" style="flex:1;min-width:200px;max-width:100%">${lopPickHTML(ghiLopId)}</select></div>
+  let h=`<div class="toolbar"><select class="fsel" id="ghiLop" style="flex:1;min-width:180px;max-width:100%">${lopPickHTML(ghiLopId)}</select><button class="btn btn-sm btn-ghost" id="seedAll" style="white-space:nowrap">⚡ Tạo mẫu tất cả lớp</button></div>
   <div class="ddsum">
     <div class="p"><b>${lop.siso}</b><span>sĩ số Excel</span></div>
     <div class="p"><b>${ds.length}</b><span>đã ghi danh</span></div>
@@ -1210,6 +1230,7 @@ function renderGhiDanh(){
     OPS.hv.push(hvFromDb(data));renderGhiDanh();
   };
   $('#gd_seed').onclick=async()=>{await seedHV(lop);renderGhiDanh();};
+  $('#seedAll').onclick=async()=>{const b=$('#seedAll');b.disabled=true;const t=b.textContent;b.textContent='Đang tạo…';const ok=await seedAllHV();b.disabled=false;b.textContent=t;if(ok)renderGhiDanh();};
   $$('#view [data-del]').forEach(b=>b.onclick=async()=>{const id=Number(b.dataset.del);const {error}=await SB.from('hoc_vien').delete().eq('id',id);if(error){alert('Lỗi xóa: '+error.message);return;}OPS.hv=OPS.hv.filter(x=>x.id!==id);renderGhiDanh();});
   renderNavCounts();
 }
