@@ -539,8 +539,20 @@ const SB=window.supabase.createClient(SB_URL,SB_KEY);
 /* ánh xạ giữa cột CSDL (chữ_gạch) và tên dùng trong app (chữHoa) */
 const hvFromDb=r=>({id:r.id,ten:r.ten,ns:r.ns||'',ph:r.ph||'',sdt:r.sdt||'',hocPhi:Number(r.hoc_phi)||0,daDong:!!r.da_dong,lopId:r.lop_id,coSoId:r.coso_id,mau:!!r.mau});
 const hvToDb=o=>({ten:o.ten,ns:o.ns||'',ph:o.ph||'',sdt:o.sdt||'',hoc_phi:o.hocPhi||0,da_dong:!!o.daDong,lop_id:o.lopId,coso_id:o.coSoId,mau:!!o.mau});
-const gdFromDb=r=>({id:r.id,ngay:r.ngay,loai:r.loai,hangMuc:r.hang_muc,coSoId:r.coso_id,soTien:Number(r.so_tien)||0,noiDung:r.noi_dung||'',nguoiLap:r.nguoi_lap||''});
+const gdFromDb=r=>({id:r.id,ngay:r.ngay,loai:r.loai,hangMuc:r.hang_muc,coSoId:r.coso_id,soTien:Number(r.so_tien)||0,noiDung:r.noi_dung||'',nguoiLap:r.nguoi_lap||'',hvId:(r.hv_id!=null?r.hv_id:null)});
 const gdToDb=o=>({ngay:o.ngay,loai:o.loai,hang_muc:o.hangMuc,coso_id:o.coSoId,so_tien:o.soTien,noi_dung:o.noiDung||'',nguoi_lap:o.nguoiLap||''});
+/* Đồng bộ phiếu thu học phí trong Sổ quỹ theo trạng thái "đã đóng" của học sinh.
+   Bỏ qua êm nếu chưa chạy SQL thêm cột hv_id. */
+async function syncHocPhiVoucher(h,paid){
+  const del=await SB.from('so_quy').delete().eq('hv_id',h.id);
+  if(del.error) return;                       // cột hv_id chưa có → chưa chạy SQL đồng bộ
+  OPS.gd=OPS.gd.filter(g=>g.hvId!==h.id);
+  if(paid && (h.hocPhi||0)>0){
+    const rec={ngay:todayISO(),loai:'thu',hangMuc:'Học phí',coSoId:h.coSoId,soTien:h.hocPhi,noiDung:'Học phí: '+h.ten+' — '+lopName(h.lopId),nguoiLap:USER.role==='admin'?'Quản trị':csName(USER.coSoId)};
+    const {data,error}=await SB.from('so_quy').insert({...gdToDb(rec),hv_id:h.id}).select().single();
+    if(!error&&data) OPS.gd.push(gdFromDb(data));
+  }
+}
 /* Giáo viên & Lớp học sống (Giai đoạn 2) */
 const gvFromDb=r=>({id:r.id,ten:r.ten,ns:r.ns||'',td:r.td||'',dc:r.dc||'',sdt:r.sdt||'',mon:r.mon||'VH',coSoId:r.coso_id});
 const gvToDb=o=>({ten:o.ten,ns:o.ns||'',td:o.td||'',dc:o.dc||'',sdt:o.sdt||'',mon:o.mon||'VH',coso_id:o.coSoId});
@@ -1502,7 +1514,9 @@ function renderThu(){
   $('#addChi').onclick=()=>addGD('chi');
   $('#expXls').onclick=()=>exportSoQuy(list,{tThu,tChi,ton});
   $$('#view [data-view]').forEach(b=>b.onclick=()=>{const g=OPS.gd.find(x=>x.id===Number(b.dataset.view));if(g)openVoucher(g);});
-  $$('#view [data-del]').forEach(b=>b.onclick=async()=>{const id=Number(b.dataset.del);const {error}=await SB.from('so_quy').delete().eq('id',id);if(error){alert('Lỗi xóa phiếu: '+error.message);return;}OPS.gd=OPS.gd.filter(x=>x.id!==id);renderThu();});
+  $$('#view [data-del]').forEach(b=>b.onclick=async()=>{const id=Number(b.dataset.del);const g=OPS.gd.find(x=>x.id===id);const {error}=await SB.from('so_quy').delete().eq('id',id);if(error){alert('Lỗi xóa phiếu: '+error.message);return;}OPS.gd=OPS.gd.filter(x=>x.id!==id);
+    if(g&&g.hvId!=null){const hv=OPS.hv.find(x=>x.id===g.hvId);if(hv&&hv.daDong){await SB.from('hoc_vien').update({da_dong:false}).eq('id',hv.id);hv.daDong=false;}}
+    renderThu();});
 }
 
 function addGD(loai){
@@ -1714,6 +1728,7 @@ function openHvEdit(h){
     btn.disabled=false; btn.textContent='✓ Lưu hồ sơ';
     if(error){err('Lỗi lưu: '+error.message);return;}
     Object.assign(h,patch,{mau:false});
+    await syncHocPhiVoucher(h,paid);        // đồng bộ phiếu thu trong Sổ quỹ
     closeModal(); renderHocVien();
   };
   $('#hv_del').onclick=async()=>{
@@ -1721,6 +1736,7 @@ function openHvEdit(h){
     const {error}=await SB.from('hoc_vien').delete().eq('id',h.id);
     if(error){err('Lỗi xóa: '+error.message);return;}
     OPS.hv=OPS.hv.filter(x=>x.id!==h.id);
+    await syncHocPhiVoucher(h,false);       // xóa luôn phiếu thu tự sinh của em này
     closeModal(); renderHocVien();
   };
 }
