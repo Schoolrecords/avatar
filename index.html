@@ -90,12 +90,16 @@ svg{display:block}
 .nav button.on{background:linear-gradient(135deg,#2a5490,var(--brand));color:#fff;font-weight:700;box-shadow:0 14px 26px -14px rgba(16,38,76,.95)}
 .nav button.on svg{opacity:1}
 .nav button.on .cnt{background:rgba(255,255,255,.22);color:#fff}
-.suser{margin-top:8px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);border-radius:15px;padding:11px 12px;display:flex;align-items:center;gap:10px}
+.suser{margin-top:8px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);border-radius:15px;padding:11px 12px;display:flex;flex-direction:column;gap:11px}
+.suser-top{display:flex;align-items:center;gap:10px}
 .suser .ava{width:38px;height:38px;border-radius:12px;background:var(--emerald);color:#fff;display:grid;place-items:center;font-weight:800;flex:none}
-.suser b{display:block;font-size:.82rem;line-height:1.25}
+.suser b{display:block;font-size:.84rem;line-height:1.25}
 .suser small{display:block;color:#8fc0ba;font-size:.7rem}
-.suser .out{margin-left:auto;color:#8fc0ba;padding:7px;border-radius:10px}
-.suser .out:hover{background:rgba(255,255,255,.1);color:#fff}
+.suser-act{display:flex;gap:8px}
+.suser-act button{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 8px;border-radius:10px;font-size:.77rem;font-weight:800;color:#d6e7e3;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);transition:.15s}
+.suser-act button svg{width:16px;height:16px;stroke:currentColor;flex:none}
+.suser-act button:hover{background:rgba(255,255,255,.15);color:#fff}
+.suser-act #logout:hover{background:var(--rose);border-color:var(--rose);color:#fff}
 
 .main{min-width:0;padding:20px 26px 90px;display:flex;flex-direction:column}
 .top{display:flex;align-items:center;gap:14px;margin-bottom:20px}
@@ -375,17 +379,23 @@ tbody tr:hover{background:var(--soft)}
       <div class="navlab">Điều hành</div>
       <nav class="nav" id="nav"></nav>
       <div class="suser">
-        <div class="ava" id="uAva">A</div>
-        <div style="min-width:0">
-          <b id="uName">Quản trị</b>
-          <small id="uRole">Toàn hệ thống</small>
+        <div class="suser-top">
+          <div class="ava" id="uAva">A</div>
+          <div style="min-width:0;flex:1">
+            <b id="uName">Quản trị</b>
+            <small id="uRole">Toàn hệ thống</small>
+          </div>
         </div>
-        <button class="out" id="switchRole" title="Đổi vai trò">
-          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.9"><path d="M8 3 4 7l4 4"/><path d="M4 7h12a4 4 0 0 1 4 4"/><path d="M16 21l4-4-4-4"/><path d="M20 17H8a4 4 0 0 1-4-4"/></svg>
-        </button>
-        <button class="out" id="logout" title="Đăng xuất">
-          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.9"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
-        </button>
+        <div class="suser-act">
+          <button id="switchRole">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.9"><path d="M8 3 4 7l4 4"/><path d="M4 7h12a4 4 0 0 1 4 4"/><path d="M16 21l4-4-4-4"/><path d="M20 17H8a4 4 0 0 1-4-4"/></svg>
+            Đổi vai trò
+          </button>
+          <button id="logout">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.9"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
+            Đăng xuất
+          </button>
+        </div>
       </div>
     </aside>
 
