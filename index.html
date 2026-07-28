@@ -373,6 +373,9 @@ tbody tr:hover{background:var(--soft)}
           <b id="uName">Quản trị</b>
           <small id="uRole">Toàn hệ thống</small>
         </div>
+        <button class="out" id="switchRole" title="Đổi vai trò">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.9"><path d="M8 3 4 7l4 4"/><path d="M4 7h12a4 4 0 0 1 4 4"/><path d="M16 21l4-4-4-4"/><path d="M20 17H8a4 4 0 0 1-4-4"/></svg>
+        </button>
         <button class="out" id="logout" title="Đăng xuất">
           <svg viewBox="0 0 24 24" fill="none" stroke-width="1.9"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
         </button>
@@ -538,6 +541,31 @@ function startApp(){
   buildScope(); renderNav(); go('dashboard');
 }
 $('#logout').onclick=()=>{ $('#app').style.display='none'; $('#login').style.display='grid'; };
+
+/* đổi vai trò nhanh (không cần đăng xuất) */
+$('#switchRole').onclick=()=>{
+  let r=USER.role;
+  $('#mcard').innerHTML=`
+    <div class="mhead"><div class="mava">⇄</div><div style="flex:1"><h3>Đổi vai trò</h3><p>Chuyển nhanh, không cần đăng xuất</p></div>
+      <button class="mclose" onclick="closeModal()">${svg('<path d="M6 6l12 12M18 6L6 18"/>')}</button></div>
+    <div class="mbody">
+      <div class="roles" style="margin-bottom:14px">
+        <button class="role ${r==='admin'?'on':''}" data-r="admin">${svg('<path d="M3 21V9l9-6 9 6v12"/><path d="M9 21v-6h6v6"/>',1.8)}<b>Quản trị chuỗi</b></button>
+        <button class="role ${r==='owner'?'on':''}" data-r="owner">${svg('<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/>',1.8)}<b>Lễ tân Cơ Sở</b></button>
+      </div>
+      <div id="swCsWrap" class="${r==='admin'?'hidden':''}" style="margin-bottom:14px">
+        <label style="display:block;font-size:.72rem;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin:0 0 6px 2px">Chọn cơ sở</label>
+        <select id="swCs" class="fsel" style="width:100%;max-width:100%">${COSO.filter(c=>!c.build).map(c=>`<option value="${c.id}" ${USER.coSoId===c.id?'selected':''}>${esc(c.ten)}</option>`).join('')}</select>
+      </div>
+      <button class="btn btn-primary btn-block" id="swGo">Chuyển vai trò</button>
+    </div>`;
+  $('#modal').classList.add('on');
+  $$('#mcard .role').forEach(b=>b.onclick=()=>{$$('#mcard .role').forEach(x=>x.classList.remove('on'));b.classList.add('on');r=b.dataset.r;$('#swCsWrap').classList.toggle('hidden',r==='admin');});
+  $('#swGo').onclick=()=>{
+    USER=r==='admin'?{role:'admin',coSoId:null}:{role:'owner',coSoId:Number($('#swCs').value)};
+    scope='all'; closeModal(); startApp();
+  };
+};
 
 function buildScope(){
   const wrap=$('#scopeWrap'), sel=$('#scope');
