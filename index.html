@@ -194,6 +194,38 @@ tbody tr:hover{background:var(--soft)}
 .pagehint{background:var(--amber-soft);border:1px solid #f2dca6;color:#8a5a05;border-radius:13px;padding:12px 15px;font-size:.84rem;margin-bottom:14px;display:flex;gap:10px;align-items:flex-start}
 .pagehint svg{width:18px;height:18px;stroke:#a86b06;flex:none;margin-top:1px}
 
+/* ===== BẢNG ĐIỀU HÀNH ===== */
+.hello{background:var(--dots),linear-gradient(120deg,#1f4276,#0b1d3d);background-size:20px 20px,auto;color:#fff;border-radius:var(--radius);padding:18px 21px;margin-bottom:14px;display:flex;align-items:center;gap:16px;box-shadow:var(--shadow-sm)}
+.hello .hi{flex:1;min-width:0}
+.hello h2{margin:0;font-size:1.2rem;letter-spacing:-.01em}
+.hello p{margin:5px 0 0;color:#b9c9e6;font-size:.84rem}
+.hello .date{background:rgba(255,255,255,.13);border-radius:13px;padding:9px 15px;text-align:center;flex:none;border:1px solid rgba(255,255,255,.12)}
+.hello .date b{display:block;font-size:1.35rem;line-height:1}
+.hello .date span{font-size:.66rem;color:#c5d3ec;letter-spacing:.02em}
+.simtag{display:inline-flex;align-items:center;gap:5px;font-size:.62rem;font-weight:800;color:var(--amber);background:var(--amber-soft);padding:3px 9px;border-radius:99px;text-transform:uppercase;letter-spacing:.03em}
+.ringbox{position:relative;width:120px;height:120px;flex:none}
+.ringbox .rc{width:100%;height:100%;border-radius:50%;background:conic-gradient(var(--brand) calc(var(--p)*3.6deg),var(--soft) 0)}
+.ringbox .rin{position:absolute;inset:13px;background:#fff;border-radius:50%;display:grid;place-items:center;text-align:center;box-shadow:inset 0 0 0 1px var(--line)}
+.ringbox .rin b{font-size:1.55rem;line-height:1;color:var(--brand-700)}
+.ringbox .rin span{font-size:.64rem;color:var(--muted);margin-top:2px}
+.finrow{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+.finnums{flex:1;min-width:150px;display:grid;gap:10px}
+.finstat{display:flex;align-items:center;justify-content:space-between;gap:10px;padding-bottom:9px;border-bottom:1px solid var(--line)}
+.finstat:last-child{border-bottom:0;padding-bottom:0}
+.finstat small{color:var(--muted);font-size:.8rem}
+.finstat b{font-size:1.02rem;font-variant-numeric:tabular-nums}
+.finstat b.pos{color:var(--brand-700)}.finstat b.neg{color:var(--amber)}
+.tday{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--line)}
+.tday:last-child{border-bottom:0}
+.tday .tm{font-weight:800;font-size:.8rem;color:var(--brand-700);width:48px;flex:none}
+.tday .ti{flex:1;min-width:0}
+.tday .ti b{display:block;font-size:.9rem;line-height:1.25}
+.tday .ti small{color:var(--muted);font-size:.74rem}
+.warns{display:grid;gap:9px}
+.warnrow{display:flex;gap:10px;align-items:center;background:var(--amber-soft);border:1px solid #f2dca6;border-radius:12px;padding:11px 13px;font-size:.85rem;color:#7a5406;line-height:1.35}
+.warnrow.ok{background:var(--brand-soft);border-color:#c3d3ee;color:var(--brand-700)}
+.warnrow svg{width:18px;height:18px;flex:none;stroke:currentColor}
+
 /* modal */
 .modal{position:fixed;inset:0;background:rgba(9,32,29,.5);backdrop-filter:blur(3px);display:none;place-items:center;padding:20px;z-index:60}
 .modal.on{display:grid}
@@ -352,6 +384,12 @@ function csStat(id){
   const g=GV.filter(x=>x.coSoId===id), l=LOP.filter(x=>x.coSoId===id);
   return {gv:g.length,lop:l.length,hs:l.reduce((s,x)=>s+(x.siso||0),0),thu:l.reduce((s,x)=>s+(x.duthu||0),0)};
 }
+/* mô phỏng cố định (deterministic) cho phần chưa có nguồn vận hành */
+function seed(str){let h=2166136261;str=String(str);for(let i=0;i<str.length;i++){h^=str.charCodeAt(i);h=Math.imul(h,16777619);}return (h>>>0)/4294967296;}
+const thuRate=name=>0.63+seed('t'+name)*0.30;          // tỷ lệ thực thu 63–93%
+const chuyenCan=key=>0.83+seed('c'+key)*0.15;          // chuyên cần 83–98%
+const SLOTS=['17:15','17:30','18:00','18:30','19:00','19:30','20:00'];
+const DOW=['Chủ nhật','Thứ hai','Thứ ba','Thứ tư','Thứ năm','Thứ sáu','Thứ bảy'];
 
 /* ============ STATE ============ */
 let USER={role:'admin',coSoId:null}, VIEW='dashboard', scope='all';
@@ -375,7 +413,7 @@ const svg=(p,sw=1.9)=>`<svg viewBox="0 0 24 24" fill="none" stroke-width="${sw}"
 
 /* ============ NAV ============ */
 const NAV=[
-  {k:'dashboard',t:'Tổng quan',i:IC.dashboard},
+  {k:'dashboard',t:'Điều hành',i:IC.dashboard},
   {k:'gv',t:'Giáo viên',i:IC.gv,cnt:()=>inGV().length},
   {k:'coso',t:'Cơ sở',i:IC.coso,cnt:()=>USER.role==='admin'?COSO.length:1},
   {k:'lop',t:'Lớp học',i:IC.lop,cnt:()=>inLOP().length},
@@ -456,7 +494,7 @@ function closeSide(){$('#side').classList.remove('open');$('#scrim').classList.r
 $('#burger').onclick=openSide; $('#scrim').onclick=closeSide;
 
 /* ============ ROUTER ============ */
-const TITLES={dashboard:['Tổng quan','Bức tranh toàn hệ thống'],gv:['Giáo viên','Danh sách & hồ sơ giáo viên'],coso:['Cơ sở','Mạng lưới các trung tâm'],lop:['Lớp học','Lớp học & sĩ số'],thu:['Khoản thu','Dự thu học phí theo cơ sở']};
+const TITLES={dashboard:['Bảng điều hành','Toàn cảnh điều hành'],gv:['Giáo viên','Danh sách & hồ sơ giáo viên'],coso:['Cơ sở','Mạng lưới các trung tâm'],lop:['Lớp học','Lớp học & sĩ số'],thu:['Khoản thu','Dự thu học phí theo cơ sở']};
 function go(k){
   VIEW=k;
   const scopeTxt=USER.role==='admin'?(scope==='all'?'Toàn hệ thống':csName(Number(scope))):csName(USER.coSoId);
@@ -470,45 +508,114 @@ function go(k){
 /* ============ DASHBOARD ============ */
 function renderDash(){
   const ids=scopeIds();
+  const cosos=inCOSO().filter(c=>!c.build);
   const g=GV.filter(x=>ids.includes(x.coSoId)).length;
   const ls=LOP.filter(x=>ids.includes(x.coSoId));
-  const hs=ls.reduce((s,x)=>s+(x.siso||0),0), thu=ls.reduce((s,x)=>s+(x.duthu||0),0);
-  const active=inCOSO().filter(c=>!c.build).length;
-  const kpis=[
-    {ic:'ic-teal',i:IC.coso,v:USER.role==='admin'?active:1,l:USER.role==='admin'?'Cơ sở hoạt động':'Cơ sở của bạn'},
-    {ic:'ic-em',i:IC.gv,v:g,l:'Giáo viên'},
-    {ic:'ic-sky',i:IC.lop,v:ls.length,l:'Lớp học'},
-    {ic:'ic-am',i:IC.thu,v:fmtShort(thu),l:'Dự thu học phí'},
-  ];
-  let h=`<div class="kpis">${kpis.map(k=>`<div class="kpi"><div class="kpi-top"><div class="kpi-ic ${k.ic}">${svg(k.i)}</div></div><b>${k.v}</b><span>${k.l}</span></div>`).join('')}</div>`;
+  const hs=ls.reduce((s,x)=>s+(x.siso||0),0), duThu=ls.reduce((s,x)=>s+(x.duthu||0),0);
 
-  // ranking (admin) + info
-  const ranks=inCOSO().filter(c=>!c.build).map(c=>({c,...csStat(c.id)})).sort((a,b)=>b.thu-a.thu);
-  const maxThu=Math.max(1,...ranks.map(r=>r.thu));
+  // ---- tài chính: thực thu (mô phỏng cố định) ----
+  let thucThu=0;
+  cosos.forEach(c=>{ if(ids.includes(c.id)) thucThu+=csStat(c.id).thu*thuRate(c.ten); });
+  const rate=duThu?thucThu/duThu*100:0, conNo=Math.max(0,duThu-thucThu);
+
+  // ---- lớp học hôm nay + chuyên cần (mô phỏng) ----
+  const today=ls.filter(l=>l.siso>0 && seed(l.lop+l.gv+l.coSoId)>0.45)
+    .map(l=>({...l,gio:SLOTS[Math.floor(seed('g'+l.lop+l.coSoId)*SLOTS.length)],cc:chuyenCan(l.lop+l.gv),done:seed('d'+l.gv+l.lop)>0.3}))
+    .sort((a,b)=>a.gio.localeCompare(b.gio));
+  const ccAvg=today.length?today.reduce((s,l)=>s+l.cc,0)/today.length*100:0;
+  const doneCnt=today.filter(l=>l.done).length;
+  const coMat=today.reduce((s,l)=>s+Math.round(l.siso*l.cc),0);
+  const siToday=today.reduce((s,l)=>s+l.siso,0);
+
+  const now=new Date(), gio=now.getHours();
+  const chao=gio<11?'Chào buổi sáng':gio<13?'Chào buổi trưa':gio<18?'Chào buổi chiều':'Chào buổi tối';
+  const who=USER.role==='admin'?'Ban Giám đốc':('Lễ tân '+csName(USER.coSoId));
+  const scopeTxt=USER.role==='admin'?(scope==='all'?'toàn hệ thống '+cosos.length+' cơ sở':csName(Number(scope))):csName(USER.coSoId);
+
+  let h=`<div class="hello">
+    <div class="hi"><h2>${chao}, ${esc(who)} 👋</h2><p>Tình hình ${esc(scopeTxt)} · cập nhật lúc ${String(gio).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}</p></div>
+    <div class="date"><b>${now.getDate()}/${now.getMonth()+1}</b><span>${DOW[now.getDay()]}</span></div>
+  </div>`;
+
+  // KPI
+  const kpis=[
+    {ic:'ic-am',i:IC.thu,v:fmtShort(duThu),l:'Dự thu tháng'},
+    {ic:'ic-em',i:IC.thu,v:fmtShort(thucThu),l:'Thực thu (dự kiến)'},
+    {ic:'ic-sky',i:IC.users,v:hs.toLocaleString('vi-VN'),l:'Học viên'},
+    {ic:'ic-teal',i:IC.lop,v:ls.length,l:'Lớp học'},
+  ];
+  h+=`<div class="kpis">${kpis.map(k=>`<div class="kpi"><div class="kpi-top"><div class="kpi-ic ${k.ic}">${svg(k.i)}</div></div><b>${k.v}</b><span>${k.l}</span></div>`).join('')}</div>`;
+
+  // Tài chính + Chuyên cần
   h+=`<div class="grid2">
-    <div class="panel"><div class="phead"><h3>Xếp hạng cơ sở theo dự thu</h3><span class="sub">${ranks.length} cơ sở</span></div>
-      <div class="pbody">${ranks.slice(0,10).map((r,i)=>`
+    <div class="panel"><div class="phead"><h3>Tài chính học phí</h3><span class="simtag">◐ minh họa</span></div>
+      <div class="pbody"><div class="finrow">
+        ${ring(rate,'đã thu')}
+        <div class="finnums">
+          <div class="finstat"><small>Dự thu kế hoạch</small><b>${fmtVND(duThu)}</b></div>
+          <div class="finstat"><small>Đã thu (dự kiến)</small><b class="pos">${fmtVND(thucThu)}</b></div>
+          <div class="finstat"><small>Còn phải thu</small><b class="neg">${fmtVND(conNo)}</b></div>
+        </div>
+      </div></div>
+    </div>
+    <div class="panel"><div class="phead"><h3>Chuyên cần hôm nay</h3><span class="simtag">◐ minh họa</span></div>
+      <div class="pbody"><div class="finrow">
+        ${ring(ccAvg,'có mặt')}
+        <div class="finnums">
+          <div class="finstat"><small>Lớp học hôm nay</small><b>${today.length} lớp</b></div>
+          <div class="finstat"><small>GV đã điểm danh</small><b class="pos">${doneCnt}/${today.length}</b></div>
+          <div class="finstat"><small>Học viên có mặt</small><b>${coMat}/${siToday}</b></div>
+        </div>
+      </div></div>
+    </div>
+  </div>`;
+
+  // Lớp hôm nay + Cảnh báo
+  h+=`<div class="grid2">
+    <div class="panel"><div class="phead"><h3>Lớp đang học hôm nay</h3><span class="simtag">◐ minh họa</span></div>
+      <div class="pbody">${today.length?today.slice(0,7).map(l=>`
+        <div class="tday">
+          <div class="tm">${l.gio}</div>
+          <div class="ti"><b>${esc(l.lop)}${USER.role==='admin'?' · '+esc(csName(l.coSoId)):''}</b><small>${esc(l.gv||'—')} · ${l.siso} HS</small></div>
+          <span class="badge ${l.done?'bg-em':'bg-am'}">${l.done?'Đã điểm danh':'Chưa ĐD'}</span>
+        </div>`).join(''):'<div class="empty">Hôm nay chưa có lớp trong phạm vi này</div>'}
+      </div>
+    </div>
+    <div class="panel"><div class="phead"><h3>Cảnh báo điều hành</h3></div>
+      <div class="pbody"><div class="warns">${dashWarns(ids)}</div></div>
+    </div>
+  </div>`;
+
+  // Xếp hạng cơ sở (chỉ khi xem toàn hệ thống)
+  if(USER.role==='admin' && scope==='all'){
+    const ranks=cosos.map(c=>({c,...csStat(c.id)})).sort((a,b)=>b.thu-a.thu);
+    const maxThu=Math.max(1,...ranks.map(r=>r.thu));
+    h+=`<div class="panel"><div class="phead"><h3>Xếp hạng cơ sở theo dự thu</h3><span class="sub">${ranks.length} cơ sở</span></div>
+      <div class="pbody">${ranks.map((r,i)=>`
         <div class="rank">
           <div class="no ${i<3?'top':''}">${i+1}</div>
           <div class="rn"><b>${esc(r.c.ten)}</b><div class="bar"><i style="width:${Math.max(4,r.thu/maxThu*100)}%"></i></div></div>
           <div class="rv">${fmtShort(r.thu)}</div>
-        </div>`).join('')||'<div class="empty">Chưa có dữ liệu</div>'}
-      </div>
-    </div>
-    <div class="panel"><div class="phead"><h3>Tổng hợp nhanh</h3></div>
-      <div class="pbody">
-        ${miniRow(IC.users,'Tổng học sinh (sĩ số)',hs.toLocaleString('vi-VN')+' HS')}
-        ${miniRow(IC.cap,'Giáo viên Văn hóa',GV.filter(x=>ids.includes(x.coSoId)&&x.mon==='VH').length+' GV')}
-        ${miniRow(IC.gv,'Giáo viên Tiếng Anh',GV.filter(x=>ids.includes(x.coSoId)&&x.mon==='TA').length+' GV')}
-        ${miniRow(IC.lop,'Sĩ số bình quân/lớp',(ls.length?Math.round(hs/ls.length):0)+' HS')}
-        ${miniRow(IC.thu,'Dự thu bình quân/HS',fmtVND(hs?thu/hs:0))}
-      </div>
-    </div>
-  </div>`;
+        </div>`).join('')}
+      </div></div>`;
+  }
   $('#view').innerHTML=h;
 }
-function miniRow(ic,label,val){
-  return `<div class="mrow"><div class="mi">${svg(ic)}</div><div style="flex:1"><small>${label}</small><b>${val}</b></div></div>`;
+function ring(pct,sub){pct=Math.max(0,Math.min(100,pct));return `<div class="ringbox" style="--p:${pct.toFixed(1)}"><div class="rc"></div><div class="rin"><b>${Math.round(pct)}%</b><span>${sub||''}</span></div></div>`;}
+function dashWarns(ids){
+  const rows=[];
+  inCOSO().forEach(c=>{
+    if(!ids.includes(c.id))return;
+    if(c.build){rows.push({t:`<b>${esc(c.ten)}</b>: cơ sở đang xây dựng, chưa nhập dữ liệu`});return;}
+    const st=csStat(c.id);
+    if(st.gv>0&&st.lop===0) rows.push({t:`<b>${esc(c.ten)}</b>: có ${st.gv} GV nhưng chưa nhập lớp học`});
+  });
+  // cơ sở thực thu thấp (mô phỏng)
+  const low=inCOSO().filter(c=>!c.build&&ids.includes(c.id)).map(c=>({c,r:thuRate(c.ten)})).filter(x=>x.r<0.72).sort((a,b)=>a.r-b.r).slice(0,2);
+  low.forEach(x=>rows.push({t:`<b>${esc(x.c.ten)}</b>: tỷ lệ thu học phí thấp (~${Math.round(x.r*100)}%), cần đôn đốc`}));
+  const ic=svg('<path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/>');
+  if(!rows.length) return `<div class="warnrow ok">${svg('<path d="M20 6 9 17l-5-5"/>')}<div>Mọi cơ sở đều ổn định, không có cảnh báo.</div></div>`;
+  return rows.map(r=>`<div class="warnrow">${ic}<div>${r.t}</div></div>`).join('');
 }
 
 /* ============ GIÁO VIÊN ============ */
