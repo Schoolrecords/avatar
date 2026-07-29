@@ -1184,7 +1184,8 @@ const IC={
   search:'<circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/>',
   huongdan:'<path d="M4 4.5A1.5 1.5 0 0 1 5.5 3H18a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H6a2 2 0 0 1-2-2z"/><path d="M8 7.5h7M8 11h7M8 14.5h4"/>',
   taikhoan:'<circle cx="9" cy="8" r="3.4"/><path d="M3.5 19c0-3 2.6-4.7 5.5-4.7s5.5 1.7 5.5 4.7"/><circle cx="17.5" cy="9" r="2.6"/><path d="M17.5 3.8v1.4M17.5 12.8v1.4M21.7 8.2l-1.2.7M14.5 8.2l1.2.7M20.6 11.6l-.8-1.1M14.4 6.4l.8 1.1"/>',
-  duyet:'<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1"/><path d="M8.5 12.5l2.2 2.2 4.3-4.4"/>'
+  duyet:'<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1"/><path d="M8.5 12.5l2.2 2.2 4.3-4.4"/>',
+  baocao:'<path d="M3 3v18h18"/><rect x="7" y="11" width="3" height="6"/><rect x="12" y="7" width="3" height="10"/><rect x="17" y="14" width="3" height="3"/>'
 };
 const svg=(p,sw=1.9)=>`<svg viewBox="0 0 24 24" fill="none" stroke-width="${sw}">${p}</svg>`;
 
@@ -1198,6 +1199,7 @@ const NAV=[
   {k:'ghidanh',t:'Ghi danh',i:IC.ghidanh,teach:true},
   {k:'diemdanh',t:'Điểm danh',i:IC.diemdanh,teach:true},
   {k:'duyet',t:'Đối soát',i:IC.duyet,cnt:()=>duyetPending()||''},
+  {k:'baocao',t:'Báo cáo',i:IC.baocao},
   {k:'thu',t:'Khoản thu',i:IC.thu},
   {k:'taikhoan',t:'Tài khoản',i:IC.taikhoan,adminOnly:true},
   {k:'huongdan',t:'Hướng dẫn',i:IC.huongdan,teach:true},
@@ -1267,7 +1269,7 @@ function startApp(){
 /* ===== REALTIME: tự cập nhật khi bất kỳ cơ sở nào lưu thay đổi ===== */
 let rtChannel=null;
 function renderCurrent(){
-  ({dashboard:renderDash,gv:renderGV,coso:renderCoso,lop:renderLop,hocvien:renderHocVien,ghidanh:renderGhiDanh,diemdanh:renderDiemDanh,duyet:renderDuyet,thu:renderThu,taikhoan:renderTaiKhoan,huongdan:renderHuongDan}[VIEW]||renderDash)();
+  ({dashboard:renderDash,gv:renderGV,coso:renderCoso,lop:renderLop,hocvien:renderHocVien,ghidanh:renderGhiDanh,diemdanh:renderDiemDanh,duyet:renderDuyet,baocao:renderBaoCao,thu:renderThu,taikhoan:renderTaiKhoan,huongdan:renderHuongDan}[VIEW]||renderDash)();
   renderNavCounts(); renderBell();
 }
 function subscribeRealtime(){
@@ -1443,7 +1445,7 @@ function closeSide(){$('#side').classList.remove('open');$('#scrim').classList.r
 $('#burger').onclick=openSide; $('#scrim').onclick=closeSide;
 
 /* ============ ROUTER ============ */
-const TITLES={dashboard:['Bảng điều hành','Toàn cảnh điều hành'],gv:['Giáo viên','Danh sách & hồ sơ giáo viên'],coso:['Cơ sở','Mạng lưới các trung tâm'],lop:['Lớp học','Lớp học & sĩ số'],hocvien:['Học sinh','Hồ sơ học sinh toàn hệ thống'],ghidanh:['Ghi danh','Đăng ký học sinh vào lớp'],diemdanh:['Điểm danh','Điểm danh học sinh & chấm công GV'],duyet:['Đối soát điểm danh','Kiểm tra & chốt số liệu ca dạy'],thu:['Sổ quỹ thu – chi','Kế toán thu chi & tồn quỹ'],taikhoan:['Tài khoản giáo viên','Tạo & quản lý tài khoản đăng nhập cho GV'],huongdan:['Hướng dẫn sử dụng','Tính năng & cách dùng hệ thống']};
+const TITLES={dashboard:['Bảng điều hành','Toàn cảnh điều hành'],gv:['Giáo viên','Danh sách & hồ sơ giáo viên'],coso:['Cơ sở','Mạng lưới các trung tâm'],lop:['Lớp học','Lớp học & sĩ số'],hocvien:['Học sinh','Hồ sơ học sinh toàn hệ thống'],ghidanh:['Ghi danh','Đăng ký học sinh vào lớp'],diemdanh:['Điểm danh','Điểm danh học sinh & chấm công GV'],duyet:['Đối soát điểm danh','Kiểm tra & chốt số liệu ca dạy'],baocao:['Báo cáo điểm danh','Chuyên cần, công giáo viên & lưu vết đối soát'],thu:['Sổ quỹ thu – chi','Kế toán thu chi & tồn quỹ'],taikhoan:['Tài khoản giáo viên','Tạo & quản lý tài khoản đăng nhập cho GV'],huongdan:['Hướng dẫn sử dụng','Tính năng & cách dùng hệ thống']};
 function go(k){
   if(k==='coso'&&USER.role!=='admin')k='dashboard';
   if(k==='taikhoan'&&USER.role!=='admin')k='dashboard';
@@ -1454,7 +1456,7 @@ function go(k){
   $('#pgTitle').textContent=TITLES[k][0];
   $('#pgSub').textContent=TITLES[k][1]+' · '+scopeTxt;
   syncNav(); renderNavCounts();
-  ({dashboard:renderDash,gv:renderGV,coso:renderCoso,lop:renderLop,hocvien:renderHocVien,ghidanh:renderGhiDanh,diemdanh:renderDiemDanh,duyet:renderDuyet,thu:renderThu,taikhoan:renderTaiKhoan,huongdan:renderHuongDan}[k])();
+  ({dashboard:renderDash,gv:renderGV,coso:renderCoso,lop:renderLop,hocvien:renderHocVien,ghidanh:renderGhiDanh,diemdanh:renderDiemDanh,duyet:renderDuyet,baocao:renderBaoCao,thu:renderThu,taikhoan:renderTaiKhoan,huongdan:renderHuongDan}[k])();
   window.scrollTo(0,0);
 }
 
@@ -2949,6 +2951,135 @@ function renderDuyet(){
   $$('#view [data-chot]').forEach(b=>b.onclick=async()=>{const a=b.dataset.chot.split('|');if(!await avaConfirm('Chốt số liệu ca này? Sau khi chốt sẽ khóa.'))return;const lop=LOP.find(x=>x.id===Number(a[0]));const r=await caSetState(Number(a[0]),a[1],lop.coSoId,'da_chot');if(r.error){avaAlert('Lỗi: '+r.error);return;}renderDuyet();});
   $$('#view [data-unlock]').forEach(b=>b.onclick=async()=>{const a=b.dataset.unlock.split('|');if(!await avaConfirm('Mở khóa ca này?'))return;const r=await caUnlock(Number(a[0]),a[1]);if(r.error){avaAlert('Lỗi: '+r.error);return;}renderDuyet();});
   renderNavCounts();
+}
+
+/* ============ BÁO CÁO ĐIỂM DANH (Giai đoạn A — mức ngày, dùng dữ liệu hiện có) ============ */
+const fmtDT=iso=>{ if(!iso)return''; const d=new Date(iso); if(isNaN(d))return''; const p=n=>('0'+n).slice(-2); return `${p(d.getDate())}/${p(d.getMonth()+1)}/${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`; };
+let bcFrom=todayISO().slice(0,7)+'-01', bcTo=todayISO(), bcLop='all';
+/* Gom số liệu theo khoảng ngày + phạm vi (cơ sở đang chọn) + lớp (tùy chọn) */
+function bcCollect(){
+  const ids=scopeIds();
+  const onlyLop = bcLop!=='all' ? Number(bcLop) : null;
+  const inR=ngay=>ngay>=bcFrom&&ngay<=bcTo;
+  const okLop=lop=> lop && ids.includes(lop.coSoId) && (onlyLop==null||lop.id===onlyLop);
+  const hsMap={}, lopMap={}, gvMap={}, duky=[];
+  // Điểm danh học sinh -> chuyên cần HS + tổng hợp lớp
+  for(const k in OPS.ddHV){ const [lidS,ngay]=k.split('|'); if(!inR(ngay))continue;
+    const lop=LOP.find(l=>l.id===Number(lidS)); if(!okLop(lop))continue;
+    const lm=lopMap[lop.id]=lopMap[lop.id]||{lop,buoi:new Set(),co:0,tot:0}; lm.buoi.add(ngay);
+    const obj=OPS.ddHV[k];
+    for(const hid in obj){ const st=obj[hid];
+      const hm=hsMap[hid]=hsMap[hid]||{hvId:Number(hid),co:0,muon:0,phep:0,vang:0};
+      if(hm[st]!=null)hm[st]++; lm.tot++; if(st==='co'||st==='muon')lm.co++; }
+  }
+  // Chấm công GV -> công theo buổi
+  for(const k in OPS.ccGV){ const p=k.split('|'); const ngay=p[2]; if(!inR(ngay))continue;
+    const lop=LOP.find(l=>l.id===Number(p[1])); if(!okLop(lop))continue;
+    const nm=lop.gv||'(chưa phân công)'; const gm=gvMap[nm]=gvMap[nm]||{name:nm,day:0,bu:0,nghi:0};
+    const st=OPS.ccGV[k]; if(gm[st]!=null)gm[st]++;
+  }
+  // Nhật ký đối soát/chốt
+  for(const k in OPS.duyet){ const [lidS,ngay]=k.split('|'); if(!inR(ngay))continue;
+    const lop=LOP.find(l=>l.id===Number(lidS)); if(!okLop(lop))continue;
+    const c=OPS.duyet[k]; duky.push({lop,ngay,st:c.st,gvAt:c.gvAt,letanAt:c.letanAt,adminAt:c.adminAt});
+  }
+  const hsRows=Object.values(hsMap).map(m=>{const hv=OPS.hv.find(x=>x.id===m.hvId); const tot=m.co+m.muon+m.phep+m.vang;
+      return {ten:hv?hv.ten:('HS #'+m.hvId), coSoId:hv?hv.coSoId:null, lop:hv?lopName(hv.lopId):'—', co:m.co,muon:m.muon,phep:m.phep,vang:m.vang, tot, pct:tot?Math.round((m.co+m.muon)/tot*100):0};})
+    .sort((a,b)=>a.pct-b.pct||String(a.ten).localeCompare(b.ten,'vi'));
+  const gvRows=Object.values(gvMap).sort((a,b)=>(b.day+b.bu)-(a.day+a.bu)||String(a.name).localeCompare(b.name,'vi'));
+  const lopRows=Object.values(lopMap).map(l=>({lop:l.lop.lop,coSoId:l.lop.coSoId,buoi:l.buoi.size,co:l.co,tot:l.tot,pct:l.tot?Math.round(l.co/l.tot*100):0}))
+    .sort((a,b)=>a.coSoId-b.coSoId||String(a.lop).localeCompare(b.lop,'vi'));
+  duky.sort((a,b)=> a.ngay<b.ngay?1:a.ngay>b.ngay?-1:0);
+  const totBuoi=lopRows.reduce((s,l)=>s+l.buoi,0), luotCo=lopRows.reduce((s,l)=>s+l.co,0), luotTot=lopRows.reduce((s,l)=>s+l.tot,0);
+  const chot=duky.filter(d=>d.st==='da_chot').length;
+  return {hsRows,gvRows,lopRows,duky,totBuoi,luotCo,luotTot,chot};
+}
+function renderBaoCao(){
+  if(USER.role==='teacher'){go('diemdanh');return;}
+  const isAdm=USER.role==='admin', ids=scopeIds();
+  if(bcTo<bcFrom){const t=bcFrom;bcFrom=bcTo;bcTo=t;}   // đảo nếu chọn ngược
+  const D=bcCollect();
+  const anyData=D.hsRows.length||D.gvRows.length||D.lopRows.length||D.duky.length;
+  const lopOpts=LOP.filter(l=>ids.includes(l.coSoId)).slice().sort((a,b)=>a.coSoId-b.coSoId||String(a.lop).localeCompare(b.lop,'vi'));
+  const lb='font-size:.68rem;font-weight:800;color:var(--muted);letter-spacing:.04em';
+  const ccPct=D.luotTot?Math.round(D.luotCo/D.luotTot*100):0;
+  let h=`<div class="toolbar">
+    <div style="display:grid;gap:6px"><label style="${lb}">TỪ NGÀY</label><input type="date" class="fsel" id="bcFrom" value="${bcFrom}" max="${bcTo}"/></div>
+    <div style="display:grid;gap:6px"><label style="${lb}">ĐẾN NGÀY</label><input type="date" class="fsel" id="bcTo" value="${bcTo}"/></div>
+    <div style="display:grid;gap:6px;flex:1;min-width:160px"><label style="${lb}">LỚP</label>
+      <select class="fsel" id="bcLop" style="max-width:100%"><option value="all">Tất cả lớp</option>${lopOpts.map(l=>`<option value="${l.id}" ${String(bcLop)===String(l.id)?'selected':''}>${isAdm?csAbbr(l.coSoId)+' · ':''}${esc(l.lop)}</option>`).join('')}</select></div>
+    <div style="display:flex;align-items:flex-end"><button class="btn btn-sm btn-xls" id="bcXls" ${anyData?'':'disabled'}>⬇ Xuất Excel</button></div>
+  </div>
+  <div class="kpis">
+    <div class="kpi"><div class="kpi-top"><div class="kpi-ic ic-teal">${svg(IC.diemdanh)}</div></div><b>${D.totBuoi}</b><span>Buổi điểm danh</span></div>
+    <div class="kpi"><div class="kpi-top"><div class="kpi-ic ic-sky">${svg(IC.users)}</div></div><b>${D.luotCo}/${D.luotTot}</b><span>Lượt có mặt/tổng</span></div>
+    <div class="kpi"><div class="kpi-top"><div class="kpi-ic ic-em">${svg(IC.diemdanh)}</div></div><b>${ccPct}%</b><span>Chuyên cần chung</span></div>
+    <div class="kpi"><div class="kpi-top"><div class="kpi-ic ic-am">${svg(IC.duyet)}</div></div><b>${D.chot}</b><span>Ca đã chốt</span></div>
+  </div>`;
+  if(!anyData){
+    h+=`<div class="panel"><div class="pbody"><div class="empty">${svg(IC.baocao,1.5)}Chưa có dữ liệu điểm danh trong khoảng <b>${isoVN(bcFrom)} – ${isoVN(bcTo)}</b>.<br/>Hãy chọn lại khoảng thời gian hoặc lớp.</div></div></div>`;
+    $('#view').innerHTML=h; bcBind(); return;
+  }
+  // 1) Chuyên cần học sinh
+  const pctCol=p=>`<b style="color:${p>=80?'var(--emerald)':p>=50?'var(--amber)':'var(--rose)'}">${p}%</b>`;
+  h+=`<div class="panel"><div class="phead"><h3>Chuyên cần học sinh</h3><span class="sub">${D.hsRows.length} HS · % thấp xếp trước</span></div>
+    <div class="twrap"><table><thead><tr><th>Học sinh</th>${isAdm?'<th>Cơ sở</th>':''}<th>Lớp</th><th class="tright">Buổi</th><th class="tright">Có mặt</th><th class="tright">Muộn</th><th class="tright">Phép</th><th class="tright">Vắng</th><th class="tright">Chuyên cần</th></tr></thead><tbody>`;
+  D.hsRows.slice(0,150).forEach(r=>{h+=`<tr><td><b>${esc(r.ten)}</b></td>${isAdm?`<td>${esc(r.coSoId!=null?csName(r.coSoId):'—')}</td>`:''}<td>${esc(r.lop)}</td><td class="tright num">${r.tot}</td><td class="tright num">${r.co}</td><td class="tright num">${r.muon}</td><td class="tright num">${r.phep}</td><td class="tright num">${r.vang}</td><td class="tright num">${pctCol(r.pct)}</td></tr>`;});
+  h+=`</tbody></table></div>${D.hsRows.length>150?`<div class="muted" style="padding:8px 14px;font-size:.8rem">… và ${D.hsRows.length-150} HS nữa — bấm <b>Xuất Excel</b> để xem đầy đủ.</div>`:''}</div>`;
+  // 2) Công giáo viên
+  h+=`<div class="panel"><div class="phead"><h3>Công giáo viên</h3><span class="sub">${D.gvRows.length} GV · theo buổi đã chấm công</span></div>
+    <div class="twrap"><table><thead><tr><th>Giáo viên</th><th class="tright">Lên lớp</th><th class="tright">Dạy bù</th><th class="tright">Nghỉ</th><th class="tright">Tổng buổi dạy</th></tr></thead><tbody>`;
+  if(!D.gvRows.length)h+=`<tr><td colspan="5"><div class="empty">Chưa có chấm công trong khoảng này.</div></td></tr>`;
+  else D.gvRows.forEach(g=>h+=`<tr><td><b>${esc(g.name)}</b></td><td class="tright num">${g.day}</td><td class="tright num">${g.bu}</td><td class="tright num">${g.nghi}</td><td class="tright num"><b>${g.day+g.bu}</b></td></tr>`);
+  h+=`</tbody></table></div></div>`;
+  // 3) Tổng hợp theo lớp
+  h+=`<div class="panel"><div class="phead"><h3>Tổng hợp theo lớp</h3><span class="sub">${D.lopRows.length} lớp</span></div>
+    <div class="twrap"><table><thead><tr><th>Lớp</th>${isAdm?'<th>Cơ sở</th>':''}<th class="tright">Số buổi</th><th class="tright">Lượt có mặt</th><th class="tright">Tổng lượt</th><th class="tright">Chuyên cần</th></tr></thead><tbody>`;
+  D.lopRows.forEach(l=>h+=`<tr><td><b>${esc(l.lop)}</b></td>${isAdm?`<td>${esc(csName(l.coSoId))}</td>`:''}<td class="tright num">${l.buoi}</td><td class="tright num">${l.co}</td><td class="tright num">${l.tot}</td><td class="tright num">${pctCol(l.pct)}</td></tr>`);
+  h+=`</tbody></table></div></div>`;
+  // 4) Nhật ký đối soát & chốt
+  h+=`<div class="panel"><div class="phead"><h3>Nhật ký đối soát & chốt</h3><span class="sub">${D.duky.length} ca · lưu vết</span></div>
+    <div class="twrap"><table><thead><tr><th>Lớp</th>${isAdm?'<th>Cơ sở</th>':''}<th>Ngày</th><th>Trạng thái</th><th>GV gửi</th><th>Lễ tân đối soát</th><th>Quản trị chốt</th></tr></thead><tbody>`;
+  if(!D.duky.length)h+=`<tr><td colspan="${isAdm?7:6}"><div class="empty">Chưa có ca nào gửi đối soát trong khoảng này.</div></td></tr>`;
+  else D.duky.slice(0,150).forEach(d=>h+=`<tr><td><b>${esc(d.lop.lop)}</b></td>${isAdm?`<td>${esc(csName(d.lop.coSoId))}</td>`:''}<td class="num">${isoVN(d.ngay)}</td><td><span class="castat ${CA_CLS[d.st]}">${CA_LABEL[d.st]}</span></td><td class="num" style="font-size:.8rem">${fmtDT(d.gvAt)||'—'}</td><td class="num" style="font-size:.8rem">${fmtDT(d.letanAt)||'—'}</td><td class="num" style="font-size:.8rem">${fmtDT(d.adminAt)||'—'}</td></tr>`);
+  h+=`</tbody></table></div>${D.duky.length>150?`<div class="muted" style="padding:8px 14px;font-size:.8rem">… và ${D.duky.length-150} ca nữa — bấm <b>Xuất Excel</b>.</div>`:''}</div>`;
+  $('#view').innerHTML=h; bcBind();
+}
+function bcBind(){
+  const f=$('#bcFrom'); if(f)f.onchange=e=>{bcFrom=e.target.value;renderBaoCao();};
+  const t=$('#bcTo'); if(t)t.onchange=e=>{bcTo=e.target.value;renderBaoCao();};
+  const l=$('#bcLop'); if(l)l.onchange=e=>{bcLop=e.target.value;renderBaoCao();};
+  const x=$('#bcXls'); if(x)x.onclick=()=>bcExport();
+}
+/* Xuất Excel 4 sheet: Chuyên cần HS · Công GV · Tổng hợp lớp · Nhật ký đối soát */
+async function bcExport(){
+  const btn=$('#bcXls'), old=btn?btn.textContent:''; if(btn){btn.disabled=true;btn.textContent='Đang tạo…';}
+  try{await ensureXLSX();}catch(e){if(btn){btn.disabled=false;btn.textContent=old;}avaAlert('Không tải được thư viện Excel. Hãy kiểm tra kết nối mạng.');return;}
+  const D=bcCollect();
+  const isAdm=USER.role==='admin';
+  const phamvi=isAdm?(scope==='all'?'Toàn hệ thống':csName(Number(scope))):csName(USER.coSoId);
+  const ky=`Từ ${isoVN(bcFrom)} đến ${isoVN(bcTo)}`;
+  const head=(tieude,cols)=>[['TRUNG TÂM ANH NGỮ AVATAR'],[tieude],[`Phạm vi: ${phamvi}  |  ${ky}`],[],cols];
+  const wb=XLSX.utils.book_new();
+  const addSheet=(name,aoa,cols,mergeCols)=>{const ws=XLSX.utils.aoa_to_sheet(aoa); if(cols)ws['!cols']=cols; ws['!merges']=[0,1,2].map(r=>({s:{r,c:0},e:{r,c:mergeCols-1}})); XLSX.utils.book_append_sheet(wb,ws,name);};
+  // 1) Chuyên cần HS
+  const A1=head('BÁO CÁO CHUYÊN CẦN HỌC SINH',['STT','Học sinh','Lớp','Cơ sở','Số buổi','Có mặt','Muộn','Phép','Vắng','Chuyên cần %']);
+  D.hsRows.forEach((r,i)=>A1.push([i+1,r.ten,r.lop,r.coSoId!=null?csName(r.coSoId):'',r.tot,r.co,r.muon,r.phep,r.vang,r.pct+'%']));
+  addSheet('Chuyen can HS',A1,[{wch:5},{wch:26},{wch:16},{wch:16},{wch:8},{wch:8},{wch:7},{wch:7},{wch:7},{wch:12}],10);
+  // 2) Công GV
+  const A2=head('BÁO CÁO CÔNG GIÁO VIÊN',['STT','Giáo viên','Lên lớp','Dạy bù','Nghỉ','Tổng buổi dạy']);
+  D.gvRows.forEach((g,i)=>A2.push([i+1,g.name,g.day,g.bu,g.nghi,g.day+g.bu]));
+  addSheet('Cong GV',A2,[{wch:5},{wch:28},{wch:10},{wch:10},{wch:8},{wch:14}],6);
+  // 3) Tổng hợp lớp
+  const A3=head('TỔNG HỢP ĐIỂM DANH THEO LỚP',['STT','Lớp','Cơ sở','Số buổi','Lượt có mặt','Tổng lượt','Chuyên cần %']);
+  D.lopRows.forEach((l,i)=>A3.push([i+1,l.lop,csName(l.coSoId),l.buoi,l.co,l.tot,l.pct+'%']));
+  addSheet('Tong hop lop',A3,[{wch:5},{wch:20},{wch:16},{wch:9},{wch:12},{wch:11},{wch:12}],7);
+  // 4) Nhật ký đối soát
+  const A4=head('NHẬT KÝ ĐỐI SOÁT & CHỐT',['STT','Lớp','Cơ sở','Ngày','Trạng thái','GV gửi lúc','Lễ tân đối soát lúc','Quản trị chốt lúc']);
+  D.duky.forEach((d,i)=>A4.push([i+1,d.lop.lop,csName(d.lop.coSoId),isoVN(d.ngay),CA_LABEL[d.st]||d.st,fmtDT(d.gvAt),fmtDT(d.letanAt),fmtDT(d.adminAt)]));
+  addSheet('Nhat ky doi soat',A4,[{wch:5},{wch:20},{wch:16},{wch:12},{wch:14},{wch:18},{wch:20},{wch:18}],8);
+  XLSX.writeFile(wb,`Bao-cao-diem-danh-${bcFrom}_den_${bcTo}.xlsx`);
+  if(btn){btn.disabled=false;btn.textContent=old;}
 }
 
 /* ẩn/hiện mật khẩu */
