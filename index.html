@@ -215,6 +215,10 @@ svg{display:block}
 .ic-vi{background:var(--violet-soft)}.ic-vi svg{stroke:var(--violet)}
 .kpi b{display:block;font-size:1.6rem;letter-spacing:-.02em;margin-top:13px;line-height:1}
 .kpi span{font-size:.78rem;color:var(--muted)}
+/* thẻ tiền ở trang Thu – Chi: hiện SỐ ĐẦY ĐỦ (kế toán), cỡ chữ nhỏ lại cho vừa */
+.kpi.money b{font-size:1.2rem;font-variant-numeric:tabular-nums;word-break:break-word}
+.kpi.money b.neg{color:var(--rose)}
+@media(max-width:520px){.kpi.money b{font-size:1.05rem}}
 
 /* KPI hero (dashboard) — thẻ gradient nổi bật */
 .kcards{display:grid;grid-template-columns:repeat(4,1fr);gap:13px;margin-bottom:16px}
@@ -880,11 +884,11 @@ function applyGvEdits(rows){
     if(e.ngay_hd) g.ngayHd=e.ngay_hd;});
 }
 const fmtVND=n=>Math.round(n).toLocaleString('vi-VN')+'₫';
-const fmtShort=n=>{n=Math.round(n);
-  if(n>=1e9)return (n/1e9).toFixed(n>=1e10?0:1).replace(/\.0$/,'')+' tỷ';
-  if(n>=1e6)return (n/1e6).toFixed(1).replace(/\.0$/,'')+' tr';
-  if(n>=1e3){const k=Math.round(n/1e3); return k>=1000?(n/1e6).toFixed(1).replace(/\.0$/,'')+' tr':k+'k';}   // 999.999 → "1 tr" thay vì "1000k"
-  return n+'₫';};
+const fmtShort=n=>{n=Math.round(n); const dau=n<0?'-':''; n=Math.abs(n);   // tách dấu âm rồi mới rút gọn (tồn quỹ âm vẫn hiện đúng: -200k)
+  if(n>=1e9)return dau+(n/1e9).toFixed(n>=1e10?0:1).replace(/\.0$/,'')+' tỷ';
+  if(n>=1e6)return dau+(n/1e6).toFixed(1).replace(/\.0$/,'')+' tr';
+  if(n>=1e3){const k=Math.round(n/1e3); return dau+(k>=1000?(n/1e6).toFixed(1).replace(/\.0$/,'')+' tr':k+'k');}   // 999.999 → "1 tr" thay vì "1000k"
+  return dau+n.toLocaleString('vi-VN')+'₫';};
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 /* Ô nhập tiền: tự thêm dấu chấm nghìn khi gõ (1200000 → 1.200.000) */
 function attachMoneyFormat(el){
@@ -1724,7 +1728,7 @@ const HD_MENU_DESC={
   diemdanh:'Điểm danh học sinh và chấm công giáo viên theo từng buổi; gửi đối soát / chốt ca ngay tại đây.',
   duyet:'Danh sách các ca dạy theo trạng thái: <b>Chờ đối soát → Đã đối soát → Đã chốt</b>, kèm nút xử lý theo vai trò.',
   baocao:'Chuyên cần học sinh, công giáo viên, tổng hợp theo lớp, chi tiết từng buổi, giáo viên dạy mấy ca/ngày, nhật ký đối soát — xuất Excel 7 sheet khổ A4.',
-  thu:'Sổ quỹ thu – chi theo hạng mục, tồn quỹ, phiếu thu/chi (in &amp; tải Word), xuất Excel; dự thu học phí theo cơ sở.',
+  thu:'Sổ quỹ thu – chi theo hạng mục, tồn quỹ, phiếu thu/chi (in &amp; tải Word); dự thu học phí theo cơ sở. Nút <b>Xuất Excel</b> cho ra <b>mẫu sổ quỹ khổ A4</b>: số dư đầu kỳ – phát sinh – số dư cuối kỳ, tồn quỹ lũy kế sau từng phiếu, khối ký, kèm sheet tổng hợp theo hạng mục và theo cơ sở.',
   taikhoan:'Tạo / đổi mật khẩu / khóa / xóa tài khoản đăng nhập của giáo viên (tạo lẻ hoặc hàng loạt cả cơ sở).',
   huongdan:'Chính là trang này — có nút in để phát cho nhân viên.'
 };
@@ -1780,6 +1784,7 @@ const HD_HOWTO={
       'Vào <b>Báo cáo</b> → chọn <b>Từ ngày – Đến ngày</b> (và lớp nếu cần) → xem 6 bảng trên màn hình.',
       'Bấm <b>⬇ Xuất Excel</b> để tải file 7 sheet đã căn khổ A4, có tiêu đề lặp mỗi trang — in hoặc gửi đi được ngay.',
       'Vào <b>Thu – Chi</b> để xem sổ quỹ, tồn quỹ và dự thu học phí theo từng cơ sở.',
+      'Chọn <b>kỳ</b> (tháng) rồi bấm <b>⬇ Xuất Excel</b> → file sổ quỹ khổ A4 in được ngay, có số dư đầu kỳ – cuối kỳ và khối ký. Nếu lọc riêng <i>Chỉ Thu</i> hoặc <i>Chỉ Chi</i> thì file xuất ra là <b>bảng kê phiếu thu/chi</b>.',
       'Ở <b>Bảng điều hành</b>, khung <b>Cảnh báo điều hành</b> tự nhắc cơ sở chưa nhập lớp hoặc thu học phí dưới 72%.'
     ]]
   ],
@@ -2549,9 +2554,9 @@ function renderThu(){
   const adm=USER.role==='admin';
 
   let h=`<div class="kpis">
-    <div class="kpi"><div class="kpi-top"><div class="kpi-ic ic-em">${svg(IC.thu)}</div></div><b>${fmtShort(tThu)}</b><span>Tổng thu</span></div>
-    <div class="kpi"><div class="kpi-top"><div class="kpi-ic ic-am">${svg(IC.thu)}</div></div><b>${fmtShort(tChi)}</b><span>Tổng chi</span></div>
-    <div class="kpi"><div class="kpi-top"><div class="kpi-ic ic-teal">${svg(IC.thu)}</div></div><b>${fmtShort(ton)}</b><span>Tồn quỹ (toàn bộ)</span></div>
+    <div class="kpi money"><div class="kpi-top"><div class="kpi-ic ic-em">${svg(IC.thu)}</div></div><b>${fmtVND(tThu)}</b><span>Tổng thu</span></div>
+    <div class="kpi money"><div class="kpi-top"><div class="kpi-ic ic-am">${svg(IC.thu)}</div></div><b>${fmtVND(tChi)}</b><span>Tổng chi</span></div>
+    <div class="kpi money"><div class="kpi-top"><div class="kpi-ic ic-teal">${svg(IC.thu)}</div></div><b class="${ton<0?'neg':''}">${fmtVND(ton)}</b><span>Tồn quỹ (toàn bộ)</span></div>
     <div class="kpi"><div class="kpi-top"><div class="kpi-ic ic-sky">${svg(IC.diemdanh)}</div></div><b>${list.length}</b><span>Số phiếu</span></div>
   </div>
   <div class="toolbar">
@@ -2654,25 +2659,179 @@ function addGD(loai){
   $('#gd_preview').onclick=()=>{const g=readForm();if(g)openVoucher(g,{onSave:()=>doSave(g)});};
 }
 
+/* ===== XUẤT EXCEL SỔ QUỸ THU – CHI =====
+   Mẫu kế toán: khổ A4 nằm ngang, kẻ ô toàn bảng, số dư đầu kỳ – phát sinh –
+   số dư cuối kỳ, tồn quỹ lũy kế sau từng phiếu, khối ký cuối sổ, lặp tiêu đề
+   mỗi trang in. Kèm sheet tổng hợp theo hạng mục (và theo cơ sở khi xem cả chuỗi). */
+const soPhieu=g=>(g.loai==='thu'?'PT':'PC')+String(g.id||0).padStart(4,'0');
+const XL_HEAD='FF2A5490';
+function xlSetRow(ws,r,vals,opt){
+  opt=opt||{}; const row=ws.getRow(r); row.height=opt.h||17;
+  vals.forEach((v,i)=>{ if(v===undefined)return; const c=row.getCell(i+1); c.value=v; });
+  return row;
+}
 async function exportSoQuy(list,t){
-  const btn=$('#expXls'); if(btn){btn.textContent='Đang tạo…';}
-  try{await ensureXLSX();}catch(e){avaAlert('Không tải được thư viện Excel. Hãy kiểm tra kết nối mạng.');if(btn)btn.textContent='⬇ Xuất Excel';return;}
-  const adm=USER.role==='admin';
-  const kyTxt=ktThang==='all'?'Tất cả kỳ':('Tháng '+(+ktThang.split('-')[1])+'/'+ktThang.split('-')[0]);
+  const btn=$('#expXls'), oldTxt=btn?btn.textContent:'';
+  if(btn){btn.disabled=true;btn.textContent='Đang tạo…';}
+  try{await ensureExcelJS();}catch(e){if(btn){btn.disabled=false;btn.textContent=oldTxt;}avaAlert('Không tải được thư viện Excel. Hãy kiểm tra kết nối mạng.');return;}
+  const adm=USER.role==='admin', ids=scopeIds();
   const phamvi=adm?(scope==='all'?'Toàn hệ thống':csName(Number(scope))):csName(USER.coSoId);
-  const A=[['TRUNG TÂM ANH NGỮ AVATAR'],['SỔ QUỸ THU – CHI'],[`Phạm vi: ${phamvi}  |  Kỳ: ${kyTxt}`],[],
-    ['STT','Ngày','Loại','Hạng mục','Nội dung','Cơ sở','Thu (đ)','Chi (đ)','Người lập']];
-  list.forEach((g,i)=>A.push([i+1,isoVN(g.ngay),g.loai==='thu'?'Thu':'Chi',g.hangMuc,g.noiDung||'',csName(g.coSoId),g.loai==='thu'?g.soTien:'',g.loai==='chi'?g.soTien:'',g.nguoiLap||'']));
-  A.push([]);
-  A.push(['','','','','','TỔNG',t.tThu,t.tChi,'']);
-  A.push(['','','','','','TỒN QUỸ (toàn bộ)',t.ton,'','']);
-  const ws=XLSX.utils.aoa_to_sheet(A);
-  ws['!cols']=[{wch:5},{wch:12},{wch:7},{wch:20},{wch:34},{wch:16},{wch:15},{wch:15},{wch:18}];
-  ws['!merges']=[{s:{r:0,c:0},e:{r:0,c:8}},{s:{r:1,c:0},e:{r:1,c:8}},{s:{r:2,c:0},e:{r:2,c:8}}];
-  const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'So quy');
-  const fn=`So-quy-thu-chi-${ktThang==='all'?'tat-ca':ktThang}.xlsx`;
-  XLSX.writeFile(wb,fn);
-  if(btn)btn.textContent='⬇ Xuất Excel';
+  const kyTxt=ktThang==='all'?'Tất cả các kỳ':('Tháng '+(+ktThang.split('-')[1])+'/'+ktThang.split('-')[0]);
+  const motLoai=ktLoai!=='all';                      // đang lọc riêng Thu hoặc Chi → là BẢNG KÊ, không phải sổ quỹ
+  const tenBang=motLoai?(ktLoai==='thu'?'BẢNG KÊ PHIẾU THU':'BẢNG KÊ PHIẾU CHI'):'SỔ QUỸ THU – CHI';
+  // Số dư đầu kỳ = lũy kế mọi phiếu trong phạm vi TRƯỚC ngày đầu kỳ
+  let duDau=0;
+  if(!motLoai && ktThang!=='all'){
+    const dauKy=ktThang+'-01';
+    OPS.gd.forEach(g=>{ if(!ids.includes(g.coSoId)||g.ngay>=dauKy)return; duDau+=(g.loai==='thu'?g.soTien:-g.soTien); });
+  }
+  const rows=list.slice().sort((a,b)=>a.ngay.localeCompare(b.ngay)||a.id-b.id);   // sổ quỹ ghi theo trình tự thời gian
+  const cols=[{h:'STT',k:'stt',w:6,a:'center'},{h:'Ngày',k:'ngay',w:12,a:'center'},{h:'Số phiếu',k:'sp',w:12,a:'center'},
+    {h:'Loại',k:'loai',w:8,a:'center'},{h:'Hạng mục',k:'hm',w:22},{h:'Diễn giải / nội dung',k:'nd',w:38,wrap:true}]
+    .concat(adm?[{h:'Cơ sở',k:'cs',w:17}]:[])
+    .concat([{h:'Thu (đồng)',k:'thu',w:16,num:true},{h:'Chi (đồng)',k:'chi',w:16,num:true}])
+    .concat(motLoai?[]:[{h:'Tồn quỹ (đồng)',k:'ton',w:17,num:true}])
+    .concat([{h:'Người lập phiếu',k:'ng',w:20}]);
+  const nC=cols.length, ci=k=>cols.findIndex(c=>c.k===k)+1;
+  const wb=new ExcelJS.Workbook(); wb.creator='AVATAR'; wb.created=new Date();
+  const ws=wb.addWorksheet('So quy',{views:[{state:'frozen',ySplit:7}],
+    pageSetup:{paperSize:9,orientation:'landscape',fitToPage:true,fitToWidth:1,fitToHeight:0,
+      horizontalCentered:true,margins:{left:0.4,right:0.4,top:0.5,bottom:0.5,header:0.2,footer:0.2}}});
+  ws.columns=cols.map(c=>({width:c.w}));
+
+  // ---- Đầu sổ: đơn vị (trái) + mẫu số (phải) ----
+  ws.mergeCells(1,1,1,Math.max(3,Math.floor(nC/2)));
+  const u1=ws.getCell(1,1); u1.value='TRUNG TÂM ANH NGỮ AVATAR'; u1.font={bold:true,size:11.5}; u1.alignment={vertical:'middle'};
+  ws.mergeCells(2,1,2,Math.max(3,Math.floor(nC/2)));
+  const u2=ws.getCell(2,1); u2.value='Cơ sở: '+phamvi; u2.font={size:10.5}; u2.alignment={vertical:'middle'};
+  ws.mergeCells(1,nC-2,1,nC);
+  const m1=ws.getCell(1,nC-2); m1.value='Mẫu số S05-DNN'; m1.font={bold:true,size:10.5}; m1.alignment={horizontal:'center'};
+  ws.mergeCells(2,nC-2,2,nC);
+  const m2=ws.getCell(2,nC-2); m2.value='(Ban hành theo Thông tư 133/2016/TT-BTC)'; m2.font={italic:true,size:9}; m2.alignment={horizontal:'center',wrapText:true};
+  ws.getRow(2).height=22;
+  // ---- Tiêu đề ----
+  ws.mergeCells(4,1,4,nC);
+  const tc=ws.getCell(4,1); tc.value=tenBang; tc.font={bold:true,size:16,color:{argb:XL_NAVY}};
+  tc.alignment={horizontal:'center',vertical:'middle'}; ws.getRow(4).height=26;
+  ws.mergeCells(5,1,5,nC);
+  const sc=ws.getCell(5,1); sc.value='Kỳ: '+kyTxt+'   ·   Phạm vi: '+phamvi;
+  sc.font={italic:true,size:11,color:{argb:'FF44506B'}}; sc.alignment={horizontal:'center'}; ws.getRow(5).height=18;
+  ws.mergeCells(6,1,6,nC);
+  const dv=ws.getCell(6,1); dv.value='Đơn vị tính: đồng'; dv.font={italic:true,size:9.5}; dv.alignment={horizontal:'right'};
+  // ---- Hàng tiêu đề cột ----
+  const hr=ws.getRow(7); hr.height=30;
+  cols.forEach((c,i)=>{const cell=hr.getCell(i+1); cell.value=c.h;
+    cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:XL_HEAD}};
+    cell.font={bold:true,color:{argb:'FFFFFFFF'},size:11};
+    cell.alignment={vertical:'middle',horizontal:'center',wrapText:true}; cell.border=xlBorder(XL_HEAD);});
+  // ---- Thân sổ ----
+  let r=8, ton=duDau;
+  const style=(row,bold,fill)=>{ for(let i=1;i<=nC;i++){ const c=row.getCell(i);
+      c.border=xlBorder('FFD6DEEA'); c.font={size:10.5,bold:!!bold};
+      if(fill)c.fill={type:'pattern',pattern:'solid',fgColor:{argb:fill}}; } };
+  if(!motLoai){
+    ws.mergeCells(r,1,r,ci('thu')-1);
+    const row=xlSetRow(ws,r,[]); row.getCell(1).value='SỐ DƯ ĐẦU KỲ';
+    row.getCell(ci('ton')).value=duDau;
+    style(row,true,'FFF2F5FB');
+    row.getCell(1).alignment={horizontal:'right',vertical:'middle'};
+    row.getCell(ci('ton')).numFmt='#,##0';
+    r++;
+  }
+  rows.forEach((g,i)=>{
+    ton+=(g.loai==='thu'?g.soTien:-g.soTien);
+    const vals=[];
+    vals[ci('stt')-1]=i+1; vals[ci('ngay')-1]=isoVN(g.ngay); vals[ci('sp')-1]=soPhieu(g);
+    vals[ci('loai')-1]=g.loai==='thu'?'Thu':'Chi'; vals[ci('hm')-1]=g.hangMuc||''; vals[ci('nd')-1]=g.noiDung||'';
+    if(adm)vals[ci('cs')-1]=csName(g.coSoId);
+    vals[ci('thu')-1]=g.loai==='thu'?g.soTien:null; vals[ci('chi')-1]=g.loai==='chi'?g.soTien:null;
+    if(!motLoai)vals[ci('ton')-1]=ton;
+    vals[ci('ng')-1]=g.nguoiLap||'';
+    const row=xlSetRow(ws,r,vals);
+    style(row,false, i%2===1?'FFEFF3FA':null);
+    cols.forEach((c,k)=>{const cell=row.getCell(k+1);
+      cell.alignment={vertical:'middle',horizontal:c.a||(c.num?'right':'left'),wrapText:!!c.wrap};
+      if(c.num)cell.numFmt='#,##0';});
+    row.getCell(ci('loai')).font={size:10.5,bold:true,color:{argb:g.loai==='thu'?'FF167A4E':'FFC0392B'}};
+    r++;
+  });
+  if(!rows.length){
+    ws.mergeCells(r,1,r,nC);
+    const row=xlSetRow(ws,r,['Không có phiếu thu/chi nào trong kỳ này.']);
+    style(row); row.getCell(1).alignment={horizontal:'center'}; row.getCell(1).font={italic:true,size:10.5}; r++;
+  }
+  // ---- Cộng phát sinh + số dư cuối kỳ ----
+  ws.mergeCells(r,1,r,ci('thu')-1);
+  const rTong=xlSetRow(ws,r,[]); rTong.getCell(1).value='CỘNG PHÁT SINH TRONG KỲ';
+  rTong.getCell(ci('thu')).value=t.tThu; rTong.getCell(ci('chi')).value=t.tChi;
+  style(rTong,true,'FFDBE4F3'); rTong.getCell(1).alignment={horizontal:'right',vertical:'middle'};
+  rTong.getCell(ci('thu')).numFmt='#,##0'; rTong.getCell(ci('chi')).numFmt='#,##0';
+  if(!motLoai){rTong.getCell(ci('ton')).value=null;}
+  r++;
+  if(!motLoai){
+    ws.mergeCells(r,1,r,ci('thu')-1);
+    const rDu=xlSetRow(ws,r,[]); rDu.getCell(1).value='SỐ DƯ CUỐI KỲ';
+    rDu.getCell(ci('ton')).value=ton;
+    style(rDu,true,'FFDBE4F3'); rDu.getCell(1).alignment={horizontal:'right',vertical:'middle'};
+    rDu.getCell(ci('ton')).numFmt='#,##0';
+    rDu.getCell(ci('ton')).font={bold:true,size:11,color:{argb:ton<0?'FFC0392B':'FF10264C'}};
+    r++;
+    // đọc số dư cuối kỳ bằng chữ — đúng tinh thần chứng từ kế toán
+    ws.mergeCells(r,1,r,nC);
+    const rChu=xlSetRow(ws,r,['Số dư cuối kỳ bằng chữ: '+docSoVN(Math.abs(ton))+(ton<0?' (âm)':'')]);
+    rChu.getCell(1).font={italic:true,size:10.5}; rChu.getCell(1).alignment={horizontal:'left'}; r++;
+  }
+  // ---- Khối ký ----
+  r++;
+  const now=new Date();
+  ws.mergeCells(r,nC-3,r,nC);
+  const rNgay=xlSetRow(ws,r,[]);
+  rNgay.getCell(nC-3).value='Nghệ An, ngày '+now.getDate()+' tháng '+(now.getMonth()+1)+' năm '+now.getFullYear();
+  rNgay.getCell(nC-3).font={italic:true,size:10.5}; rNgay.getCell(nC-3).alignment={horizontal:'center'}; r++;
+  const wKy=Math.floor(nC/3);                                   // 3 khối ký đều nhau, không chồng cột
+  const kyCols=[[1,'NGƯỜI LẬP BIỂU'],[wKy+1,'KẾ TOÁN'],[nC-wKy+1,'GIÁM ĐỐC']];
+  const rKy=xlSetRow(ws,r,[]);
+  kyCols.forEach(([c,tt])=>{ ws.mergeCells(r,c,r,c+wKy-1);
+    const cell=rKy.getCell(c); cell.value=tt; cell.font={bold:true,size:11}; cell.alignment={horizontal:'center'};});
+  r++;
+  const rKy2=xlSetRow(ws,r,[]);
+  kyCols.forEach(([c])=>{ ws.mergeCells(r,c,r,c+wKy-1);
+    const cell=rKy2.getCell(c); cell.value='(Ký, họ tên)'; cell.font={italic:true,size:9.5}; cell.alignment={horizontal:'center'};});
+  ws.getRow(r+1).height=60;   // chừa chỗ ký tay
+  ws.autoFilter={from:{row:7,column:1},to:{row:7,column:nC}};
+  ws.pageSetup.printTitlesRow='1:7';
+  ws.headerFooter={oddFooter:'&L&"Calibri"&8'+tenBang+' — '+phamvi+'&C&"Calibri"&8Trang &P/&N&R&"Calibri"&8AVATAR English'};
+
+  // ---- Sheet 2: tổng hợp theo hạng mục ----
+  const hm={};
+  rows.forEach(g=>{const k=(g.loai==='thu'?'T|':'C|')+(g.hangMuc||'Khác');
+    (hm[k]=hm[k]||{loai:g.loai,ten:g.hangMuc||'Khác',n:0,tien:0}); hm[k].n++; hm[k].tien+=g.soTien;});
+  const hmThu=Object.values(hm).filter(x=>x.loai==='thu').sort((a,b)=>b.tien-a.tien);
+  const hmChi=Object.values(hm).filter(x=>x.loai==='chi').sort((a,b)=>b.tien-a.tien);
+  const sub='TRUNG TÂM ANH NGỮ AVATAR   ·   '+phamvi+'   ·   '+kyTxt;
+  const hmRows=[]
+    .concat(hmThu.map(x=>({nhom:'THU',hm:x.ten,n:x.n,tien:x.tien,ty:t.tThu?Math.round(x.tien/t.tThu*100):0})))
+    .concat(hmChi.map(x=>({nhom:'CHI',hm:x.ten,n:x.n,tien:x.tien,ty:t.tChi?Math.round(x.tien/t.tChi*100):0})));
+  await bcSheetPro(wb,'Tong hop hang muc','TỔNG HỢP THU – CHI THEO HẠNG MỤC',sub,
+    [{h:'Nhóm',k:'nhom',w:9,a:'center'},{h:'Hạng mục',k:'hm',w:30},{h:'Số phiếu',k:'n',w:11,num:1},
+     {h:'Số tiền (đồng)',k:'tien',w:18,num:1},{h:'Tỷ trọng',k:'ty',w:11,pct:1}],
+    hmRows,'portrait');
+  // ---- Sheet 3: tổng hợp theo cơ sở (khi xem cả chuỗi) ----
+  if(adm && scope==='all'){
+    const cs={};
+    rows.forEach(g=>{const k=g.coSoId; (cs[k]=cs[k]||{ten:csName(k),n:0,thu:0,chi:0}); cs[k].n++;
+      if(g.loai==='thu')cs[k].thu+=g.soTien; else cs[k].chi+=g.soTien;});
+    const csRows=Object.values(cs).map(x=>({...x,con:x.thu-x.chi})).sort((a,b)=>b.thu-a.thu);
+    await bcSheetPro(wb,'Tong hop co so','TỔNG HỢP THU – CHI THEO CƠ SỞ',sub,
+      [{h:'STT',k:'stt',w:6,a:'center'},{h:'Cơ sở',k:'ten',w:24},{h:'Số phiếu',k:'n',w:11,num:1},
+       {h:'Thu (đồng)',k:'thu',w:17,num:1},{h:'Chi (đồng)',k:'chi',w:17,num:1},{h:'Chênh lệch (đồng)',k:'con',w:19,num:1}],
+      csRows.map((x,i)=>({stt:i+1,...x})),'portrait');
+  }
+  const slug=s=>fold(String(s)).replace(/[\\/:*?"<>|\s]+/g,'-');
+  dlBlob(await wb.xlsx.writeBuffer(),
+    (motLoai?(ktLoai==='thu'?'Bang-ke-phieu-thu-':'Bang-ke-phieu-chi-'):'So-quy-thu-chi-')
+    + slug(phamvi) + '-' + (ktThang==='all'?'tat-ca-ky':ktThang) + '.xlsx');
+  if(btn){btn.disabled=false;btn.textContent=oldTxt;}
 }
 
 /* đọc số tiền bằng chữ (VND) */
