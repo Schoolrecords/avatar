@@ -1292,7 +1292,7 @@ function buildScope(){
   const wrap=$('#scopeWrap'), sel=$('#scope');
   if(USER.role==='admin'){
     wrap.classList.remove('lock');
-    sel.innerHTML='<option value="all">Toàn hệ thống ('+COSO.length+' cơ sở)</option>'+
+    sel.innerHTML='<option value="all">Toàn hệ thống</option>'+
       COSO.map(c=>`<option value="${c.id}">${esc(c.ten)}${c.build?' · đang XD':''}</option>`).join('');
     sel.disabled=false;
     sel.onchange=()=>{scope=sel.value; go(VIEW);};
@@ -1359,7 +1359,7 @@ function renderDash(){
   const siToday=today.reduce((s,l)=>s+l.tot,0);
 
   const now=new Date(), gio=now.getHours();
-  const scopeTxt=USER.role==='admin'?(scope==='all'?'toàn hệ thống '+cosos.length+' cơ sở':csName(Number(scope))):csName(USER.coSoId);
+  const scopeTxt=USER.role==='admin'?(scope==='all'?'toàn hệ thống':csName(Number(scope))):csName(USER.coSoId);
 
   let h=`<div class="hello">
     <div class="hi"><small class="hmiss">✦ SỨ MỆNH AVATAR</small><h2>Chắp cánh ước mơ · Vươn tầm tiếng Anh</h2><p>Tình hình ${esc(scopeTxt)} · cập nhật lúc ${String(gio).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}</p></div>
