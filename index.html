@@ -1409,7 +1409,11 @@ function go(k){
 let tkList=null, tkCs='all';
 async function callTK(action,payload){
   try{
-    const {data,error}=await SB.functions.invoke('quan-ly-tk',{body:{action,...(payload||{})}});
+    // Gắn RÕ token phiên đang đăng nhập (tránh 401 "Chưa đăng nhập" khi invoke chưa kịp đính token)
+    const sres=await SB.auth.getSession();
+    const token=sres&&sres.data&&sres.data.session&&sres.data.session.access_token;
+    if(!token) return {error:'Phiên đăng nhập đã hết hạn. Hãy tải lại trang (Ctrl+F5) rồi đăng nhập lại.'};
+    const {data,error}=await SB.functions.invoke('quan-ly-tk',{body:{action,...(payload||{})},headers:{Authorization:'Bearer '+token}});
     if(error){ let msg=error.message||'Không gọi được máy chủ';
       try{ if(error.context&&error.context.json){const j=await error.context.json(); if(j&&j.error)msg=j.error;} }catch(_){}
       return {error:msg}; }
@@ -1432,7 +1436,7 @@ async function renderTaiKhoan(){
   const gvs=GV.filter(g=>g.coSoId===csId).slice().sort((a,b)=>String(a.ten).localeCompare(String(b.ten),'vi'));
   const nCo=gvs.filter(g=>acctByGv[g.id]).length;
   const csSel=`<select class="fsel" id="tkCsSel" style="flex:1;min-width:180px;max-width:100%">${opts.map(c=>`<option value="${c.id}" ${csId===c.id?'selected':''}>${esc(c.ten)}</option>`).join('')}</select>`;
-  let h=`<div class="toolbar">${csSel}<button class="btn btn-sm btn-ghost" id="tkReload" style="white-space:nowrap">↻ Tải lại</button></div>
+  let h=`<div class="toolbar">${csSel}<button class="btn btn-sm btn-primary" id="tkBulk" style="white-space:nowrap">＋ Tạo hàng loạt</button><button class="btn btn-sm btn-ghost" id="tkReload" style="white-space:nowrap">↻ Tải lại</button></div>
     <div class="panel"><div class="phead"><div style="display:flex;align-items:baseline;gap:8px"><h3>Tài khoản giáo viên</h3><span class="sub">${gvs.length} GV · ${nCo} đã có TK</span></div></div>
     <div class="pbody">
       <p class="muted" style="font-size:.8rem;line-height:1.5;margin:0 2px 12px">Giáo viên đăng nhập chỉ thấy <b>lớp mình phụ trách</b> để <b>ghi danh</b> (thêm HS) và <b>điểm danh</b>. Muốn GV thấy lớp nào: vào <b>Giáo viên → mở hồ sơ → Phụ trách lớp</b> rồi tích lớp cho GV đó.</p>`;
@@ -1457,6 +1461,7 @@ async function renderTaiKhoan(){
   $('#view').innerHTML=h;
   $('#tkCsSel').onchange=e=>{tkCs=e.target.value;renderTaiKhoan();};
   $('#tkReload').onclick=()=>{tkList=null;renderTaiKhoan();};
+  $('#tkBulk').onclick=()=>tkBulkCreate();
   $$('#view [data-new]').forEach(b=>b.onclick=()=>tkCreate(Number(b.dataset.new)));
   $$('#view [data-pw]').forEach(b=>b.onclick=()=>tkResetPw(b.dataset.pw));
   $$('#view [data-ban]').forEach(b=>b.onclick=()=>tkBan(b.dataset.ban,b.dataset.b==='1'));
@@ -1532,6 +1537,61 @@ async function tkDelete(id){
   const r=await callTK('delete',{id});
   if(r.error){avaAlert('Lỗi xóa: '+r.error);return;}
   tkList=null; renderTaiKhoan();
+}
+/* Sinh mật khẩu ngẫu nhiên dễ đọc (bỏ ký tự gây nhầm: 0 O l 1 i) */
+function genPass(len){
+  len=len||8; const cs='abcdefghjkmnpqrstuvwxyz23456789';
+  const a=new Uint32Array(len); (self.crypto||window.crypto).getRandomValues(a);
+  let s=''; for(let i=0;i<len;i++) s+=cs[a[i]%cs.length]; return s;
+}
+async function tkBulkCreate(){
+  const csId=Number(tkCs);
+  const acctByGv={}; (tkList||[]).forEach(a=>{ if(a.gv_id!=null) acctByGv[a.gv_id]=a; });
+  const targets=GV.filter(g=>g.coSoId===csId && !acctByGv[g.id]);
+  if(!targets.length){avaAlert('Mọi giáo viên của cơ sở này đã có tài khoản rồi.');return;}
+  if(!await avaConfirm('Tạo tài khoản cho '+targets.length+' giáo viên chưa có tài khoản?\nMỗi người một tên đăng nhập (gv+mã) và một mật khẩu riêng.'))return;
+  $('#mcard').innerHTML=`
+   <div class="mhead" style="background:var(--dots),linear-gradient(150deg,#10264c,#2f6fd0);background-size:18px 18px,auto">
+     <div class="mava">👥</div><div style="flex:1"><h3>Tạo tài khoản hàng loạt</h3><p>${esc(csName(csId))} · ${targets.length} giáo viên</p></div></div>
+   <div class="mbody"><div class="empty">Đang tạo… <b id="tkbp">0/${targets.length}</b><br/><small class="muted">Vui lòng chờ, đừng đóng cửa sổ.</small></div></div>`;
+  $('#modal').classList.add('on');
+  const results=[];
+  for(let i=0;i<targets.length;i++){
+    const g=targets[i], u='gv'+g.id, p=genPass();
+    const r=await callTK('create',{email:u+'@avatar.vn',password:p,ho_ten:g.ten,coso_id:g.coSoId,gv_id:g.id});
+    results.push({ten:g.ten,u,p,ok:!r.error,err:r.error||''});
+    const el=$('#tkbp'); if(el)el.textContent=(i+1)+'/'+targets.length;
+  }
+  tkList=null;
+  tkBulkSummary(results,csId);
+}
+function tkBulkSummary(results,csId){
+  const ok=results.filter(r=>r.ok), fail=results.filter(r=>!r.ok);
+  const rows=results.map((r,i)=>`<div class="ddrow"><div class="idx">${i+1}</div>
+    <div class="nm"><b>${esc(r.ten)}</b><small>${r.ok?('ĐN: <b>'+esc(r.u)+'</b> · MK: <b>'+esc(r.p)+'</b>'):('<span style="color:#c0392b">Lỗi: '+esc(r.err)+'</span>')}</small></div></div>`).join('');
+  $('#mcard').innerHTML=`
+   <div class="mhead" style="background:var(--dots),linear-gradient(150deg,#10264c,#2f6fd0);background-size:18px 18px,auto">
+     <div class="mava">✓</div><div style="flex:1"><h3>Đã tạo ${ok.length} tài khoản</h3><p>${esc(csName(csId))}${fail.length?(' · '+fail.length+' lỗi'):''}</p></div>
+     <button class="mclose" onclick="closeModal();renderTaiKhoan()">${svg('<path d="M6 6l12 12M18 6L6 18"/>')}</button></div>
+   <div class="mbody">
+     <p class="muted" style="font-size:.8rem;margin:0 2px 8px">⚠ Hãy <b>lưu danh sách mật khẩu này ngay</b> (Sao chép hoặc Tải Excel) để phát cho giáo viên — đóng lại sẽ không xem lại được mật khẩu.</p>
+     <div class="ddgrid" style="max-height:42vh;overflow:auto">${rows}</div>
+     <div style="display:flex;gap:8px;margin-top:12px">
+       <button class="btn btn-light" style="flex:1" id="tkCopy">📋 Sao chép</button>
+       <button class="btn btn-light" style="flex:1" id="tkXls">⬇ Tải Excel</button>
+       <button class="btn btn-primary" style="flex:1" onclick="closeModal();renderTaiKhoan()">Xong</button>
+     </div></div>`;
+  $('#tkCopy').onclick=()=>{
+    const txt='Họ tên\tTên đăng nhập\tMật khẩu\n'+ok.map(r=>r.ten+'\t'+r.u+'\t'+r.p).join('\n');
+    (navigator.clipboard?navigator.clipboard.writeText(txt):Promise.reject()).then(
+      ()=>avaAlert('Đã sao chép danh sách. Anh dán vào Excel/Word/Zalo để lưu và phát cho giáo viên.'),
+      ()=>avaAlert('Không sao chép được tự động. Anh chụp màn hình danh sách để lưu nhé.'));
+  };
+  $('#tkXls').onclick=()=>{
+    const aoa=[['Họ tên','Tên đăng nhập','Mật khẩu','Ghi chú']].concat(ok.map(r=>[r.ten,r.u,r.p,'Đăng nhập: gõ tên trên (tự thêm @avatar.vn)']));
+    const ws=XLSX.utils.aoa_to_sheet(aoa); const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Tai khoan GV');
+    XLSX.writeFile(wb,'Tai-khoan-GV-'+csName(csId).replace(/[\\/:*?"<>|\s]+/g,'-')+'.xlsx');
+  };
 }
 
 /* ============ HƯỚNG DẪN SỬ DỤNG ============ */
