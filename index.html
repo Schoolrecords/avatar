@@ -138,6 +138,7 @@ svg{display:block}
 .bell-btn.ring svg{animation:bellRing .6s ease}
 @keyframes bellRing{0%,100%{transform:rotate(0)}20%{transform:rotate(-14deg)}40%{transform:rotate(11deg)}60%{transform:rotate(-7deg)}80%{transform:rotate(4deg)}}
 .bell-badge{position:absolute;top:-6px;right:-6px;min-width:19px;height:19px;padding:0 5px;border-radius:10px;background:var(--rose);color:#fff;font-size:.68rem;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 7px rgba(224,69,94,.55);border:2px solid #fff}
+.bell-badge[hidden]{display:none}
 .bell-panel{position:absolute;top:54px;right:0;width:360px;max-width:90vw;max-height:74vh;overflow-y:auto;background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:0 20px 55px rgba(15,40,80,.24);z-index:200}
 .bell-head{display:flex;align-items:center;justify-content:space-between;padding:13px 16px;border-bottom:1px solid var(--line);position:sticky;top:0;background:#fff;border-radius:16px 16px 0 0}
 .bell-head b{font-size:.96rem}
@@ -296,6 +297,11 @@ tbody tr:hover{background:var(--soft)}
 .hv-stt2 button{padding:10px 4px;border:1.5px solid var(--line);border-radius:11px;background:#fff;font-weight:700;font-size:.82rem;color:var(--muted);cursor:pointer;transition:.12s}
 .hv-stt2 button[data-s="0"].sel{background:#eafaf1;border-color:var(--emerald);color:var(--emerald)}
 .hv-stt2 button[data-s="1"].sel{background:#eef1f5;border-color:#8a94a6;color:#5a6475}
+.gv-lopcheck{display:flex;flex-wrap:wrap;gap:7px;max-height:170px;overflow:auto;padding:3px 1px}
+.lopchk{display:inline-flex;align-items:center;gap:6px;padding:7px 11px;border:1.5px solid var(--line);border-radius:10px;background:#fff;font-size:.82rem;font-weight:600;color:var(--muted);cursor:pointer;transition:.12s;user-select:none}
+.lopchk:hover{border-color:#b9c6da}
+.lopchk input{width:16px;height:16px;accent-color:var(--brand);cursor:pointer;margin:0}
+.lopchk:has(input:checked){background:#eafaf1;border-color:var(--emerald);color:var(--emerald)}
 /* Hộp thoại AVATAR thông báo (thay alert/confirm mặc định) */
 .ava-dlg-ov{position:fixed;inset:0;z-index:9999;background:rgba(11,29,61,.5);display:grid;place-items:center;padding:20px;animation:avaFade .15s ease}
 .ava-dlg{background:#fff;border-radius:18px;max-width:410px;width:100%;box-shadow:0 30px 70px -20px rgba(11,29,61,.65);overflow:hidden;animation:avaPop .18s ease}
@@ -650,7 +656,7 @@ async function syncHocPhiVoucher(h,paid){
   }
 }
 /* Giáo viên & Lớp học sống (Giai đoạn 2) */
-const gvFromDb=r=>({id:r.id,ten:r.ten,ns:r.ns||'',td:r.td||'',dc:r.dc||'',sdt:r.sdt||'',mon:r.mon||'VH',coSoId:r.coso_id});
+const gvFromDb=r=>({id:r.id,ten:r.ten,ns:r.ns||'',td:r.td||'',dc:r.dc||'',sdt:r.sdt||'',mon:r.mon||'VH',coSoId:r.coso_id,ngayHd:r.ngay_hd||null});
 const gvToDb=o=>({ten:o.ten,ns:o.ns||'',td:o.td||'',dc:o.dc||'',sdt:o.sdt||'',mon:o.mon||'VH',coso_id:o.coSoId});
 const lopFromDb=r=>({id:r.id,lop:r.lop,gv:r.gv||'',siso:Number(r.siso)||0,mon:r.mon||'VH',coSoId:r.coso_id});
 const lopToDb=o=>({lop:o.lop,gv:o.gv||'',siso:Number(o.siso)||0,mon:o.mon||'VH',coso_id:o.coSoId});
@@ -682,7 +688,8 @@ async function loadCloud(){
 /* gộp các chỉnh sửa giáo viên (lưu ở Supabase) đè lên dữ liệu tĩnh data.js */
 function applyGvEdits(rows){
   rows.forEach(e=>{const g=GV.find(x=>x.id===e.gv_id); if(!g)return;
-    ['ten','ns','td','dc','sdt','mon'].forEach(k=>{ if(e[k]!=null && String(e[k]).length) g[k]=e[k]; });});
+    ['ten','ns','td','dc','sdt','mon'].forEach(k=>{ if(e[k]!=null && String(e[k]).length) g[k]=e[k]; });
+    if(e.ngay_hd) g.ngayHd=e.ngay_hd;});
 }
 const fmtVND=n=>Math.round(n).toLocaleString('vi-VN')+'₫';
 const fmtShort=n=>n>=1e9?(n/1e9).toFixed(n>=1e10?0:1).replace(/\.0$/,'')+' tỷ':n>=1e6?(n/1e6).toFixed(1).replace(/\.0$/,'')+' tr':n>=1e3?Math.round(n/1e3)+'k':String(n);
@@ -1396,6 +1403,16 @@ function renderGV(){
 function refreshGVTable(){renderGV();$('#gvq').focus();const v=$('#gvq').value;$('#gvq').setSelectionRange(v.length,v.length);}
 function bindGVRows(){$$('#view .gvRow').forEach(r=>r.onclick=()=>showGV(Number(r.dataset.gid)));}
 
+/* Danh sách lớp trong 1 cơ sở dạng ô tích — tích = giáo viên phụ trách lớp đó */
+function lopCheckHTML(coSoId,gvName){
+  const ls=LOP.filter(l=>l.coSoId===coSoId).slice().sort((a,b)=>String(a.lop).localeCompare(String(b.lop),'vi'));
+  if(!ls.length) return `<div class="muted" style="font-size:.82rem;padding:5px 2px">Cơ sở này chưa có lớp học.</div>`;
+  const nm=(gvName||'').trim();
+  return ls.map(l=>{const cur=(l.gv||'').trim();
+    const mine=nm&&cur===nm, other=cur&&cur!==nm;
+    return `<label class="lopchk"><input type="checkbox" value="${l.id}" ${mine?'checked':''}/><span>${esc(l.lop)}${l.siso?' · '+l.siso+' HS':''}${other?' <em style="font-style:normal;opacity:.6">('+esc(cur)+')</em>':''}</span></label>`;
+  }).join('');
+}
 function showGV(id){
   const g=GV.find(x=>x.id===id); if(!g)return;
   const lops=LOP.filter(l=>l.coSoId===g.coSoId && (l.gv||'').trim()===g.ten.trim());
@@ -1413,8 +1430,11 @@ function showGV(id){
       <div class="fld"><label>Trình độ chuyên môn</label><input id="ev_td" value="${esc(g.td||'')}"/></div>
       <div class="fld"><label>Số điện thoại</label><input id="ev_sdt" value="${esc(g.sdt||'')}" inputmode="tel"/></div>
       <div class="fld full"><label>Địa chỉ</label><input id="ev_dc" value="${esc(g.dc||'')}"/></div>
-      <div class="fld full"><label>Cơ sở công tác</label><input value="${esc(csName(g.coSoId))}" disabled style="opacity:.7"/></div>
-      ${lops.length?`<div class="fld full"><label>Phụ trách lớp</label><input value="${lops.length} lớp · ${hs} HS — ${esc(lops.map(l=>l.lop).join(', '))}" disabled style="opacity:.7"/></div>`:''}
+      <div class="fld"><label>Cơ sở công tác</label><input value="${esc(csName(g.coSoId))}" disabled style="opacity:.7"/></div>
+      <div class="fld"><label>Ngày hợp đồng làm việc</label><input id="ev_hd" value="${g.ngayHd?isoVN(g.ngayHd):''}" placeholder="dd/mm/yyyy"/></div>
+      ${gvLive
+        ? `<div class="fld full"><label>Phụ trách lớp <span style="font-weight:600;color:var(--muted)">· tích chọn lớp</span></label><div class="gv-lopcheck" id="ev_lops">${lopCheckHTML(g.coSoId,g.ten)}</div></div>`
+        : (lops.length?`<div class="fld full"><label>Phụ trách lớp</label><input value="${lops.length} lớp · ${hs} HS — ${esc(lops.map(l=>l.lop).join(', '))}" disabled style="opacity:.7"/></div>`:'')}
       <div id="ev_err" class="fld full" style="display:none;color:#c0392b;font-size:.84rem;font-weight:600;padding:0"></div>
       <div class="fld full" style="display:flex;gap:8px;margin-top:2px">
         ${gvLive?`<button class="btn btn-light" style="color:var(--rose)" id="ev_del">Xóa</button>`:''}
@@ -1424,19 +1444,38 @@ function showGV(id){
       <div class="fld full" style="padding:0"><small class="muted">Thay đổi được lưu online, đồng bộ mọi máy.</small></div>
     </div></div>`;
   $('#modal').classList.add('on');
-  attachDateFormat($('#ev_ns'));
+  attachDateFormat($('#ev_ns')); attachDateFormat($('#ev_hd'));
   const err=$('#ev_err'); const showErr=m=>{err.textContent=m||'';err.style.display=m?'block':'none';};
   $('#ev_save').onclick=async()=>{
     const rec={ten:$('#ev_ten').value.trim(),ns:$('#ev_ns').value.trim(),td:$('#ev_td').value.trim(),sdt:$('#ev_sdt').value.trim(),dc:$('#ev_dc').value.trim(),mon:$('#ev_mon').value};
     if(!rec.ten){showErr('Vui lòng nhập họ tên.');$('#ev_ten').focus();return;}
     if(!isValidDob(rec.ns)){showErr('Ngày sinh chưa đúng dạng ngày/tháng/năm (VD: 12/10/1990).');$('#ev_ns').focus();return;}
+    const hdv=($('#ev_hd')&&$('#ev_hd').value.trim())||'';
+    if(hdv && !isValidDob(hdv)){showErr('Ngày hợp đồng chưa đúng dạng ngày/tháng/năm.');$('#ev_hd').focus();return;}
+    const hdIso = hdv ? vnToIso(hdv) : null;
+    const oldName=g.ten.trim();
     const btn=$('#ev_save'); btn.disabled=true; btn.textContent='Đang lưu…'; showErr('');
     const {error}= gvLive
       ? await SB.from('giao_vien').update({ten:rec.ten,ns:rec.ns,td:rec.td,dc:rec.dc,sdt:rec.sdt,mon:rec.mon}).eq('id',g.id)
       : await SB.from('gv_edits').upsert({gv_id:g.id,coso_id:g.coSoId,...rec},{onConflict:'gv_id'});
-    btn.disabled=false; btn.textContent='💾 Lưu thay đổi';
-    if(error){showErr('Lỗi lưu: '+error.message);return;}
+    if(error){btn.disabled=false;btn.textContent='💾 Lưu thay đổi';showErr('Lỗi lưu: '+error.message);return;}
     ['ten','ns','td','sdt','dc','mon'].forEach(k=>{g[k]=rec[k];});
+    // Ngày hợp đồng (best-effort; bỏ qua êm nếu chưa chạy SQL)
+    if(gvLive) await SB.from('giao_vien').update({ngay_hd:hdIso}).eq('id',g.id);
+    else await SB.from('gv_edits').update({ngay_hd:hdIso}).eq('gv_id',g.id);
+    g.ngayHd=hdIso;
+    // Phân công lớp: tích = phụ trách; bỏ tích lớp đang của mình = gỡ (chỉ khi có bảng lop_hoc sống)
+    if(gvLive){
+      const box=$('#ev_lops');
+      const checked=new Set(box?[...box.querySelectorAll('input:checked')].map(x=>Number(x.value)):[]);
+      const newName=rec.ten.trim();
+      for(const l of LOP.filter(x=>x.coSoId===g.coSoId)){
+        const was=(l.gv||'').trim()===oldName;
+        if(checked.has(l.id)){ if((l.gv||'')!==newName){await SB.from('lop_hoc').update({gv:newName}).eq('id',l.id); l.gv=newName;} }
+        else if(was){ await SB.from('lop_hoc').update({gv:''}).eq('id',l.id); l.gv=''; }
+      }
+    }
+    btn.disabled=false; btn.textContent='💾 Lưu thay đổi';
     closeModal();
     if(VIEW==='gv')renderGV();
   };
@@ -1450,7 +1489,9 @@ function showGV(id){
 }
 /* ＋ Thêm giáo viên mới (bảng giao_vien sống) */
 function openGvNew(){
-  const csOpts=inCOSO().filter(c=>!c.build).map(c=>`<option value="${c.id}">${esc(c.ten)}</option>`).join('');
+  const csList=inCOSO().filter(c=>!c.build);
+  const csOpts=csList.map(c=>`<option value="${c.id}">${esc(c.ten)}</option>`).join('');
+  const initCs=USER.role==='admin'?(csList[0]?csList[0].id:0):USER.coSoId;
   $('#mcard').innerHTML=`
     <div class="mhead">
       <div class="mava">＋</div>
@@ -1463,25 +1504,36 @@ function openGvNew(){
       <div class="fld"><label>Môn</label><select id="nv_mon"><option value="VH">Văn hóa</option><option value="TA">Tiếng Anh</option></select></div>
       <div class="fld"><label>Trình độ chuyên môn</label><input id="nv_td" placeholder="VD: Đại học"/></div>
       <div class="fld"><label>Số điện thoại</label><input id="nv_sdt" inputmode="tel"/></div>
-      <div class="fld full"><label>Địa chỉ</label><input id="nv_dc"/></div>
+      <div class="fld"><label>Địa chỉ</label><input id="nv_dc"/></div>
+      <div class="fld"><label>Ngày hợp đồng làm việc</label><input id="nv_hd" placeholder="dd/mm/yyyy"/></div>
       ${USER.role==='admin'?`<div class="fld full"><label>Cơ sở công tác *</label><select id="nv_cs">${csOpts}</select></div>`:''}
+      <div class="fld full"><label>Phụ trách lớp <span style="font-weight:600;color:var(--muted)">· tích chọn lớp</span></label><div class="gv-lopcheck" id="nv_lops">${lopCheckHTML(initCs,'')}</div></div>
       <div id="nv_err" class="fld full" style="display:none;color:#c0392b;font-size:.84rem;font-weight:600;padding:0"></div>
       <div class="fld full" style="display:flex;gap:8px"><button class="btn btn-light" style="flex:1" onclick="closeModal()">Hủy</button><button class="btn btn-primary" style="flex:2" id="nv_save">＋ Thêm giáo viên</button></div>
     </div></div>`;
   $('#modal').classList.add('on');
-  attachDateFormat($('#nv_ns'));
+  attachDateFormat($('#nv_ns')); attachDateFormat($('#nv_hd'));
+  const csSel=$('#nv_cs'); if(csSel)csSel.onchange=e=>{$('#nv_lops').innerHTML=lopCheckHTML(Number(e.target.value),'');};
   const err=m=>{const e=$('#nv_err');e.textContent=m||'';e.style.display=m?'block':'none';};
   $('#nv_save').onclick=async()=>{
     const ten=$('#nv_ten').value.trim();
     if(!ten){err('Vui lòng nhập họ tên.');$('#nv_ten').focus();return;}
     if(!isValidDob($('#nv_ns').value)){err('Ngày sinh chưa đúng dạng ngày/tháng/năm (VD: 12/10/1990).');$('#nv_ns').focus();return;}
+    const hdv=$('#nv_hd').value.trim();
+    if(hdv && !isValidDob(hdv)){err('Ngày hợp đồng chưa đúng dạng ngày/tháng/năm.');$('#nv_hd').focus();return;}
+    const hdIso=hdv?vnToIso(hdv):null;
     const coSoId=USER.role==='admin'?Number($('#nv_cs').value):USER.coSoId;
+    const lopIds=[...document.querySelectorAll('#nv_lops input:checked')].map(x=>Number(x.value));
     const rec={ten,ns:$('#nv_ns').value.trim(),td:$('#nv_td').value.trim(),sdt:$('#nv_sdt').value.trim(),dc:$('#nv_dc').value.trim(),mon:$('#nv_mon').value,coSoId};
     const btn=$('#nv_save'); btn.disabled=true; btn.textContent='Đang lưu…'; err('');
     const {data,error}=await SB.from('giao_vien').insert(gvToDb(rec)).select().single();
+    if(error){btn.disabled=false;btn.textContent='＋ Thêm giáo viên';err('Lỗi thêm: '+error.message);return;}
+    await SB.from('giao_vien').update({ngay_hd:hdIso}).eq('id',data.id);   // ngày hợp đồng; bỏ qua êm nếu chưa chạy SQL
+    // phân công lớp cho GV mới
+    for(const id of lopIds){ await SB.from('lop_hoc').update({gv:ten}).eq('id',id); const l=LOP.find(x=>x.id===id); if(l)l.gv=ten; }
+    const obj=gvFromDb(data); obj.ngayHd=obj.ngayHd||hdIso;
+    GV.push(obj);
     btn.disabled=false; btn.textContent='＋ Thêm giáo viên';
-    if(error){err('Lỗi thêm: '+error.message);return;}
-    GV.push(gvFromDb(data));
     closeModal(); renderGV();
   };
 }
