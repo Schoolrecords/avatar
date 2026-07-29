@@ -2956,27 +2956,38 @@ function renderDuyet(){
 /* ============ BÁO CÁO ĐIỂM DANH (Giai đoạn A — mức ngày, dùng dữ liệu hiện có) ============ */
 const fmtDT=iso=>{ if(!iso)return''; const d=new Date(iso); if(isNaN(d))return''; const p=n=>('0'+n).slice(-2); return `${p(d.getDate())}/${p(d.getMonth()+1)}/${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`; };
 let bcFrom=todayISO().slice(0,7)+'-01', bcTo=todayISO(), bcLop='all';
+const DD_LABEL={co:'Có mặt',muon:'Muộn',phep:'Phép',vang:'Vắng'};
 /* Gom số liệu theo khoảng ngày + phạm vi (cơ sở đang chọn) + lớp (tùy chọn) */
 function bcCollect(){
   const ids=scopeIds();
   const onlyLop = bcLop!=='all' ? Number(bcLop) : null;
   const inR=ngay=>ngay>=bcFrom&&ngay<=bcTo;
   const okLop=lop=> lop && ids.includes(lop.coSoId) && (onlyLop==null||lop.id===onlyLop);
-  const hsMap={}, lopMap={}, gvMap={}, duky=[];
-  // Điểm danh học sinh -> chuyên cần HS + tổng hợp lớp
+  const hsMap={}, lopMap={}, gvMap={}, duky=[], buoiRows=[], roster=[], gvDayMap={};
+  // Điểm danh học sinh -> chuyên cần HS + tổng hợp lớp + chi tiết buổi + điểm danh chi tiết
   for(const k in OPS.ddHV){ const [lidS,ngay]=k.split('|'); if(!inR(ngay))continue;
     const lop=LOP.find(l=>l.id===Number(lidS)); if(!okLop(lop))continue;
     const lm=lopMap[lop.id]=lopMap[lop.id]||{lop,buoi:new Set(),co:0,tot:0}; lm.buoi.add(ngay);
     const obj=OPS.ddHV[k];
+    const b={ngay,lop,co:0,muon:0,phep:0,vang:0,tot:0};
     for(const hid in obj){ const st=obj[hid];
       const hm=hsMap[hid]=hsMap[hid]||{hvId:Number(hid),co:0,muon:0,phep:0,vang:0};
-      if(hm[st]!=null)hm[st]++; lm.tot++; if(st==='co'||st==='muon')lm.co++; }
+      if(hm[st]!=null)hm[st]++;
+      if(b[st]!=null)b[st]++; b.tot++;
+      lm.tot++; if(st==='co'||st==='muon')lm.co++;
+      const hv=OPS.hv.find(x=>x.id===Number(hid));
+      roster.push({ngay,lop,hsName:hv?hv.ten:('HS #'+hid),status:st});
+    }
+    b.pct=b.tot?Math.round((b.co+b.muon)/b.tot*100):0;
+    const ca=OPS.duyet[k]; b.st=ca?ca.st:null;
+    buoiRows.push(b);
   }
-  // Chấm công GV -> công theo buổi
+  // Chấm công GV -> công theo buổi + GV dạy mấy ca/ngày (chỉ ca thực dạy: lên lớp + dạy bù)
   for(const k in OPS.ccGV){ const p=k.split('|'); const ngay=p[2]; if(!inR(ngay))continue;
     const lop=LOP.find(l=>l.id===Number(p[1])); if(!okLop(lop))continue;
     const nm=lop.gv||'(chưa phân công)'; const gm=gvMap[nm]=gvMap[nm]||{name:nm,day:0,bu:0,nghi:0};
     const st=OPS.ccGV[k]; if(gm[st]!=null)gm[st]++;
+    if(st==='day'||st==='bu'){ const gk=nm+'|'+ngay; const gd=gvDayMap[gk]=gvDayMap[gk]||{gv:nm,ngay,n:0,lops:new Set()}; gd.n++; gd.lops.add(lop.lop); }
   }
   // Nhật ký đối soát/chốt
   for(const k in OPS.duyet){ const [lidS,ngay]=k.split('|'); if(!inR(ngay))continue;
@@ -2989,10 +3000,20 @@ function bcCollect(){
   const gvRows=Object.values(gvMap).sort((a,b)=>(b.day+b.bu)-(a.day+a.bu)||String(a.name).localeCompare(b.name,'vi'));
   const lopRows=Object.values(lopMap).map(l=>({lop:l.lop.lop,coSoId:l.lop.coSoId,buoi:l.buoi.size,co:l.co,tot:l.tot,pct:l.tot?Math.round(l.co/l.tot*100):0}))
     .sort((a,b)=>a.coSoId-b.coSoId||String(a.lop).localeCompare(b.lop,'vi'));
+  const bySort=(a,b)=> a.ngay<b.ngay?1:a.ngay>b.ngay?-1: String(a.lop.lop).localeCompare(b.lop.lop,'vi');
+  buoiRows.sort(bySort);
+  roster.sort((a,b)=> bySort(a,b)||String(a.hsName).localeCompare(b.hsName,'vi'));
   duky.sort((a,b)=> a.ngay<b.ngay?1:a.ngay>b.ngay?-1:0);
+  // GV ca/ngày: chi tiết (gv,ngày) + tổng hợp mỗi GV
+  const gvDayRows=Object.values(gvDayMap).map(g=>({gv:g.gv,ngay:g.ngay,n:g.n,lops:[...g.lops].sort((a,b)=>String(a).localeCompare(b,'vi')).join(', ')}))
+    .sort((a,b)=> String(a.gv).localeCompare(b.gv,'vi') || (a.ngay<b.ngay?1:a.ngay>b.ngay?-1:0));
+  const gvSumMap={};
+  Object.values(gvDayMap).forEach(g=>{const s=gvSumMap[g.gv]=gvSumMap[g.gv]||{gv:g.gv,ngayDay:0,tongCa:0,max:0}; s.ngayDay++; s.tongCa+=g.n; if(g.n>s.max)s.max=g.n;});
+  const gvDaySummary=Object.values(gvSumMap).map(s=>({...s,bq:s.ngayDay?Math.round(s.tongCa/s.ngayDay*10)/10:0}))
+    .sort((a,b)=>b.tongCa-a.tongCa||String(a.gv).localeCompare(b.gv,'vi'));
   const totBuoi=lopRows.reduce((s,l)=>s+l.buoi,0), luotCo=lopRows.reduce((s,l)=>s+l.co,0), luotTot=lopRows.reduce((s,l)=>s+l.tot,0);
   const chot=duky.filter(d=>d.st==='da_chot').length;
-  return {hsRows,gvRows,lopRows,duky,totBuoi,luotCo,luotTot,chot};
+  return {hsRows,gvRows,lopRows,duky,buoiRows,roster,gvDayRows,gvDaySummary,totBuoi,luotCo,luotTot,chot};
 }
 function renderBaoCao(){
   if(USER.role==='teacher'){go('diemdanh');return;}
@@ -3043,6 +3064,18 @@ function renderBaoCao(){
   if(!D.duky.length)h+=`<tr><td colspan="${isAdm?7:6}"><div class="empty">Chưa có ca nào gửi đối soát trong khoảng này.</div></td></tr>`;
   else D.duky.slice(0,150).forEach(d=>h+=`<tr><td><b>${esc(d.lop.lop)}</b></td>${isAdm?`<td>${esc(csName(d.lop.coSoId))}</td>`:''}<td class="num">${isoVN(d.ngay)}</td><td><span class="castat ${CA_CLS[d.st]}">${CA_LABEL[d.st]}</span></td><td class="num" style="font-size:.8rem">${fmtDT(d.gvAt)||'—'}</td><td class="num" style="font-size:.8rem">${fmtDT(d.letanAt)||'—'}</td><td class="num" style="font-size:.8rem">${fmtDT(d.adminAt)||'—'}</td></tr>`);
   h+=`</tbody></table></div>${D.duky.length>150?`<div class="muted" style="padding:8px 14px;font-size:.8rem">… và ${D.duky.length-150} ca nữa — bấm <b>Xuất Excel</b>.</div>`:''}</div>`;
+  // 5) Chi tiết điểm danh theo buổi / lớp
+  h+=`<div class="panel"><div class="phead"><h3>Chi tiết điểm danh theo buổi</h3><span class="sub">${D.buoiRows.length} buổi · mới nhất trước</span></div>
+    <div class="twrap"><table><thead><tr><th>Ngày</th><th>Lớp</th>${isAdm?'<th>Cơ sở</th>':''}<th>Giáo viên</th><th class="tright">Có mặt</th><th class="tright">Muộn</th><th class="tright">Vắng</th><th class="tright">Đã điểm</th><th class="tright">Chuyên cần</th><th>Trạng thái</th></tr></thead><tbody>`;
+  D.buoiRows.slice(0,200).forEach(b=>{const chip=b.st?`<span class="castat ${CA_CLS[b.st]}">${CA_LABEL[b.st]}</span>`:`<span class="castat ca-none">Chưa gửi</span>`;
+    h+=`<tr><td class="num">${isoVN(b.ngay)}</td><td><b>${esc(b.lop.lop)}</b></td>${isAdm?`<td>${esc(csName(b.lop.coSoId))}</td>`:''}<td>${esc(b.lop.gv||'—')}</td><td class="tright num">${b.co}</td><td class="tright num">${b.muon}</td><td class="tright num">${b.phep+b.vang}</td><td class="tright num">${b.tot}</td><td class="tright num">${pctCol(b.pct)}</td><td>${chip}</td></tr>`;});
+  h+=`</tbody></table></div>${D.buoiRows.length>200?`<div class="muted" style="padding:8px 14px;font-size:.8rem">… và ${D.buoiRows.length-200} buổi nữa — bấm <b>Xuất Excel</b>.</div>`:''}</div>`;
+  // 6) Giáo viên dạy mấy ca/ngày
+  h+=`<div class="panel"><div class="phead"><h3>Giáo viên dạy mấy ca/ngày</h3><span class="sub">${D.gvDaySummary.length} GV · ca thực dạy (lên lớp + dạy bù)</span></div>
+    <div class="twrap"><table><thead><tr><th>Giáo viên</th><th class="tright">Số ngày dạy</th><th class="tright">Tổng ca</th><th class="tright">BQ ca/ngày</th><th class="tright">Nhiều nhất/ngày</th></tr></thead><tbody>`;
+  if(!D.gvDaySummary.length)h+=`<tr><td colspan="5"><div class="empty">Chưa có chấm công dạy trong khoảng này.</div></td></tr>`;
+  else D.gvDaySummary.forEach(s=>h+=`<tr><td><b>${esc(s.gv)}</b></td><td class="tright num">${s.ngayDay}</td><td class="tright num">${s.tongCa}</td><td class="tright num">${s.bq}</td><td class="tright num">${s.max}</td></tr>`);
+  h+=`</tbody></table></div><div class="muted" style="padding:8px 14px;font-size:.8rem">Chi tiết từng ngày (mỗi GV dạy mấy ca mỗi ngày) có trong file Excel — sheet <b>"GV theo ngày"</b>.</div></div>`;
   $('#view').innerHTML=h; bcBind();
 }
 function bcBind(){
@@ -3051,34 +3084,81 @@ function bcBind(){
   const l=$('#bcLop'); if(l)l.onchange=e=>{bcLop=e.target.value;renderBaoCao();};
   const x=$('#bcXls'); if(x)x.onclick=()=>bcExport();
 }
-/* Xuất Excel 4 sheet: Chuyên cần HS · Công GV · Tổng hợp lớp · Nhật ký đối soát */
+/* Một sheet báo cáo ĐẸP + mi trang A4: tiêu đề nền navy, phụ đề, header tô màu,
+   kẻ viền, zebra, cố định + lặp tiêu đề mỗi trang in, autofilter, footer số trang.
+   cols: [{h,k,w,a('left'|'center'|'right'),num,pct,wrap}] */
+async function bcSheetPro(wb,name,title,sub,cols,rows,orient){
+  const ws=wb.addWorksheet(name,{
+    views:[{state:'frozen',ySplit:3}],
+    pageSetup:{paperSize:9,orientation:orient||'landscape',fitToPage:true,fitToWidth:1,fitToHeight:0,
+      horizontalCentered:true,margins:{left:0.4,right:0.4,top:0.55,bottom:0.55,header:0.25,footer:0.25}}
+  });
+  const nC=cols.length;
+  ws.columns=cols.map(c=>({width:c.w||14}));
+  ws.mergeCells(1,1,1,nC);
+  const tc=ws.getCell(1,1); tc.value=title; tc.font={bold:true,size:14,color:{argb:'FFFFFFFF'}};
+  tc.alignment={vertical:'middle',horizontal:'center'}; tc.fill={type:'pattern',pattern:'solid',fgColor:{argb:XL_NAVY}}; ws.getRow(1).height=26;
+  ws.mergeCells(2,1,2,nC);
+  const sc=ws.getCell(2,1); sc.value=sub; sc.font={italic:true,size:10,color:{argb:'FF44506B'}};
+  sc.alignment={horizontal:'center',vertical:'middle'}; ws.getRow(2).height=16;
+  const hr=ws.getRow(3); hr.height=24;
+  cols.forEach((c,i)=>{const cell=hr.getCell(i+1); cell.value=c.h;
+    cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF2A5490'}};
+    cell.font={bold:true,color:{argb:'FFFFFFFF'},size:11};
+    cell.alignment={vertical:'middle',horizontal:'center',wrapText:true}; cell.border=xlBorder('FF2A5490');});
+  rows.forEach((r,ri)=>{const row=ws.getRow(4+ri); row.height=17;
+    cols.forEach((c,ci)=>{const cell=row.getCell(ci+1); const v=r[c.k];
+      cell.value=(v==null||v==='')?null:v;
+      cell.alignment={vertical:'middle',horizontal:c.a||((c.num||c.pct)?'right':'left'),wrapText:!!c.wrap};
+      cell.font={size:10.5};
+      if(ri%2===1)cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFEFF3FA'}};
+      cell.border=xlBorder('FFD6DEEA');
+      if(c.num)cell.numFmt='#,##0'; else if(c.pct)cell.numFmt='0"%"';});
+  });
+  ws.autoFilter={from:{row:3,column:1},to:{row:3,column:nC}};
+  ws.pageSetup.printTitlesRow='1:3';
+  ws.headerFooter={oddFooter:'&C&"Calibri"&8Trang &P/&N — AVATAR English'};
+  return ws;
+}
+/* Xuất Excel 7 sheet (ExcelJS): định dạng chuyên nghiệp, mi trang A4 */
 async function bcExport(){
   const btn=$('#bcXls'), old=btn?btn.textContent:''; if(btn){btn.disabled=true;btn.textContent='Đang tạo…';}
-  try{await ensureXLSX();}catch(e){if(btn){btn.disabled=false;btn.textContent=old;}avaAlert('Không tải được thư viện Excel. Hãy kiểm tra kết nối mạng.');return;}
+  try{await ensureExcelJS();}catch(e){if(btn){btn.disabled=false;btn.textContent=old;}avaAlert('Không tải được thư viện Excel. Hãy kiểm tra kết nối mạng.');return;}
   const D=bcCollect();
   const isAdm=USER.role==='admin';
   const phamvi=isAdm?(scope==='all'?'Toàn hệ thống':csName(Number(scope))):csName(USER.coSoId);
-  const ky=`Từ ${isoVN(bcFrom)} đến ${isoVN(bcTo)}`;
-  const head=(tieude,cols)=>[['TRUNG TÂM ANH NGỮ AVATAR'],[tieude],[`Phạm vi: ${phamvi}  |  ${ky}`],[],cols];
-  const wb=XLSX.utils.book_new();
-  const addSheet=(name,aoa,cols,mergeCols)=>{const ws=XLSX.utils.aoa_to_sheet(aoa); if(cols)ws['!cols']=cols; ws['!merges']=[0,1,2].map(r=>({s:{r,c:0},e:{r,c:mergeCols-1}})); XLSX.utils.book_append_sheet(wb,ws,name);};
-  // 1) Chuyên cần HS
-  const A1=head('BÁO CÁO CHUYÊN CẦN HỌC SINH',['STT','Học sinh','Lớp','Cơ sở','Số buổi','Có mặt','Muộn','Phép','Vắng','Chuyên cần %']);
-  D.hsRows.forEach((r,i)=>A1.push([i+1,r.ten,r.lop,r.coSoId!=null?csName(r.coSoId):'',r.tot,r.co,r.muon,r.phep,r.vang,r.pct+'%']));
-  addSheet('Chuyen can HS',A1,[{wch:5},{wch:26},{wch:16},{wch:16},{wch:8},{wch:8},{wch:7},{wch:7},{wch:7},{wch:12}],10);
-  // 2) Công GV
-  const A2=head('BÁO CÁO CÔNG GIÁO VIÊN',['STT','Giáo viên','Lên lớp','Dạy bù','Nghỉ','Tổng buổi dạy']);
-  D.gvRows.forEach((g,i)=>A2.push([i+1,g.name,g.day,g.bu,g.nghi,g.day+g.bu]));
-  addSheet('Cong GV',A2,[{wch:5},{wch:28},{wch:10},{wch:10},{wch:8},{wch:14}],6);
-  // 3) Tổng hợp lớp
-  const A3=head('TỔNG HỢP ĐIỂM DANH THEO LỚP',['STT','Lớp','Cơ sở','Số buổi','Lượt có mặt','Tổng lượt','Chuyên cần %']);
-  D.lopRows.forEach((l,i)=>A3.push([i+1,l.lop,csName(l.coSoId),l.buoi,l.co,l.tot,l.pct+'%']));
-  addSheet('Tong hop lop',A3,[{wch:5},{wch:20},{wch:16},{wch:9},{wch:12},{wch:11},{wch:12}],7);
-  // 4) Nhật ký đối soát
-  const A4=head('NHẬT KÝ ĐỐI SOÁT & CHỐT',['STT','Lớp','Cơ sở','Ngày','Trạng thái','GV gửi lúc','Lễ tân đối soát lúc','Quản trị chốt lúc']);
-  D.duky.forEach((d,i)=>A4.push([i+1,d.lop.lop,csName(d.lop.coSoId),isoVN(d.ngay),CA_LABEL[d.st]||d.st,fmtDT(d.gvAt),fmtDT(d.letanAt),fmtDT(d.adminAt)]));
-  addSheet('Nhat ky doi soat',A4,[{wch:5},{wch:20},{wch:16},{wch:12},{wch:14},{wch:18},{wch:20},{wch:18}],8);
-  XLSX.writeFile(wb,`Bao-cao-diem-danh-${bcFrom}_den_${bcTo}.xlsx`);
+  const sub=`TRUNG TÂM ANH NGỮ AVATAR   ·   ${phamvi}   ·   Từ ${isoVN(bcFrom)} đến ${isoVN(bcTo)}`;
+  const wb=new ExcelJS.Workbook(); wb.creator='AVATAR'; wb.created=new Date();
+  const cs=r=> r.coSoId!=null?csName(r.coSoId):'';
+  // 1) Chuyên cần học sinh
+  await bcSheetPro(wb,'Chuyen can HS','BÁO CÁO CHUYÊN CẦN HỌC SINH',sub,
+    [{h:'STT',k:'stt',w:5,a:'center'},{h:'Học sinh',k:'ten',w:26},{h:'Cơ sở',k:'cs',w:16},{h:'Lớp',k:'lop',w:16},{h:'Số buổi',k:'tot',w:9,num:1},{h:'Có mặt',k:'co',w:9,num:1},{h:'Muộn',k:'muon',w:8,num:1},{h:'Phép',k:'phep',w:8,num:1},{h:'Vắng',k:'vang',w:8,num:1},{h:'Chuyên cần',k:'pct',w:12,pct:1}],
+    D.hsRows.map((r,i)=>({stt:i+1,ten:r.ten,cs:cs(r),lop:r.lop,tot:r.tot,co:r.co,muon:r.muon,phep:r.phep,vang:r.vang,pct:r.pct})));
+  // 2) Công giáo viên
+  await bcSheetPro(wb,'Cong GV','BÁO CÁO CÔNG GIÁO VIÊN',sub,
+    [{h:'STT',k:'stt',w:5,a:'center'},{h:'Giáo viên',k:'gv',w:28},{h:'Lên lớp',k:'day',w:11,num:1},{h:'Dạy bù',k:'bu',w:11,num:1},{h:'Nghỉ',k:'nghi',w:9,num:1},{h:'Tổng buổi dạy',k:'tong',w:15,num:1}],
+    D.gvRows.map((g,i)=>({stt:i+1,gv:g.name,day:g.day,bu:g.bu,nghi:g.nghi,tong:g.day+g.bu})),'portrait');
+  // 3) Tổng hợp theo lớp
+  await bcSheetPro(wb,'Tong hop lop','TỔNG HỢP ĐIỂM DANH THEO LỚP',sub,
+    [{h:'STT',k:'stt',w:5,a:'center'},{h:'Lớp',k:'lop',w:20},{h:'Cơ sở',k:'cs',w:16},{h:'Số buổi',k:'buoi',w:10,num:1},{h:'Lượt có mặt',k:'co',w:13,num:1},{h:'Tổng lượt',k:'tot',w:12,num:1},{h:'Chuyên cần',k:'pct',w:12,pct:1}],
+    D.lopRows.map((l,i)=>({stt:i+1,lop:l.lop,cs:csName(l.coSoId),buoi:l.buoi,co:l.co,tot:l.tot,pct:l.pct})));
+  // 4) Chi tiết điểm danh theo buổi
+  await bcSheetPro(wb,'Chi tiet buoi','CHI TIẾT ĐIỂM DANH THEO BUỔI / LỚP',sub,
+    [{h:'STT',k:'stt',w:5,a:'center'},{h:'Ngày',k:'ngay',w:12,a:'center'},{h:'Lớp',k:'lop',w:18},{h:'Cơ sở',k:'cs',w:16},{h:'Giáo viên',k:'gv',w:22},{h:'Có mặt',k:'co',w:9,num:1},{h:'Muộn',k:'muon',w:8,num:1},{h:'Vắng',k:'vang',w:8,num:1},{h:'Đã điểm',k:'tot',w:9,num:1},{h:'Chuyên cần',k:'pct',w:12,pct:1},{h:'Trạng thái',k:'tt',w:14}],
+    D.buoiRows.map((b,i)=>({stt:i+1,ngay:isoVN(b.ngay),lop:b.lop.lop,cs:csName(b.lop.coSoId),gv:b.lop.gv||'',co:b.co,muon:b.muon,vang:b.phep+b.vang,tot:b.tot,pct:b.pct,tt:b.st?CA_LABEL[b.st]:'Chưa gửi'})));
+  // 5) Điểm danh chi tiết (từng học sinh / buổi)
+  await bcSheetPro(wb,'Diem danh chi tiet','ĐIỂM DANH CHI TIẾT (TỪNG HỌC SINH / BUỔI)',sub,
+    [{h:'STT',k:'stt',w:5,a:'center'},{h:'Ngày',k:'ngay',w:12,a:'center'},{h:'Lớp',k:'lop',w:18},{h:'Cơ sở',k:'cs',w:16},{h:'Học sinh',k:'hs',w:26},{h:'Trạng thái',k:'tt',w:12,a:'center'}],
+    D.roster.map((r,i)=>({stt:i+1,ngay:isoVN(r.ngay),lop:r.lop.lop,cs:csName(r.lop.coSoId),hs:r.hsName,tt:DD_LABEL[r.status]||r.status})));
+  // 6) Giáo viên dạy mấy ca mỗi ngày
+  await bcSheetPro(wb,'GV theo ngay','GIÁO VIÊN DẠY MẤY CA MỖI NGÀY',sub,
+    [{h:'STT',k:'stt',w:5,a:'center'},{h:'Giáo viên',k:'gv',w:26},{h:'Ngày',k:'ngay',w:12,a:'center'},{h:'Số ca dạy',k:'n',w:11,num:1},{h:'Lớp đã dạy',k:'lops',w:44,wrap:1}],
+    D.gvDayRows.map((g,i)=>({stt:i+1,gv:g.gv,ngay:isoVN(g.ngay),n:g.n,lops:g.lops})),'portrait');
+  // 7) Nhật ký đối soát & chốt
+  await bcSheetPro(wb,'Nhat ky doi soat','NHẬT KÝ ĐỐI SOÁT & CHỐT',sub,
+    [{h:'STT',k:'stt',w:5,a:'center'},{h:'Lớp',k:'lop',w:18},{h:'Cơ sở',k:'cs',w:16},{h:'Ngày',k:'ngay',w:12,a:'center'},{h:'Trạng thái',k:'tt',w:14},{h:'GV gửi lúc',k:'gv',w:18,a:'center'},{h:'Lễ tân đối soát lúc',k:'lt',w:20,a:'center'},{h:'Quản trị chốt lúc',k:'ad',w:18,a:'center'}],
+    D.duky.map((d,i)=>({stt:i+1,lop:d.lop.lop,cs:csName(d.lop.coSoId),ngay:isoVN(d.ngay),tt:CA_LABEL[d.st]||d.st,gv:fmtDT(d.gvAt),lt:fmtDT(d.letanAt),ad:fmtDT(d.adminAt)})));
+  dlBlob(await wb.xlsx.writeBuffer(),`Bao-cao-diem-danh-${bcFrom}_den_${bcTo}.xlsx`);
   if(btn){btn.disabled=false;btn.textContent=old;}
 }
 
