@@ -23,7 +23,7 @@ Phân quyền được khóa ở tầng CSDL bằng **RLS** (Row Level Security)
 - **Giáo viên / Lớp học / Học sinh** — danh sách, tìm kiếm, lọc, thêm/sửa, phân công lớp, nhập Excel hàng loạt.
 - **Ghi danh & Điểm danh** — ghi danh học sinh vào lớp; điểm danh học sinh + chấm công giáo viên từng buổi.
 - **Đối soát** — luồng duyệt: Giáo viên gửi → Lễ tân đối soát → Quản trị **chốt** (khóa số liệu ca dạy).
-- **Khoản thu** — sổ quỹ thu–chi theo hạng mục, tồn quỹ, phiếu thu/chi (in & tải Word), xuất Excel; tự sinh phiếu thu học phí theo số tiền học sinh đã đóng.
+- **Thu – Chi** — sổ quỹ thu–chi theo hạng mục, tồn quỹ, phiếu thu/chi (in & tải Word), xuất Excel; tự sinh phiếu thu học phí theo số tiền học sinh đã đóng.
 - **Tài khoản giáo viên** (chỉ Giám đốc) — tạo/đổi mật khẩu/khóa/xóa tài khoản GV (qua Edge Function `quan-ly-tk`).
 - **Hướng dẫn sử dụng** — hướng dẫn hiển thị **theo vai trò đang đăng nhập** (Giám đốc xem được cả 3 bản để in phát cho nhân viên): 3 việc đầu tiên, sơ đồ quy trình một buổi dạy, menu có gì, thao tác từng bước, cách hệ thống tính số liệu, hỏi đáp – xử lý sự cố. Có nút **In / lưu PDF**.
 
@@ -37,6 +37,7 @@ Phân quyền được khóa ở tầng CSDL bằng **RLS** (Row Level Security)
 | `sql-giai-doan-2.sql` … `sql-giai-doan-4-duyet.sql` | Các bước migration theo giai đoạn (GV/lớp sống, vai trò GV, luồng đối soát). |
 | `sql-*.sql` khác | Bổ sung cột (ngày nhập/thôi học, ngày đóng, số tiền đóng, hợp đồng GV…), dọn dữ liệu thử. |
 | `edge-function-quan-ly-tk.ts` | Edge Function quản lý tài khoản giáo viên (deploy trên Supabase). |
+| `supabase.min.js` | Thư viện Supabase (tự host — không phụ thuộc CDN). |
 | `xlsx.full.min.js`, `exceljs.min.js` | Thư viện Excel (tự host). |
 | `fonts/` | Font thương hiệu UTM Avo (tự host). |
 

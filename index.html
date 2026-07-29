@@ -1254,7 +1254,7 @@ const NAV=[
   {k:'diemdanh',t:'Điểm danh',i:IC.diemdanh,teach:true},
   {k:'duyet',t:'Đối soát',i:IC.duyet,cnt:()=>duyetPending()||''},
   {k:'baocao',t:'Báo cáo',i:IC.baocao},
-  {k:'thu',t:'Khoản thu',i:IC.thu},
+  {k:'thu',t:'Thu – Chi',i:IC.thu},
   {k:'taikhoan',t:'Tài khoản',i:IC.taikhoan,adminOnly:true},
   {k:'huongdan',t:'Hướng dẫn',i:IC.huongdan,teach:true},
 ];
@@ -1779,7 +1779,7 @@ const HD_HOWTO={
     ['📊','Báo cáo &amp; theo dõi tiền',[
       'Vào <b>Báo cáo</b> → chọn <b>Từ ngày – Đến ngày</b> (và lớp nếu cần) → xem 6 bảng trên màn hình.',
       'Bấm <b>⬇ Xuất Excel</b> để tải file 7 sheet đã căn khổ A4, có tiêu đề lặp mỗi trang — in hoặc gửi đi được ngay.',
-      'Vào <b>Khoản thu</b> để xem sổ quỹ, tồn quỹ và dự thu học phí theo từng cơ sở.',
+      'Vào <b>Thu – Chi</b> để xem sổ quỹ, tồn quỹ và dự thu học phí theo từng cơ sở.',
       'Ở <b>Bảng điều hành</b>, khung <b>Cảnh báo điều hành</b> tự nhắc cơ sở chưa nhập lớp hoặc thu học phí dưới 72%.'
     ]]
   ],
@@ -1793,9 +1793,9 @@ const HD_HOWTO={
     ['💰','Học phí &amp; phiếu thu',[
       'Vào <b>Học sinh</b> → <b>Hồ sơ</b> → nhập <b>Học phí (đ/khóa)</b>.',
       'Khi phụ huynh nộp tiền: chọn <b>✓ Đã đóng</b>, nhập <b>ngày đóng</b> và <b>số tiền đã đóng</b> (nộp một phần cũng được) → <b>Lưu hồ sơ</b>.',
-      'Hệ thống tự tạo <b>phiếu thu học phí</b> trong <b>Khoản thu</b> đúng số tiền đó; sửa lại số tiền thì phiếu tự cập nhật theo.',
+      'Hệ thống tự tạo <b>phiếu thu học phí</b> trong <b>Thu – Chi</b> đúng số tiền đó; sửa lại số tiền thì phiếu tự cập nhật theo.',
       '⚠ Xóa phiếu thu học phí trong Sổ quỹ đồng nghĩa đánh dấu em đó <b>chưa đóng</b> — cân nhắc trước khi xóa.',
-      'Các khoản khác (bán tài liệu, thu khác, chi lương, thuê mặt bằng…): <b>Khoản thu</b> → <b>＋ Phiếu thu</b> / <b>－ Phiếu chi</b>; có <b>Xem trước</b>, <b>In phiếu</b> và <b>Tải Word</b>.'
+      'Các khoản khác (bán tài liệu, thu khác, chi lương, thuê mặt bằng…): <b>Thu – Chi</b> → <b>＋ Phiếu thu</b> / <b>－ Phiếu chi</b>; có <b>Xem trước</b>, <b>In phiếu</b> và <b>Tải Word</b>.'
     ]],
     ['🗓️','Điểm danh &amp; đối soát',[
       'Vào <b>Điểm danh</b> → chọn <b>ngày</b> và <b>lớp</b> → tích <b>Có / Muộn / Phép / Vắng</b> (Phép = vắng có xin phép). Mỗi lần tích là lưu ngay; bấm lại đúng nút đang chọn để bỏ điểm danh em đó.',
