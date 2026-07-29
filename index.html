@@ -1587,10 +1587,13 @@ function tkBulkSummary(results,csId){
       ()=>avaAlert('Đã sao chép danh sách. Anh dán vào Excel/Word/Zalo để lưu và phát cho giáo viên.'),
       ()=>avaAlert('Không sao chép được tự động. Anh chụp màn hình danh sách để lưu nhé.'));
   };
-  $('#tkXls').onclick=()=>{
+  $('#tkXls').onclick=async()=>{
+    const btn=$('#tkXls'), old=btn.textContent; btn.disabled=true; btn.textContent='Đang tạo…';
+    try{ await ensureXLSX(); }catch(e){ btn.disabled=false; btn.textContent=old; avaAlert('Không tải được thư viện Excel (kiểm tra mạng). Anh có thể dùng nút "Sao chép" để lưu tạm.'); return; }
     const aoa=[['Họ tên','Tên đăng nhập','Mật khẩu','Ghi chú']].concat(ok.map(r=>[r.ten,r.u,r.p,'Đăng nhập: gõ tên trên (tự thêm @avatar.vn)']));
     const ws=XLSX.utils.aoa_to_sheet(aoa); const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Tai khoan GV');
     XLSX.writeFile(wb,'Tai-khoan-GV-'+csName(csId).replace(/[\\/:*?"<>|\s]+/g,'-')+'.xlsx');
+    btn.disabled=false; btn.textContent=old;
   };
 }
 
