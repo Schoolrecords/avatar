@@ -821,16 +821,18 @@ async function makeTemplate({sheet,columns,example,filename,title,guide}){
   // Dòng 1: tiêu đề gộp ô
   ws.mergeCells(1,1,1,columns.length);
   const tc=ws.getCell(1,1); tc.value=title; tc.font={bold:true,size:14,color:{argb:XL_NAVY},name:'Calibri'};
-  tc.alignment={vertical:'middle',horizontal:'left'}; ws.getRow(1).height=28;
+  tc.alignment={vertical:'middle',horizontal:'center'}; ws.getRow(1).height=28;
   // Dòng 2: tiêu đề cột
   ws.columns=columns.map(c=>({key:c.k,width:c.w||18}));
   const hr=ws.getRow(2); hr.height=24;
   columns.forEach((c,i)=>{const cell=hr.getCell(i+1); cell.value=c.h; cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:XL_NAVY}};
     cell.font={bold:true,color:{argb:'FFFFFFFF'},size:12,name:'Calibri'}; cell.alignment={vertical:'middle',horizontal:'center',wrapText:true}; cell.border=xlBorder('FF2A5490');});
+  // Danh sách xổ xuống (data validation) cho cột có thuộc tính dv → chỉ chọn, không gõ sai
+  const dvOf=c=>c.dv?{type:'list',allowBlank:true,showErrorMessage:true,errorStyle:'stop',error:'Vui lòng chọn một giá trị trong danh sách.',formulae:['"'+c.dv.join(',')+'"']}:null;
   // Dòng 3: ví dụ (chữ xám nghiêng)
-  const ex=ws.getRow(3); columns.forEach((c,i)=>{const cell=ex.getCell(i+1); cell.value=example[c.k]!=null?example[c.k]:''; cell.font={italic:true,color:{argb:'FF9AA6BC'},size:11}; cell.border=xlBorder(); cell.alignment={vertical:'middle'};});
+  const ex=ws.getRow(3); columns.forEach((c,i)=>{const cell=ex.getCell(i+1); cell.value=example[c.k]!=null?example[c.k]:''; cell.font={italic:true,color:{argb:'FF9AA6BC'},size:11}; cell.border=xlBorder(); cell.alignment={vertical:'middle'}; const dv=dvOf(c); if(dv)cell.dataValidation=dv;});
   // 20 dòng trống kẻ viền sẵn để điền (cột TT tự đánh số cho dễ nhìn)
-  for(let r=0;r<20;r++){const row=ws.getRow(4+r); row.height=20; columns.forEach((c,i)=>{const cell=row.getCell(i+1); cell.border=xlBorder(); if(c.k==='tt'){cell.value=r+1; cell.alignment={horizontal:'center'}; cell.font={color:{argb:'FF9AA6BC'},size:11};}});}
+  for(let r=0;r<20;r++){const row=ws.getRow(4+r); row.height=20; columns.forEach((c,i)=>{const cell=row.getCell(i+1); cell.border=xlBorder(); if(c.k==='tt'){cell.value=r+1; cell.alignment={horizontal:'center'}; cell.font={color:{argb:'FF9AA6BC'},size:11};} const dv=dvOf(c); if(dv)cell.dataValidation=dv;});}
   ws.autoFilter={from:{row:2,column:1},to:{row:2,column:columns.length}};
   // Sheet hướng dẫn
   if(guide&&guide.length){const g=wb.addWorksheet('Hướng dẫn'); g.getColumn(1).width=90;
@@ -886,7 +888,7 @@ function previewImport(label,recs,badLines,onConfirm){
   $('#modal').classList.add('on');
   const ok=$('#imp_ok'); if(ok&&recs.length)ok.onclick=async()=>{ok.disabled=true;ok.textContent='Đang nhập…';await onConfirm();};
 }
-const HS_COLS=[{h:'TT',k:'tt',w:6},{h:'Họ và tên',k:'ten',w:26},{h:'Ngày sinh',k:'ns',w:14},{h:'Phụ huynh',k:'ph',w:22},{h:'Điện thoại',k:'sdt',w:16},{h:'Thời gian nhập học',k:'nhaphoc',w:18},{h:'Trạng thái',k:'trangthai',w:15},{h:'Học phí (đ/tháng)',k:'hp',w:18}];
+const HS_COLS=[{h:'TT',k:'tt',w:6},{h:'Họ và tên',k:'ten',w:26},{h:'Ngày sinh',k:'ns',w:14},{h:'Phụ huynh',k:'ph',w:22},{h:'Điện thoại',k:'sdt',w:16},{h:'Thời gian nhập học',k:'nhaphoc',w:18},{h:'Trạng thái',k:'trangthai',w:15,dv:['Đang học','Hết khóa','Thôi học']},{h:'Học phí (đ/tháng)',k:'hp',w:18}];
 const GV_COLS=[{h:'Họ và tên',k:'ten',w:26},{h:'Ngày sinh',k:'ns',w:14},{h:'Môn (VH/TA)',k:'mon',w:14},{h:'Trình độ',k:'td',w:16},{h:'Điện thoại',k:'sdt',w:16},{h:'Địa chỉ',k:'dc',w:32}];
 function pickFile(cb){const inp=document.createElement('input');inp.type='file';inp.accept='.xlsx,.xls';inp.onchange=()=>{if(inp.files&&inp.files[0])cb(inp.files[0]);};inp.click();}
 async function hsDownloadTemplate(lop){
@@ -894,7 +896,7 @@ async function hsDownloadTemplate(lop){
     example:{tt:1,ten:'Nguyễn Văn An',ns:'01/09/2015',ph:'Nguyễn Văn Ba',sdt:'0901234567',nhaphoc:isoVN(todayISO()),trangthai:'Đang học',hp:600000},
     filename:'Mau-hoc-sinh-'+((lop&&lop.lop)||'lop').replace(/[\\/:*?"<>|\s]+/g,'-')+'.xlsx',
     title:'DANH SÁCH HỌC SINH'+(lop?' — '+lop.lop:''),
-    guide:['• Điền mỗi học sinh 1 dòng, ngay dưới hàng tiêu đề màu xanh.','• Cột "TT" chỉ để đánh số cho dễ nhìn — có thể để nguyên, không ảnh hưởng khi nhập.','• "Họ và tên" là bắt buộc; dòng để trống tên sẽ bị bỏ qua.','• Ngày sinh & Thời gian nhập học ghi dạng ngày/tháng/năm (VD: 01/09/2015). Để trống Thời gian nhập học thì hệ thống lấy ngày nhập file.','• Cột "Trạng thái" ghi "Đang học" hoặc "Đã thôi học" (để trống coi như Đang học).','• Học phí ghi số, không dấu chấm (VD: 600000).','• Dòng chữ xám nghiêng là ví dụ — có thể xóa hoặc ghi đè.','• Lưu file rồi vào web, chọn đúng lớp và bấm "Nhập Excel".']});
+    guide:['• Điền mỗi học sinh 1 dòng, ngay dưới hàng tiêu đề màu xanh.','• Cột "TT" chỉ để đánh số cho dễ nhìn — có thể để nguyên, không ảnh hưởng khi nhập.','• "Họ và tên" là bắt buộc; dòng để trống tên sẽ bị bỏ qua.','• Ngày sinh & Thời gian nhập học ghi dạng ngày/tháng/năm (VD: 01/09/2015). Để trống Thời gian nhập học thì hệ thống lấy ngày nhập file.','• Cột "Trạng thái" bấm vào ô sẽ hiện danh sách chọn: Đang học / Hết khóa / Thôi học (để trống coi như Đang học). Không gõ tay để tránh sai.','• Học phí ghi số, không dấu chấm (VD: 600000).','• Dòng chữ xám nghiêng là ví dụ — có thể xóa hoặc ghi đè.','• Lưu file rồi vào web, chọn đúng lớp và bấm "Nhập Excel".']});
 }
 function hsImportExcel(lop){
   pickFile(async file=>{
@@ -902,9 +904,11 @@ function hsImportExcel(lop){
     const recs=[],bad=[];
     rows.forEach((r,i)=>{const ten=String(xlPick(r,['ho va ten','ho ten','ten'])).trim(); if(!ten){bad.push(i+2);return;}
       const nh=vnToIso(String(xlPick(r,['thoi gian nhap','ngay nhap'])).trim());
-      const tt=fold(String(xlPick(r,['trang thai']))).toLowerCase();
-      const thoi=tt.includes('thoi');   // "da thoi hoc"
-      recs.push({ten,ns:String(xlPick(r,['ngay sinh','sinh'])).trim(),ph:String(xlPick(r,['phu huynh','huynh','cha me'])).trim(),sdt:String(xlPick(r,['dien thoai','sdt','so dt','phone'])).trim(),hocPhi:Number(String(xlPick(r,['hoc phi','phi'])).replace(/\D/g,''))||0,daDong:false,lopId:lop.id,coSoId:lop.coSoId,mau:false,ngayNhapHoc:nh||todayISO(),ngayThoiHoc:thoi?todayISO():null,lyDo:thoi?'Khác':''});});
+      const tt=fold(String(xlPick(r,['trang thai']))).toLowerCase().trim();
+      let thoi=false, lyDo='';                    // trống hoặc "đang học" => đang học
+      if(tt.includes('het khoa')){thoi=true;lyDo='Hết khóa';}
+      else if(tt.includes('thoi hoc')||tt==='thoi'){thoi=true;lyDo='Nghỉ hẳn';}
+      recs.push({ten,ns:String(xlPick(r,['ngay sinh','sinh'])).trim(),ph:String(xlPick(r,['phu huynh','huynh','cha me'])).trim(),sdt:String(xlPick(r,['dien thoai','sdt','so dt','phone'])).trim(),hocPhi:Number(String(xlPick(r,['hoc phi','phi'])).replace(/\D/g,''))||0,daDong:false,lopId:lop.id,coSoId:lop.coSoId,mau:false,ngayNhapHoc:nh||todayISO(),ngayThoiHoc:thoi?todayISO():null,lyDo});});
     previewImport('học sinh vào lớp '+lop.lop,recs,bad,async()=>{
       const ins=await importRows('hoc_vien',recs.map(hvToDb),hvFromDb,OPS.hv);
       if(ins){
