@@ -945,10 +945,8 @@ async function makeTemplate({sheet,columns,example,filename,title,guide}){
   const dvOf=c=> (c.dvList&&dmRef[c.k]) ? {type:'list',allowBlank:true,showErrorMessage:true,errorStyle:'stop',error:'Vui lòng chọn một giá trị trong danh sách.',formulae:[dmRef[c.k]]}
     : c.dv ? {type:'list',allowBlank:true,showErrorMessage:true,errorStyle:'stop',error:'Vui lòng chọn một giá trị trong danh sách.',formulae:['"'+c.dv.join(',')+'"']}
     : null;
-  // Dòng 3: ví dụ (chữ xám nghiêng)
-  const ex=ws.getRow(3); columns.forEach((c,i)=>{const cell=ex.getCell(i+1); cell.value=example[c.k]!=null?example[c.k]:''; cell.font={italic:true,color:{argb:'FF9AA6BC'},size:11}; cell.border=xlBorder(); cell.alignment={vertical:'middle'}; const dv=dvOf(c); if(dv)cell.dataValidation=dv;});
-  // 20 dòng trống kẻ viền sẵn để điền (cột TT tự đánh số cho dễ nhìn)
-  for(let r=0;r<20;r++){const row=ws.getRow(4+r); row.height=20; columns.forEach((c,i)=>{const cell=row.getCell(i+1); cell.border=xlBorder(); if(c.k==='tt'){cell.value=r+1; cell.alignment={horizontal:'center'}; cell.font={color:{argb:'FF9AA6BC'},size:11};} const dv=dvOf(c); if(dv)cell.dataValidation=dv;});}
+  // Dòng 3 trở đi: các dòng trống kẻ viền sẵn để điền (không còn dòng ví dụ để lễ tân khỏi nhầm; cột TT tự đánh số cho dễ nhìn)
+  for(let r=0;r<25;r++){const row=ws.getRow(3+r); row.height=20; columns.forEach((c,i)=>{const cell=row.getCell(i+1); cell.border=xlBorder(); if(c.k==='tt'){cell.value=r+1; cell.alignment={horizontal:'center'}; cell.font={color:{argb:'FF9AA6BC'},size:11};} const dv=dvOf(c); if(dv)cell.dataValidation=dv;});}
   ws.autoFilter={from:{row:2,column:1},to:{row:2,column:columns.length}};
   // Sheet hướng dẫn
   if(guide&&guide.length){const g=wb.addWorksheet('Hướng dẫn'); g.getColumn(1).width=90;
@@ -1020,7 +1018,7 @@ async function hsDownloadTemplate(lop){
     example:{tt:1,ten:'Nguyễn Văn An',lop:lopNames[0]||'',ns:'01/09/2015',ph:'Nguyễn Văn Ba',sdt:'0901234567',nhaphoc:isoVN(todayISO()),trangthai:'Đang học',hp:600000},
     filename:'Mau-hoc-sinh-'+csName(coSoId).replace(/[\\/:*?"<>|\s]+/g,'-')+'.xlsx',
     title:'DANH SÁCH HỌC SINH — '+csName(coSoId),
-    guide:['• Mẫu này dùng cho CẢ CƠ SỞ — nhập nhiều lớp trong một file.','• Điền mỗi học sinh 1 dòng, ngay dưới hàng tiêu đề màu xanh.','• Cột "TT" chỉ để đánh số cho dễ nhìn — không ảnh hưởng khi nhập.','• "Họ và tên" là bắt buộc; dòng để trống tên sẽ bị bỏ qua.','• Cột "Lớp": bấm vào ô sẽ hiện danh sách lớp của cơ sở — CHỌN lớp, KHÔNG gõ tay để tránh sai. Để trống thì hệ thống xếp vào lớp đang chọn trên web.','• Ngày sinh & Thời gian nhập học ghi dạng ngày/tháng/năm (VD: 01/09/2015). Để trống Thời gian nhập học thì lấy ngày nhập file.','• Cột "Trạng thái" chọn: Đang học / Hết khóa / Thôi học (để trống coi như Đang học).','• Học phí ghi số, không dấu chấm (VD: 600000).','• Dòng chữ xám nghiêng là ví dụ — có thể xóa hoặc ghi đè.','• Lưu file rồi vào web bấm "Nhập Excel".']});
+    guide:['• Mẫu này dùng cho CẢ CƠ SỞ — nhập nhiều lớp trong một file.','• Điền mỗi học sinh 1 dòng, ngay dưới hàng tiêu đề màu xanh.','• Cột "TT" chỉ để đánh số cho dễ nhìn — không ảnh hưởng khi nhập.','• "Họ và tên" là bắt buộc; dòng để trống tên sẽ bị bỏ qua.','• Cột "Lớp": bấm vào ô sẽ hiện danh sách lớp của cơ sở — CHỌN lớp, KHÔNG gõ tay để tránh sai. Để trống thì hệ thống xếp vào lớp đang chọn trên web.','• Ngày sinh & Thời gian nhập học ghi dạng ngày/tháng/năm (VD: 01/09/2015). Để trống Thời gian nhập học thì lấy ngày nhập file.','• Cột "Trạng thái" chọn: Đang học / Hết khóa / Thôi học (để trống coi như Đang học).','• Học phí ghi số, không dấu chấm (VD: 600000).','• Lưu file rồi vào web bấm "Nhập Excel".']});
 }
 function hsImportExcel(lop){
   const coSoId=lop.coSoId;
@@ -1058,7 +1056,7 @@ async function gvDownloadTemplate(){
   await makeTemplate({sheet:'DanhSach',columns:GV_COLS,
     example:{ten:'Trần Thị B',ns:'12/10/1990',mon:'TA',td:'Đại học',sdt:'0907654321',dc:'Xã Quảng Châu, Nghệ An'},
     filename:'Mau-giao-vien.xlsx',title:'DANH SÁCH GIÁO VIÊN',
-    guide:['• Điền mỗi giáo viên 1 dòng, ngay dưới hàng tiêu đề màu xanh.','• "Họ và tên" là bắt buộc.','• Cột Môn ghi "VH" (Văn hóa) hoặc "TA" (Tiếng Anh).','• Ngày sinh ghi dạng ngày/tháng/năm (VD: 12/10/1990).','• Dòng chữ xám nghiêng là ví dụ — có thể xóa hoặc ghi đè.']});
+    guide:['• Điền mỗi giáo viên 1 dòng, ngay dưới hàng tiêu đề màu xanh.','• "Họ và tên" là bắt buộc.','• Cột Môn ghi "VH" (Văn hóa) hoặc "TA" (Tiếng Anh).','• Ngày sinh ghi dạng ngày/tháng/năm (VD: 12/10/1990).']});
 }
 function gvImportExcel(){
   let coSoId;
