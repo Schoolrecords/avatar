@@ -4,10 +4,11 @@
 --   • Diễn Hoa  = coso_id 9
 --
 -- GIỮ NGUYÊN: Diễn Đồng (coso_id 8) và MỌI cơ sở khác;
---             giáo viên, lớp, chấm công GV, thu–chi thủ công, tài khoản.
+--             giáo viên, lớp, thu–chi thủ công, tài khoản.
 --
 -- Phạm vi xóa: học sinh + điểm danh của các em + phiếu thu học phí
---              (tự sinh) của các em ở 2 cơ sở trên.
+--              (tự sinh) của các em + CHẤM CÔNG GIÁO VIÊN + trạng thái
+--              đối soát/chốt ca ở 2 cơ sở trên.
 --
 -- ⚠️ THAO TÁC NÀY KHÔNG HOÀN TÁC ĐƯỢC.
 --    Làm 2 BƯỚC: chạy KHỐI 1 (xem trước) → đúng rồi mới chạy KHỐI 2.
@@ -26,6 +27,12 @@ union all
 select 'Phiếu thu học phí (của HS) sẽ xóa',
        count(*) from public.so_quy where coso_id in (0, 9) and hv_id is not null
 union all
+select 'Chấm công giáo viên sẽ xóa',
+       count(*) from public.cham_cong_gv where coso_id in (0, 9)
+union all
+select 'Trạng thái đối soát/chốt ca sẽ xóa',
+       count(*) from public.duyet_diem_danh where coso_id in (0, 9)
+union all
 select '>>> GIỮ NGUYÊN — HS Diễn Đồng (8)',
        count(*) from public.hoc_vien where coso_id = 8;
 
@@ -41,14 +48,11 @@ select coso_id, ten, lop_id
 -- │ KHỐI 2 — XÓA THẬT. CHỈ chạy sau khi KHỐI 1 đúng như ý.    │
 -- │ Bôi đen từ dòng delete đầu tiên tới hết rồi bấm Run.      │
 -- └──────────────────────────────────────────────────────────┘
-delete from public.so_quy       where coso_id in (0, 9) and hv_id is not null;  -- phiếu thu HP tự sinh của các em
-delete from public.diem_danh_hv where coso_id in (0, 9);                        -- điểm danh của các em
-delete from public.hoc_vien     where coso_id in (0, 9);                        -- học sinh (dữ liệu demo)
-
--- (TÙY CHỌN) Nếu muốn xóa LUÔN trạng thái đối soát/chốt các ca và chấm công GV
---  của 2 cơ sở này (mặc định GIỮ theo yêu cầu) — bỏ dấu -- đầu 2 dòng dưới:
---   delete from public.duyet_diem_danh where coso_id in (0, 9);
---   delete from public.cham_cong_gv    where coso_id in (0, 9);
+delete from public.so_quy         where coso_id in (0, 9) and hv_id is not null;  -- phiếu thu HP tự sinh của các em
+delete from public.diem_danh_hv   where coso_id in (0, 9);                        -- điểm danh của các em
+delete from public.duyet_diem_danh where coso_id in (0, 9);                       -- trạng thái đối soát/chốt ca
+delete from public.cham_cong_gv   where coso_id in (0, 9);                        -- chấm công giáo viên
+delete from public.hoc_vien       where coso_id in (0, 9);                        -- học sinh (dữ liệu demo)
 
 
 -- ============================================================
