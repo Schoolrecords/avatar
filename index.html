@@ -301,11 +301,18 @@ tbody tr:hover{background:var(--soft)}
 .hv-stt2 button{padding:10px 4px;border:1.5px solid var(--line);border-radius:11px;background:#fff;font-weight:700;font-size:.82rem;color:var(--muted);cursor:pointer;transition:.12s}
 .hv-stt2 button[data-s="0"].sel{background:#eafaf1;border-color:var(--emerald);color:var(--emerald)}
 .hv-stt2 button[data-s="1"].sel{background:#eef1f5;border-color:#8a94a6;color:#5a6475}
-.gv-lopcheck{display:flex;flex-wrap:wrap;gap:7px;max-height:170px;overflow:auto;padding:3px 1px}
-.lopchk{display:inline-flex;align-items:center;gap:6px;padding:7px 11px;border:1.5px solid var(--line);border-radius:10px;background:#fff;font-size:.82rem;font-weight:600;color:var(--muted);cursor:pointer;transition:.12s;user-select:none}
-.lopchk:hover{border-color:#b9c6da}
-.lopchk input{width:16px;height:16px;accent-color:var(--brand);cursor:pointer;margin:0}
-.lopchk:has(input:checked){background:#eafaf1;border-color:var(--emerald);color:var(--emerald)}
+.gv-lopcheck{max-height:220px;overflow:auto;border:1.5px solid var(--line);border-radius:11px;background:#fff}
+.lopgrid{display:flex;flex-direction:column;font-size:.83rem}
+.lopgrid-h,.lopgrid-r{display:grid;grid-template-columns:34px 1fr 52px 1.5fr;align-items:center;gap:6px}
+.lopgrid-h{position:sticky;top:0;background:#f4f7fb;font-weight:800;color:var(--muted);font-size:.71rem;text-transform:uppercase;letter-spacing:.02em;padding:8px 10px;border-bottom:1.5px solid var(--line);z-index:1}
+.lopgrid-r{padding:9px 10px;border-bottom:1px solid #eef1f6;cursor:pointer;margin:0;user-select:none}
+.lopgrid-r:last-child{border-bottom:0}
+.lopgrid-r:hover{background:#f7f9fc}
+.lopgrid-r:has(input:checked){background:#eafaf1}
+.lopgrid-r input{width:17px;height:17px;accent-color:var(--emerald);cursor:pointer;margin:0 auto}
+.lg-lop{font-weight:700;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lg-ss{color:var(--muted);text-align:center}
+.lg-gv{color:var(--muted);font-size:.78rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 /* Hộp thoại AVATAR thông báo (thay alert/confirm mặc định) */
 .ava-dlg-ov{position:fixed;inset:0;z-index:9999;background:rgba(11,29,61,.5);display:grid;place-items:center;padding:20px;animation:avaFade .15s ease}
 .ava-dlg{background:#fff;border-radius:18px;max-width:410px;width:100%;box-shadow:0 30px 70px -20px rgba(11,29,61,.65);overflow:hidden;animation:avaPop .18s ease}
@@ -1485,15 +1492,16 @@ function renderGV(){
 function refreshGVTable(){renderGV();$('#gvq').focus();const v=$('#gvq').value;$('#gvq').setSelectionRange(v.length,v.length);}
 function bindGVRows(){$$('#view .gvRow').forEach(r=>r.onclick=()=>showGV(Number(r.dataset.gid)));}
 
-/* Danh sách lớp trong 1 cơ sở dạng ô tích — tích = giáo viên phụ trách lớp đó */
+/* Danh sách lớp trong 1 cơ sở dạng LƯỚI kẻ cột — tích = giáo viên phụ trách lớp đó */
 function lopCheckHTML(coSoId,gvName){
   const ls=LOP.filter(l=>l.coSoId===coSoId).slice().sort((a,b)=>String(a.lop).localeCompare(String(b.lop),'vi'));
-  if(!ls.length) return `<div class="muted" style="font-size:.82rem;padding:5px 2px">Cơ sở này chưa có lớp học.</div>`;
+  if(!ls.length) return `<div class="muted" style="font-size:.82rem;padding:12px">Cơ sở này chưa có lớp học.</div>`;
   const nm=(gvName||'').trim();
-  return ls.map(l=>{const cur=(l.gv||'').trim();
-    const mine=nm&&cur===nm, other=cur&&cur!==nm;
-    return `<label class="lopchk"><input type="checkbox" value="${l.id}" ${mine?'checked':''}/><span>${esc(l.lop)}${l.siso?' · '+l.siso+' HS':''}${other?' <em style="font-style:normal;opacity:.6">('+esc(cur)+')</em>':''}</span></label>`;
+  const rows=ls.map(l=>{const cur=(l.gv||'').trim(); const mine=nm&&cur===nm;
+    const gvTxt=cur?(mine?`<span style="color:var(--emerald);font-weight:700">${esc(cur)}</span>`:esc(cur)):'—';
+    return `<label class="lopgrid-r"><input type="checkbox" value="${l.id}" ${mine?'checked':''}/><span class="lg-lop">${esc(l.lop)}</span><span class="lg-ss">${l.siso||0}</span><span class="lg-gv">${gvTxt}</span></label>`;
   }).join('');
+  return `<div class="lopgrid"><div class="lopgrid-h"><span></span><span>Lớp</span><span>Sĩ số</span><span>GV phụ trách</span></div>${rows}</div>`;
 }
 function showGV(id){
   const g=GV.find(x=>x.id===id); if(!g)return;
