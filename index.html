@@ -498,6 +498,13 @@ td.chi{color:var(--rose);font-weight:800}
 .cctag.cc-day{color:#0f9d58}
 .cctag.cc-nghi{color:#d93838}
 .cctag.cc-bu{color:#e08a1e}
+.castat{display:inline-block;font-size:.72rem;font-weight:800;padding:3px 10px;border-radius:99px;vertical-align:middle}
+.castat.ca-none{background:#eef1f6;color:#7a8699}
+.castat.ca-cho{background:#fff5e6;color:#c47f16}
+.castat.ca-soat{background:#e8f0fe;color:#2f6fd0}
+.castat.ca-chot{background:#eafaf1;color:#12a150}
+.attseg button:disabled,.seg button:disabled{opacity:.5;cursor:not-allowed;transform:none;box-shadow:none}
+.cnt:empty{display:none}
 .actcard-empty{padding:22px 12px;text-align:center;color:var(--faint);font-size:.82rem}
 .acthide{display:none}
 .actcard.open .acthide{display:block}
@@ -779,20 +786,23 @@ const lopFromDb=r=>({id:r.id,lop:r.lop,gv:r.gv||'',siso:Number(r.siso)||0,mon:r.
 const lopToDb=o=>({lop:o.lop,gv:o.gv||'',siso:Number(o.siso)||0,mon:o.mon||'VH',coso_id:o.coSoId});
 let gvLive=false;   // true khi đã chạy SQL Giai đoạn 2 (GV/Lớp lấy từ Supabase)
 async function loadCloud(){
-  const [hv,gd,dd,cc,ge,gvR,lopR]=await Promise.all([
+  const [hv,gd,dd,cc,ge,gvR,lopR,dz]=await Promise.all([
     SB.from('hoc_vien').select('*'),
     SB.from('so_quy').select('*'),
     SB.from('diem_danh_hv').select('*'),
     SB.from('cham_cong_gv').select('*'),
     SB.from('gv_edits').select('*'),
     SB.from('giao_vien').select('*'),
-    SB.from('lop_hoc').select('*')
+    SB.from('lop_hoc').select('*'),
+    SB.from('duyet_diem_danh').select('*')
   ]);
   if(hv.error||gd.error||dd.error||cc.error) throw (hv.error||gd.error||dd.error||cc.error);
   OPS.hv=(hv.data||[]).map(hvFromDb);
   OPS.gd=(gd.data||[]).map(gdFromDb);
   OPS.ddHV={}; (dd.data||[]).forEach(r=>{const k=r.lop_id+'|'+r.ngay;(OPS.ddHV[k]=OPS.ddHV[k]||{})[r.hv_id]=r.trang_thai;});
   OPS.ccGV={}; (cc.data||[]).forEach(r=>{OPS.ccGV['cc|'+r.lop_id+'|'+r.ngay]=r.trang_thai;});
+  // Trạng thái duyệt ca dạy (bỏ qua êm nếu chưa chạy SQL Giai đoạn 4)
+  OPS.duyet={}; if(!dz.error)(dz.data||[]).forEach(r=>{OPS.duyet[r.lop_id+'|'+r.ngay]={id:r.id,st:r.trang_thai,gvAt:r.gv_gui_at,letanAt:r.letan_at,adminAt:r.admin_at};});
   // GV giảng dạy: RLS chỉ trả lớp mình phụ trách → LOP = đúng các lớp đó (GV có thể rỗng)
   if(USER.role==='teacher'){
     gvLive=true;
@@ -928,9 +938,38 @@ function ddToday(ids){
 }
 const DOW=['Chủ nhật','Thứ hai','Thứ ba','Thứ tư','Thứ năm','Thứ sáu','Thứ bảy'];
 
+/* ===== LUỒNG DUYỆT ĐIỂM DANH (Giai đoạn 2): GV gửi → Lễ tân đối soát → Quản trị chốt ===== */
+const CA_LABEL={cho_duyet:'Chờ đối soát',da_doi_soat:'Đã đối soát',da_chot:'Đã chốt'};
+const CA_CLS={cho_duyet:'ca-cho',da_doi_soat:'ca-soat',da_chot:'ca-chot'};
+const caOf=(lopId,ngay)=>OPS.duyet[lopId+'|'+ngay]||null;
+const caChot=(lopId,ngay)=>{const c=caOf(lopId,ngay);return !!c&&c.st==='da_chot';};
+async function caSetState(lopId,ngay,coSoId,newSt){
+  const now=new Date().toISOString();
+  const row={lop_id:lopId,ngay,coso_id:coSoId,trang_thai:newSt,updated_at:now};
+  if(newSt==='cho_duyet')row.gv_gui_at=now; else if(newSt==='da_doi_soat')row.letan_at=now; else if(newSt==='da_chot')row.admin_at=now;
+  const {data,error}=await SB.from('duyet_diem_danh').upsert(row,{onConflict:'lop_id,ngay'}).select().single();
+  if(error) return {error:error.message};
+  OPS.duyet[lopId+'|'+ngay]={id:data.id,st:data.trang_thai,gvAt:data.gv_gui_at,letanAt:data.letan_at,adminAt:data.admin_at};
+  return {data};
+}
+async function caUnlock(lopId,ngay){
+  const {data,error}=await SB.from('duyet_diem_danh').update({trang_thai:'da_doi_soat',admin_at:null,updated_at:new Date().toISOString()}).eq('lop_id',lopId).eq('ngay',ngay).select().single();
+  if(error) return {error:error.message};
+  OPS.duyet[lopId+'|'+ngay]={id:data.id,st:data.trang_thai,gvAt:data.gv_gui_at,letanAt:data.letan_at,adminAt:data.admin_at};
+  return {data};
+}
+// Số ca CẦN xử lý theo vai trò (lễ tân: chờ đối soát; quản trị: đã đối soát) trong phạm vi
+function duyetPending(){
+  if(!USER||USER.role==='teacher') return 0;
+  const ids=scopeIds(); let n=0;
+  for(const k in OPS.duyet){ const c=OPS.duyet[k]; const lop=LOP.find(l=>l.id===Number(k.split('|')[0])); if(!lop||!ids.includes(lop.coSoId))continue;
+    if(USER.role==='owner'&&c.st==='cho_duyet')n++; else if(USER.role==='admin'&&c.st==='da_doi_soat')n++; }
+  return n;
+}
+
 /* ===== NGHIỆP VỤ: ghi danh & điểm danh — lưu trên Supabase (đồng bộ mọi máy) ===== */
 /* OPS là bộ nhớ đệm trong trình duyệt; nạp bằng loadCloud() sau khi đăng nhập. */
-let OPS={hv:[],ddHV:{},ccGV:{},gd:[]};
+let OPS={hv:[],ddHV:{},ccGV:{},gd:[],duyet:{}};
 function saveOps(){/* dữ liệu nay lưu trên Supabase; giữ hàm rỗng cho tương thích */}
 const HM_THU=['Học phí','Ghi danh/Nhập học','Bán tài liệu','Thu khác'];
 const HM_CHI=['Lương giáo viên','Thuê mặt bằng','Điện nước','Vật tư/Văn phòng phẩm','Marketing','Chi khác'];
@@ -1135,7 +1174,8 @@ const IC={
   hocvien:'<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.6" cy="10" r="2.2"/><path d="M5.4 16c0-1.7 1.4-2.7 3.2-2.7s3.2 1 3.2 2.7"/><path d="M14.5 9h4M14.5 12h4M14.5 15h2.6"/>',
   search:'<circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/>',
   huongdan:'<path d="M4 4.5A1.5 1.5 0 0 1 5.5 3H18a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H6a2 2 0 0 1-2-2z"/><path d="M8 7.5h7M8 11h7M8 14.5h4"/>',
-  taikhoan:'<circle cx="9" cy="8" r="3.4"/><path d="M3.5 19c0-3 2.6-4.7 5.5-4.7s5.5 1.7 5.5 4.7"/><circle cx="17.5" cy="9" r="2.6"/><path d="M17.5 3.8v1.4M17.5 12.8v1.4M21.7 8.2l-1.2.7M14.5 8.2l1.2.7M20.6 11.6l-.8-1.1M14.4 6.4l.8 1.1"/>'
+  taikhoan:'<circle cx="9" cy="8" r="3.4"/><path d="M3.5 19c0-3 2.6-4.7 5.5-4.7s5.5 1.7 5.5 4.7"/><circle cx="17.5" cy="9" r="2.6"/><path d="M17.5 3.8v1.4M17.5 12.8v1.4M21.7 8.2l-1.2.7M14.5 8.2l1.2.7M20.6 11.6l-.8-1.1M14.4 6.4l.8 1.1"/>',
+  duyet:'<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1"/><path d="M8.5 12.5l2.2 2.2 4.3-4.4"/>'
 };
 const svg=(p,sw=1.9)=>`<svg viewBox="0 0 24 24" fill="none" stroke-width="${sw}">${p}</svg>`;
 
@@ -1148,6 +1188,7 @@ const NAV=[
   {k:'hocvien',t:'Học sinh',i:IC.hocvien,cnt:()=>inHV().length},
   {k:'ghidanh',t:'Ghi danh',i:IC.ghidanh,teach:true},
   {k:'diemdanh',t:'Điểm danh',i:IC.diemdanh,teach:true},
+  {k:'duyet',t:'Đối soát',i:IC.duyet,cnt:()=>duyetPending()||''},
   {k:'thu',t:'Khoản thu',i:IC.thu},
   {k:'taikhoan',t:'Tài khoản',i:IC.taikhoan,adminOnly:true},
   {k:'huongdan',t:'Hướng dẫn',i:IC.huongdan,teach:true},
@@ -1158,8 +1199,8 @@ const visibleNav=()=> USER.role==='teacher'
   : NAV.filter(n=>!n.adminOnly||USER.role==='admin');
 function botNav(){
   const pick = USER.role==='teacher' ? ['diemdanh','ghidanh','huongdan']
-    : USER.role==='admin' ? ['dashboard','gv','coso','diemdanh','thu']
-    : ['dashboard','diemdanh','ghidanh','gv','thu'];
+    : USER.role==='admin' ? ['dashboard','diemdanh','duyet','thu','coso']
+    : ['dashboard','diemdanh','duyet','ghidanh','thu'];
   return pick.map(k=>NAV.find(n=>n.k===k)).filter(Boolean);
 }
 
@@ -1217,7 +1258,7 @@ function startApp(){
 /* ===== REALTIME: tự cập nhật khi bất kỳ cơ sở nào lưu thay đổi ===== */
 let rtChannel=null;
 function renderCurrent(){
-  ({dashboard:renderDash,gv:renderGV,coso:renderCoso,lop:renderLop,hocvien:renderHocVien,ghidanh:renderGhiDanh,diemdanh:renderDiemDanh,thu:renderThu,huongdan:renderHuongDan}[VIEW]||renderDash)();
+  ({dashboard:renderDash,gv:renderGV,coso:renderCoso,lop:renderLop,hocvien:renderHocVien,ghidanh:renderGhiDanh,diemdanh:renderDiemDanh,duyet:renderDuyet,thu:renderThu,taikhoan:renderTaiKhoan,huongdan:renderHuongDan}[VIEW]||renderDash)();
   renderNavCounts(); renderBell();
 }
 function subscribeRealtime(){
@@ -1227,7 +1268,7 @@ function subscribeRealtime(){
     try{ await loadCloud(); if(!$('#modal').classList.contains('on')) renderCurrent(); }catch(e){}
   },600); };
   rtChannel=SB.channel('avatar-rt');
-  ['hoc_vien','so_quy','diem_danh_hv','cham_cong_gv','gv_edits','giao_vien','lop_hoc'].forEach(t=>
+  ['hoc_vien','so_quy','diem_danh_hv','cham_cong_gv','gv_edits','giao_vien','lop_hoc','duyet_diem_danh'].forEach(t=>
     rtChannel.on('postgres_changes',{event:'*',schema:'public',table:t},bump));
   rtChannel.subscribe();
 }
@@ -1390,7 +1431,7 @@ function closeSide(){$('#side').classList.remove('open');$('#scrim').classList.r
 $('#burger').onclick=openSide; $('#scrim').onclick=closeSide;
 
 /* ============ ROUTER ============ */
-const TITLES={dashboard:['Bảng điều hành','Toàn cảnh điều hành'],gv:['Giáo viên','Danh sách & hồ sơ giáo viên'],coso:['Cơ sở','Mạng lưới các trung tâm'],lop:['Lớp học','Lớp học & sĩ số'],hocvien:['Học sinh','Hồ sơ học sinh toàn hệ thống'],ghidanh:['Ghi danh','Đăng ký học sinh vào lớp'],diemdanh:['Điểm danh','Điểm danh học sinh & chấm công GV'],thu:['Sổ quỹ thu – chi','Kế toán thu chi & tồn quỹ'],taikhoan:['Tài khoản giáo viên','Tạo & quản lý tài khoản đăng nhập cho GV'],huongdan:['Hướng dẫn sử dụng','Tính năng & cách dùng hệ thống']};
+const TITLES={dashboard:['Bảng điều hành','Toàn cảnh điều hành'],gv:['Giáo viên','Danh sách & hồ sơ giáo viên'],coso:['Cơ sở','Mạng lưới các trung tâm'],lop:['Lớp học','Lớp học & sĩ số'],hocvien:['Học sinh','Hồ sơ học sinh toàn hệ thống'],ghidanh:['Ghi danh','Đăng ký học sinh vào lớp'],diemdanh:['Điểm danh','Điểm danh học sinh & chấm công GV'],duyet:['Đối soát điểm danh','Kiểm tra & chốt số liệu ca dạy'],thu:['Sổ quỹ thu – chi','Kế toán thu chi & tồn quỹ'],taikhoan:['Tài khoản giáo viên','Tạo & quản lý tài khoản đăng nhập cho GV'],huongdan:['Hướng dẫn sử dụng','Tính năng & cách dùng hệ thống']};
 function go(k){
   if(k==='coso'&&USER.role!=='admin')k='dashboard';
   if(k==='taikhoan'&&USER.role!=='admin')k='dashboard';
@@ -1401,7 +1442,7 @@ function go(k){
   $('#pgTitle').textContent=TITLES[k][0];
   $('#pgSub').textContent=TITLES[k][1]+' · '+scopeTxt;
   syncNav(); renderNavCounts();
-  ({dashboard:renderDash,gv:renderGV,coso:renderCoso,lop:renderLop,hocvien:renderHocVien,ghidanh:renderGhiDanh,diemdanh:renderDiemDanh,thu:renderThu,taikhoan:renderTaiKhoan,huongdan:renderHuongDan}[k])();
+  ({dashboard:renderDash,gv:renderGV,coso:renderCoso,lop:renderLop,hocvien:renderHocVien,ghidanh:renderGhiDanh,diemdanh:renderDiemDanh,duyet:renderDuyet,thu:renderThu,taikhoan:renderTaiKhoan,huongdan:renderHuongDan}[k])();
   window.scrollTo(0,0);
 }
 
@@ -2725,6 +2766,9 @@ function renderDiemDanh(){
   const ccKey='cc|'+ddLopId+'|'+ddDate, cc=OPS.ccGV[ccKey]||'';
   const cnt={co:0,muon:0,phep:0,vang:0}; ds.forEach(v=>{if(state[v.id])cnt[state[v.id]]++;});
   const marked=cnt.co+cnt.muon+cnt.phep+cnt.vang;
+  const ca=caOf(ddLopId,ddDate);                 // trạng thái duyệt ca này
+  const canEdit=!(ca&&ca.st==='da_chot');        // đã chốt → khóa (mọi vai trò; admin mở khóa để sửa)
+  const dis=canEdit?'':'disabled';
 
   let h=`<div class="toolbar">
     <div style="display:grid;gap:6px"><label style="font-size:.68rem;font-weight:800;color:var(--muted);letter-spacing:.04em">NGÀY ĐIỂM DANH</label>
@@ -2732,11 +2776,12 @@ function renderDiemDanh(){
     <div style="display:grid;gap:6px;flex:1;min-width:180px"><label style="font-size:.68rem;font-weight:800;color:var(--muted);letter-spacing:.04em">LỚP</label>
       <select class="fsel" id="ddLop" style="max-width:100%">${lopPickHTML(ddLopId)}</select></div>
   </div>
+  ${duyetBar(ca,lop)}
   <div class="panel"><div class="phead"><h3>Chấm công giáo viên</h3>${cc?'<span class="savednote">✓ '+CC_LABEL[cc]+'</span>':'<span class="sub">chưa chấm công</span>'}</div>
     <div class="pbody"><div class="ddrow" style="border:0;padding:0">
       <div class="gvava" style="width:40px;height:40px;background:${avaColor(lop.gv||'?')}">${initials(lop.gv||'?')}</div>
       <div class="nm"><b>${esc(lop.gv||'—')}</b><small>Lớp ${esc(lop.lop)}${USER.role==='admin'?' · '+esc(csName(lop.coSoId)):''}</small></div>
-      <div class="seg" id="ccSeg">${['day','nghi','bu'].map(v=>`<button data-v="${v}" class="${cc===v?'on-'+v:''}">${CC_LABEL[v]}</button>`).join('')}</div>
+      <div class="seg" id="ccSeg">${['day','nghi','bu'].map(v=>`<button data-v="${v}" class="${cc===v?'on-'+v:''}" ${dis}>${CC_LABEL[v]}</button>`).join('')}</div>
     </div></div>
   </div>
   <div class="panel"><div class="phead"><h3>Điểm danh học sinh</h3><span class="savednote">✓ tự động lưu</span></div>
@@ -2756,7 +2801,7 @@ function renderDiemDanh(){
     ds.forEach((v,i)=>{
       h+=`<div class="ddrow"><div class="idx">${i+1}</div>
         <div class="nm"><b>${esc(v.ten)}</b>${v.ns?`<small>${esc(v.ns)}</small>`:''}</div>
-        <div class="attseg ddSeg" data-hv="${v.id}">${[['co','Có'],['muon','Muộn'],['vang','Vắng']].map(([k,t])=>`<button data-v="${k}" class="${state[v.id]===k?'on':''}">${t}</button>`).join('')}</div>
+        <div class="attseg ddSeg" data-hv="${v.id}">${[['co','Có'],['muon','Muộn'],['vang','Vắng']].map(([k,t])=>`<button data-v="${k}" class="${state[v.id]===k?'on':''}" ${dis}>${t}</button>`).join('')}</div>
       </div>`;
     });
     h+=`</div>`;
@@ -2766,7 +2811,19 @@ function renderDiemDanh(){
   $('#ddDate').onchange=e=>{ddDate=e.target.value;renderDiemDanh();};
   $('#ddLop').onchange=e=>{ddLopId=Number(e.target.value);renderDiemDanh();};
   const tg=$('#toGhi'); if(tg)tg.onclick=()=>{ghiLopId=ddLopId;go('ghidanh');};
+  // Nút hành động luồng duyệt (Gửi đối soát / Chấp nhận / Chốt / Mở khóa)
+  const caBtn=$('#caAct');
+  if(caBtn) caBtn.onclick=async()=>{
+    const act=caBtn.dataset.act; caBtn.disabled=true; let r;
+    if(act==='submit'){ if(!marked&&!cc){caBtn.disabled=false;avaAlert('Chưa điểm danh gì để gửi đối soát.');return;} r=await caSetState(ddLopId,ddDate,lop.coSoId,'cho_duyet'); }
+    else if(act==='accept') r=await caSetState(ddLopId,ddDate,lop.coSoId,'da_doi_soat');
+    else if(act==='chot'){ if(!await avaConfirm('Chốt số liệu ca "'+lop.lop+'" ngày '+isoVN(ddDate)+'?\nSau khi chốt sẽ KHÓA, muốn sửa phải Mở khóa.')){caBtn.disabled=false;return;} r=await caSetState(ddLopId,ddDate,lop.coSoId,'da_chot'); }
+    else if(act==='unlock'){ if(!await avaConfirm('Mở khóa ca này để sửa lại điểm danh?')){caBtn.disabled=false;return;} r=await caUnlock(ddLopId,ddDate); }
+    if(r&&r.error){avaAlert('Lỗi: '+r.error);caBtn.disabled=false;return;}
+    renderDiemDanh();
+  };
   $$('#ccSeg button').forEach(b=>b.onclick=async()=>{
+    if(!canEdit)return;
     if(cc===b.dataset.v){
       const {error}=await SB.from('cham_cong_gv').delete().eq('lop_id',ddLopId).eq('ngay',ddDate);
       if(error){avaAlert('Lỗi lưu chấm công: '+error.message);return;}
@@ -2780,6 +2837,7 @@ function renderDiemDanh(){
   });
   $$('#view .ddSeg').forEach(seg=>{const id=Number(seg.dataset.hv);
     seg.querySelectorAll('button').forEach(b=>b.onclick=async()=>{
+      if(!canEdit)return;
       OPS.ddHV[ddKey]=OPS.ddHV[ddKey]||{};
       if(OPS.ddHV[ddKey][id]===b.dataset.v){
         const {error}=await SB.from('diem_danh_hv').delete().eq('lop_id',ddLopId).eq('ngay',ddDate).eq('hv_id',id);
@@ -2792,6 +2850,75 @@ function renderDiemDanh(){
       }
       renderDiemDanh();});
   });
+}
+/* Thanh trạng thái + nút hành động luồng duyệt trên màn Điểm danh (theo vai trò) */
+function duyetBar(ca,lop){
+  const st=ca?ca.st:null;
+  const chip = st?`<span class="castat ${CA_CLS[st]}">${CA_LABEL[st]}</span>`:`<span class="castat ca-none">Chưa gửi đối soát</span>`;
+  let action='';
+  const info=m=>`<span class="muted" style="font-size:.8rem;font-weight:600">${m}</span>`;
+  if(USER.role==='teacher'){
+    if(st==='da_chot') action=info('🔒 Đã chốt — không sửa được');
+    else action=`<button class="btn btn-sm btn-primary" id="caAct" data-act="submit">${st?'↻ Gửi lại đối soát':'✓ Gửi đối soát'}</button>`;
+  } else if(USER.role==='owner'){
+    if(st==='cho_duyet') action=`<button class="btn btn-sm btn-primary" id="caAct" data-act="accept">✓ Chấp nhận (đối soát)</button>`;
+    else if(st==='da_doi_soat') action=info('Đã đối soát · chờ Quản trị chốt');
+    else if(st==='da_chot') action=info('🔒 Đã chốt');
+    else action=info('Giáo viên chưa gửi đối soát');
+  } else if(USER.role==='admin'){
+    if(st==='da_chot') action=`<button class="btn btn-sm btn-light" id="caAct" data-act="unlock" style="color:var(--rose)">🔓 Mở khóa</button>`;
+    else if(st) action=`<button class="btn btn-sm btn-primary" id="caAct" data-act="chot">✓ Chốt số liệu</button>`;
+    else action=info('Chưa có điểm danh gửi lên');
+  }
+  return `<div class="panel"><div class="pbody" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 14px">
+    <b style="font-size:.82rem">Ca dạy · ${isoVN(ddDate)}</b>${chip}<div style="flex:1"></div>${action}</div></div>`;
+}
+
+/* ============ ĐỐI SOÁT (Lễ tân) / CHỐT (Quản trị) ============ */
+let duyetFilter=null;
+function renderDuyet(){
+  if(USER.role==='teacher'){go('diemdanh');return;}
+  const isAdm=USER.role==='admin', ids=scopeIds();
+  const list=[];
+  for(const k in OPS.duyet){ const c=OPS.duyet[k]; const p=k.split('|'); const lopId=Number(p[0]), ngay=p[1];
+    const lop=LOP.find(l=>l.id===lopId); if(!lop||!ids.includes(lop.coSoId))continue;
+    const m=OPS.ddHV[k]?Object.values(OPS.ddHV[k]):[]; const co=m.filter(s=>s==='co'||s==='muon').length;
+    list.push({lopId,ngay,lop,st:c.st,co,tot:m.length});
+  }
+  list.sort((a,b)=> a.ngay<b.ngay?1:a.ngay>b.ngay?-1:0);
+  const cnt={cho:list.filter(x=>x.st==='cho_duyet').length,soat:list.filter(x=>x.st==='da_doi_soat').length,chot:list.filter(x=>x.st==='da_chot').length};
+  const f=duyetFilter||(isAdm?'da_doi_soat':'cho_duyet');
+  const shown=f==='all'?list:list.filter(x=>x.st===f);
+  const fopts=[['cho_duyet','Chờ đối soát ('+cnt.cho+')'],['da_doi_soat','Đã đối soát ('+cnt.soat+')'],['da_chot','Đã chốt ('+cnt.chot+')'],['all','Tất cả ('+list.length+')']];
+  const fsel=`<select class="fsel" id="dzFilter" style="flex:1;min-width:180px;max-width:100%">${fopts.map(([k,t])=>`<option value="${k}" ${f===k?'selected':''}>${t}</option>`).join('')}</select>`;
+  let h=`<div class="toolbar">${fsel}<button class="btn btn-sm btn-ghost" id="dzReload" style="white-space:nowrap">↻ Tải lại</button></div>
+   <div class="panel"><div class="phead"><h3>${isAdm?'Chốt số liệu ca dạy':'Đối soát điểm danh'}</h3><span class="sub">${shown.length} ca</span></div>
+   <div class="pbody">
+     <p class="muted" style="font-size:.8rem;margin:0 2px 10px">${isAdm?'Kiểm tra ca <b>Đã đối soát</b> rồi bấm <b>Chốt</b> để khóa số liệu. Bấm tên ca để xem chi tiết.':'Kiểm tra ca <b>Chờ đối soát</b> (GV vừa gửi) rồi bấm <b>Chấp nhận</b>. Bấm tên ca để xem chi tiết.'}</p>`;
+  if(!shown.length){ h+=`<div class="empty">Không có ca nào ở trạng thái này.</div>`; }
+  else{
+    h+=`<div class="ddgrid">`;
+    shown.forEach((x,i)=>{
+      const chip=`<span class="castat ${CA_CLS[x.st]}">${CA_LABEL[x.st]}</span>`;
+      let act='';
+      if(!isAdm && x.st==='cho_duyet') act=`<button class="btn btn-sm btn-primary" data-accept="${x.lopId}|${x.ngay}">✓ Chấp nhận</button>`;
+      else if(isAdm && x.st==='da_doi_soat') act=`<button class="btn btn-sm btn-primary" data-chot="${x.lopId}|${x.ngay}">✓ Chốt</button>`;
+      else if(isAdm && x.st==='da_chot') act=`<button class="btn btn-sm btn-light" data-unlock="${x.lopId}|${x.ngay}" style="color:var(--rose)">🔓 Mở khóa</button>`;
+      h+=`<div class="ddrow"><div class="idx">${i+1}</div>
+        <div class="nm" data-open="${x.lopId}|${x.ngay}" style="cursor:pointer"><b>${esc(x.lop.lop)} · ${isoVN(x.ngay)}</b><small>${esc(x.lop.gv||'—')}${isAdm?' · '+esc(csName(x.lop.coSoId)):''} · ${x.co}/${x.tot} có mặt · ${chip}</small></div>
+        ${act}</div>`;
+    });
+    h+=`</div>`;
+  }
+  h+=`</div></div>`;
+  $('#view').innerHTML=h;
+  $('#dzFilter').onchange=e=>{duyetFilter=e.target.value;renderDuyet();};
+  $('#dzReload').onclick=async()=>{try{await loadCloud();}catch(e){}renderDuyet();};
+  $$('#view [data-open]').forEach(b=>b.onclick=()=>{const a=b.dataset.open.split('|');ddLopId=Number(a[0]);ddDate=a[1];go('diemdanh');});
+  $$('#view [data-accept]').forEach(b=>b.onclick=async()=>{const a=b.dataset.accept.split('|');const lop=LOP.find(x=>x.id===Number(a[0]));const r=await caSetState(Number(a[0]),a[1],lop.coSoId,'da_doi_soat');if(r.error){avaAlert('Lỗi: '+r.error);return;}renderDuyet();});
+  $$('#view [data-chot]').forEach(b=>b.onclick=async()=>{const a=b.dataset.chot.split('|');if(!await avaConfirm('Chốt số liệu ca này? Sau khi chốt sẽ khóa.'))return;const lop=LOP.find(x=>x.id===Number(a[0]));const r=await caSetState(Number(a[0]),a[1],lop.coSoId,'da_chot');if(r.error){avaAlert('Lỗi: '+r.error);return;}renderDuyet();});
+  $$('#view [data-unlock]').forEach(b=>b.onclick=async()=>{const a=b.dataset.unlock.split('|');if(!await avaConfirm('Mở khóa ca này?'))return;const r=await caUnlock(Number(a[0]),a[1]);if(r.error){avaAlert('Lỗi: '+r.error);return;}renderDuyet();});
+  renderNavCounts();
 }
 
 /* ẩn/hiện mật khẩu */
