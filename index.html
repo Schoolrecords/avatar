@@ -129,6 +129,34 @@ svg{display:block}
 .ttl p{margin:2px 0 0;color:var(--muted);font-size:.83rem}
 .topact{margin-left:auto;display:flex;align-items:center;gap:9px;flex-wrap:wrap;justify-content:flex-end}
 .scope{display:flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--line);border-radius:13px;padding:8px 10px 8px 13px;box-shadow:var(--shadow-sm)}
+/* ===== Chuông thông báo ===== */
+.bell-wrap{position:relative}
+.bell-btn{position:relative;width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:#fff;border:1px solid var(--line);border-radius:13px;box-shadow:var(--shadow-sm);color:var(--ink);cursor:pointer;transition:.15s}
+.bell-btn:hover{background:#f4f7fb}
+.bell-btn:active{transform:scale(.94)}
+.bell-btn svg{width:21px;height:21px}
+.bell-btn.ring svg{animation:bellRing .6s ease}
+@keyframes bellRing{0%,100%{transform:rotate(0)}20%{transform:rotate(-14deg)}40%{transform:rotate(11deg)}60%{transform:rotate(-7deg)}80%{transform:rotate(4deg)}}
+.bell-badge{position:absolute;top:-6px;right:-6px;min-width:19px;height:19px;padding:0 5px;border-radius:10px;background:var(--rose);color:#fff;font-size:.68rem;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 7px rgba(224,69,94,.55);border:2px solid #fff}
+.bell-panel{position:absolute;top:54px;right:0;width:360px;max-width:90vw;max-height:74vh;overflow-y:auto;background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:0 20px 55px rgba(15,40,80,.24);z-index:200}
+.bell-head{display:flex;align-items:center;justify-content:space-between;padding:13px 16px;border-bottom:1px solid var(--line);position:sticky;top:0;background:#fff;border-radius:16px 16px 0 0}
+.bell-head b{font-size:.96rem}
+.bell-head button{background:none;border:0;color:var(--brand);font-weight:800;font-size:.75rem;cursor:pointer;padding:4px 6px;border-radius:8px}
+.bell-head button:hover{background:#f0f5f3}
+.bell-head button:disabled{color:var(--muted);cursor:default;background:none}
+.bell-list{padding:6px}
+.bell-item{display:flex;gap:11px;padding:10px 11px;border-radius:12px;align-items:flex-start}
+.bell-item+.bell-item{border-top:1px solid #f1f4f8}
+.bell-item.unread{background:rgba(16,118,110,.07)}
+.bell-ic{width:36px;height:36px;flex:none;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:1.05rem;background:#f1f5fb}
+.bell-ic.n-thu{background:rgba(22,163,74,.14)}
+.bell-ic.n-chi{background:rgba(224,69,94,.13)}
+.bell-ic.n-hs{background:rgba(37,99,235,.13)}
+.bell-tx{flex:1;min-width:0}
+.bell-tx b{display:block;font-size:.85rem;font-weight:700;line-height:1.32}
+.bell-tx small{display:block;color:var(--muted);font-size:.74rem;margin-top:1px}
+.bell-tx .rt{color:var(--brand);font-weight:700}
+.bell-empty{padding:30px 16px;text-align:center;color:var(--muted);font-size:.86rem;line-height:1.5}
 .scope svg{width:16px;height:16px;stroke:var(--brand-600);flex:none}
 .scope small{font-size:.64rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:800}
 .scope select{border:0;outline:0;background:none;font-weight:800;color:var(--brand-700);max-width:190px;padding:2px 4px}
@@ -554,6 +582,16 @@ td.chi{color:var(--rose);font-weight:800}
         <button class="burger" id="burger"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button>
         <div class="ttl"><h1 id="pgTitle">Tổng quan</h1><p id="pgSub">Toàn hệ thống</p></div>
         <div class="topact">
+          <div class="bell-wrap" id="bellWrap">
+            <button class="bell-btn" id="bellBtn" aria-label="Thông báo" title="Thông báo">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+              <span class="bell-badge" id="bellBadge" hidden>0</span>
+            </button>
+            <div class="bell-panel" id="bellPanel" hidden>
+              <div class="bell-head"><b>Thông báo</b><button id="bellRead">Đánh dấu đã đọc</button></div>
+              <div class="bell-list" id="bellList"></div>
+            </div>
+          </div>
           <div class="scope" id="scopeWrap">
             <svg viewBox="0 0 24 24" fill="none" stroke-width="1.9"><path d="M3 21V9l9-6 9 6v12"/></svg>
             <div><small>Phạm vi</small></div>
@@ -586,9 +624,9 @@ const SB_URL='https://hdvtlbeozyumvnhgejxp.supabase.co';
 const SB_KEY='sb_publishable_eGYgGZpxRRdIgLeO6_S_JQ_N7rHsINZ';
 const SB=window.supabase.createClient(SB_URL,SB_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:false,storageKey:'avatar-auth'}});
 /* ánh xạ giữa cột CSDL (chữ_gạch) và tên dùng trong app (chữHoa) */
-const hvFromDb=r=>({id:r.id,ten:r.ten,ns:r.ns||'',ph:r.ph||'',sdt:r.sdt||'',hocPhi:Number(r.hoc_phi)||0,daDong:!!r.da_dong,ngayDong:r.ngay_dong||null,lopId:r.lop_id,coSoId:r.coso_id,mau:!!r.mau});
+const hvFromDb=r=>({id:r.id,ten:r.ten,ns:r.ns||'',ph:r.ph||'',sdt:r.sdt||'',hocPhi:Number(r.hoc_phi)||0,daDong:!!r.da_dong,ngayDong:r.ngay_dong||null,lopId:r.lop_id,coSoId:r.coso_id,mau:!!r.mau,createdAt:r.created_at||null});
 const hvToDb=o=>({ten:o.ten,ns:o.ns||'',ph:o.ph||'',sdt:o.sdt||'',hoc_phi:o.hocPhi||0,da_dong:!!o.daDong,lop_id:o.lopId,coso_id:o.coSoId,mau:!!o.mau});
-const gdFromDb=r=>({id:r.id,ngay:r.ngay,loai:r.loai,hangMuc:r.hang_muc,coSoId:r.coso_id,soTien:Number(r.so_tien)||0,noiDung:r.noi_dung||'',nguoiLap:r.nguoi_lap||'',hvId:(r.hv_id!=null?r.hv_id:null)});
+const gdFromDb=r=>({id:r.id,ngay:r.ngay,loai:r.loai,hangMuc:r.hang_muc,coSoId:r.coso_id,soTien:Number(r.so_tien)||0,noiDung:r.noi_dung||'',nguoiLap:r.nguoi_lap||'',hvId:(r.hv_id!=null?r.hv_id:null),createdAt:r.created_at||null});
 const gdToDb=o=>({ngay:o.ngay,loai:o.loai,hang_muc:o.hangMuc,coso_id:o.coSoId,so_tien:o.soTien,noi_dung:o.noiDung||'',nguoi_lap:o.nguoiLap||''});
 /* Đồng bộ phiếu thu học phí trong Sổ quỹ theo trạng thái "đã đóng" của học sinh.
    Bỏ qua êm nếu chưa chạy SQL thêm cột hv_id. */
@@ -976,13 +1014,13 @@ function startApp(){
   $('#uRole').textContent=USER.role==='admin'?'Toàn hệ thống':'Lễ tân Cơ Sở';
   $('#uAva').textContent=USER.role==='admin'?'QT':initials(csName(USER.coSoId));
   buildScope(); renderNav(); go('dashboard');
-  subscribeRealtime();
+  subscribeRealtime(); initBell();
 }
 /* ===== REALTIME: tự cập nhật khi bất kỳ cơ sở nào lưu thay đổi ===== */
 let rtChannel=null;
 function renderCurrent(){
   ({dashboard:renderDash,gv:renderGV,coso:renderCoso,lop:renderLop,hocvien:renderHocVien,ghidanh:renderGhiDanh,diemdanh:renderDiemDanh,thu:renderThu}[VIEW]||renderDash)();
-  renderNavCounts();
+  renderNavCounts(); renderBell();
 }
 function subscribeRealtime(){
   if(rtChannel)return;
@@ -994,6 +1032,93 @@ function subscribeRealtime(){
   ['hoc_vien','so_quy','diem_danh_hv','cham_cong_gv','gv_edits','giao_vien','lop_hoc'].forEach(t=>
     rtChannel.on('postgres_changes',{event:'*',schema:'public',table:t},bump));
   rtChannel.subscribe();
+}
+
+/* ===== CHUÔNG THÔNG BÁO (bản nhanh: gom từ dữ liệu sẵn có, không cần bảng mới) ===== */
+let NOTIF=[], notifLastCount=-1;
+const notifSeenKey=()=>'avatar_notif_seen_'+((USER&&USER.email)||'x');
+const getNotifSeen=()=>{const v=localStorage.getItem(notifSeenKey());return v?Date.parse(v):0;};
+const setNotifSeen=ts=>{try{localStorage.setItem(notifSeenKey(),new Date(ts||Date.now()).toISOString());}catch(e){}};
+/* Khoảng thời gian dạng "5 phút trước", "2 giờ trước", "hôm qua"… */
+function relTime(iso){
+  if(!iso)return'';
+  const t=Date.parse(iso); if(isNaN(t))return'';
+  const s=(Date.now()-t)/1000;
+  if(s<45)return'vừa xong';
+  if(s<3600)return Math.max(1,Math.floor(s/60))+' phút trước';
+  if(s<86400)return Math.floor(s/3600)+' giờ trước';
+  if(s<172800)return'hôm qua';
+  if(s<604800)return Math.floor(s/86400)+' ngày trước';
+  const d=new Date(t);
+  return ('0'+d.getDate()).slice(-2)+'/'+('0'+(d.getMonth()+1)).slice(-2)+'/'+d.getFullYear();
+}
+/* Gom sự kiện: học sinh mới ghi danh, phiếu thu mới, phiếu chi mới */
+function buildNotifs(){
+  const out=[];
+  (OPS.hv||[]).forEach(h=>{ if(h.mau||!h.createdAt)return;
+    out.push({ts:h.createdAt, ic:'🧑‍🎓', cls:'n-hs', title:'Học sinh mới: '+h.ten,
+      sub:[lopName(h.lopId),csName(h.coSoId)].filter(Boolean).join(' · ')}); });
+  (OPS.gd||[]).forEach(g=>{ if(!g.createdAt)return;
+    const co=csName(g.coSoId);
+    if(g.loai==='thu') out.push({ts:g.createdAt, ic:'💰', cls:'n-thu', title:'Thu '+fmtVND(g.soTien),
+      sub:[g.hangMuc||'Khoản thu',co].filter(Boolean).join(' · ')});
+    else out.push({ts:g.createdAt, ic:'🧾', cls:'n-chi', title:'Chi '+fmtVND(g.soTien),
+      sub:[g.hangMuc||'Khoản chi',co].filter(Boolean).join(' · ')}); });
+  out.sort((a,b)=>Date.parse(b.ts)-Date.parse(a.ts));
+  return out.slice(0,50);
+}
+/* Cập nhật badge + (nếu đang mở) nội dung panel — gọi sau mỗi lần dữ liệu đổi */
+function renderBell(){
+  const badge=$('#bellBadge'); if(!badge)return;
+  NOTIF=buildNotifs();
+  const seen=getNotifSeen();
+  const unread=NOTIF.filter(n=>Date.parse(n.ts)>seen).length;
+  if(unread>0){badge.hidden=false;badge.textContent=unread>99?'99+':unread;}
+  else badge.hidden=true;
+  // rung chuông khi có thêm thông báo mới (không rung lần nạp đầu)
+  if(notifLastCount>=0 && NOTIF.length>notifLastCount){
+    const b=$('#bellBtn'); if(b){b.classList.remove('ring');void b.offsetWidth;b.classList.add('ring');}
+  }
+  notifLastCount=NOTIF.length;
+  const panel=$('#bellPanel');
+  if(panel && !panel.hidden) fillBellList(seen);
+}
+function fillBellList(seen){
+  const box=$('#bellList'); if(!box)return;
+  if(!NOTIF.length){ box.innerHTML=`<div class="bell-empty">🔔 Chưa có hoạt động nào.<br/>Khi các cơ sở ghi danh học sinh hoặc thu–chi, thông báo sẽ hiện ở đây.</div>`; return; }
+  box.innerHTML=NOTIF.map(n=>{
+    const un=Date.parse(n.ts)>seen;
+    return `<div class="bell-item${un?' unread':''}"><div class="bell-ic ${n.cls}">${n.ic}</div>
+      <div class="bell-tx"><b>${esc(n.title)}</b><small>${esc(n.sub||'')}${n.sub?' · ':''}<span class="rt">${relTime(n.ts)}</span></small></div></div>`;
+  }).join('');
+}
+function markNotifRead(){
+  const newest=NOTIF.length?Date.parse(NOTIF[0].ts):Date.now();
+  setNotifSeen(newest);
+  const badge=$('#bellBadge'); if(badge)badge.hidden=true;
+  const rb=$('#bellRead'); if(rb)rb.disabled=true;
+  fillBellList(getNotifSeen());
+}
+function openBellPanel(){
+  const panel=$('#bellPanel'); if(!panel)return;
+  const prevSeen=getNotifSeen();         // giữ mốc cũ để tô đậm cái chưa đọc
+  panel.hidden=false;
+  fillBellList(prevSeen);
+  const newest=NOTIF.length?Date.parse(NOTIF[0].ts):Date.now();
+  const rb=$('#bellRead'); if(rb)rb.disabled=!(newest>prevSeen);
+  setNotifSeen(newest);                   // mở là coi như đã đọc → xóa badge
+  const badge=$('#bellBadge'); if(badge)badge.hidden=true;
+}
+function closeBellPanel(){ const p=$('#bellPanel'); if(p)p.hidden=true; }
+let bellInited=false;
+function initBell(){
+  renderBell();
+  if(bellInited)return; bellInited=true;
+  const btn=$('#bellBtn');
+  btn.onclick=e=>{ e.stopPropagation(); const p=$('#bellPanel'); if(p.hidden)openBellPanel(); else closeBellPanel(); };
+  $('#bellRead').onclick=e=>{ e.stopPropagation(); markNotifRead(); };
+  $('#bellPanel').onclick=e=>e.stopPropagation();
+  document.addEventListener('click',()=>closeBellPanel());
 }
 $('#logout').onclick=async()=>{ try{if(rtChannel)SB.removeChannel(rtChannel);}catch(e){} try{await SB.auth.signOut();}catch(e){} location.reload(); };
 $('#chgPass').onclick=openChgPass;
