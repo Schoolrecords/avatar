@@ -133,8 +133,21 @@ svg{display:block}
 .burger{display:none;width:44px;height:44px;border-radius:13px;background:#fff;border:1px solid var(--line);align-items:center;justify-content:center;flex:none;box-shadow:var(--shadow-sm)}
 .burger svg{width:21px;height:21px;stroke:var(--ink)}
 .ttl{min-width:0}
-.ttl h1{margin:0;font-size:1.5rem;letter-spacing:-.02em;line-height:1.12}
+.ttl h1{margin:0;font-size:1.3rem;letter-spacing:-.02em;line-height:1.12}
 .ttl p{margin:2px 0 0;color:var(--muted);font-size:.83rem}
+/* Thanh thương hiệu (bộ mặt app) */
+.topbrand{position:relative;display:flex;align-items:center;gap:12px;background:var(--dots),linear-gradient(120deg,#1c3c6e 0%,#0b1d3d 88%);background-size:20px 20px,auto;color:#fff;border-radius:16px;padding:12px 15px;margin-bottom:13px;box-shadow:0 14px 30px -20px rgba(11,29,61,.85)}
+.topbrand .burger{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.2);box-shadow:none}
+.topbrand .burger svg{stroke:#fff}
+.tb-logo{width:44px;height:44px;border-radius:12px;background:rgba(255,255,255,.15);display:grid;place-items:center;flex:none;overflow:hidden}
+.tb-logo img{width:34px;height:34px;object-fit:contain}
+.tb-name{flex:1;min-width:0}
+.tb-name b{display:block;font-size:1.06rem;font-weight:800;line-height:1.16;letter-spacing:.02em}
+.tb-name small{display:block;font-size:.78rem;color:#f0c552;font-weight:700;margin-top:1px}
+.topbrand .bell-wrap{flex:none}
+.topbrand .bell-btn{background:rgba(255,255,255,.16);border-color:rgba(255,255,255,.24);color:#fff}
+.topbrand .bell-btn:hover{background:rgba(255,255,255,.27)}
+@media(max-width:560px){.tb-name b{font-size:.95rem}.tb-logo{width:40px;height:40px}.tb-logo img{width:30px;height:30px}}
 .topact{margin-left:auto;display:flex;align-items:center;gap:9px;flex-wrap:wrap;justify-content:flex-end}
 .scope{display:flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--line);border-radius:13px;padding:8px 10px 8px 13px;box-shadow:var(--shadow-sm)}
 /* ===== Chuông thông báo ===== */
@@ -537,7 +550,7 @@ td.chi{color:var(--rose);font-weight:800}
   .main{padding:16px 15px 96px}
   .top{flex-wrap:wrap;gap:11px}
   .ttl{flex:1 1 auto;min-width:0}
-  .ttl h1{font-size:1.28rem}
+  .ttl h1{font-size:1.12rem}
   .ttl p{white-space:normal}
   .topact{margin-left:0;width:100%}
   .scope{width:100%}
@@ -630,20 +643,24 @@ td.chi{color:var(--rose);font-weight:800}
 
     <!-- MAIN -->
     <main class="main">
-      <div class="top">
+      <div class="topbrand">
         <button class="burger" id="burger"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button>
+        <div class="tb-logo"><img src="logo-mark.png" alt="AVATAR"/></div>
+        <div class="tb-name"><b>TRUNG TÂM ANH NGỮ AVATAR</b><small>Nghệ An</small></div>
+        <div class="bell-wrap" id="bellWrap">
+          <button class="bell-btn" id="bellBtn" aria-label="Thông báo" title="Thông báo">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+            <span class="bell-badge" id="bellBadge" hidden>0</span>
+          </button>
+          <div class="bell-panel" id="bellPanel" hidden>
+            <div class="bell-head"><b>Thông báo</b><button id="bellRead">Đánh dấu đã đọc</button></div>
+            <div class="bell-list" id="bellList"></div>
+          </div>
+        </div>
+      </div>
+      <div class="top">
         <div class="ttl"><h1 id="pgTitle">Tổng quan</h1><p id="pgSub">Toàn hệ thống</p></div>
         <div class="topact">
-          <div class="bell-wrap" id="bellWrap">
-            <button class="bell-btn" id="bellBtn" aria-label="Thông báo" title="Thông báo">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
-              <span class="bell-badge" id="bellBadge" hidden>0</span>
-            </button>
-            <div class="bell-panel" id="bellPanel" hidden>
-              <div class="bell-head"><b>Thông báo</b><button id="bellRead">Đánh dấu đã đọc</button></div>
-              <div class="bell-list" id="bellList"></div>
-            </div>
-          </div>
           <div class="scope" id="scopeWrap">
             <svg viewBox="0 0 24 24" fill="none" stroke-width="1.9"><path d="M3 21V9l9-6 9 6v12"/></svg>
             <div><small>Phạm vi</small></div>
