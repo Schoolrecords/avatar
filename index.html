@@ -775,7 +775,7 @@ async function syncHocPhiVoucher(h,amt){
 /* Giáo viên & Lớp học sống (Giai đoạn 2) */
 const gvFromDb=r=>({id:r.id,ten:r.ten,ns:r.ns||'',td:r.td||'',dc:r.dc||'',sdt:r.sdt||'',mon:r.mon||'VH',coSoId:r.coso_id,ngayHd:r.ngay_hd||null});
 const gvToDb=o=>({ten:o.ten,ns:o.ns||'',td:o.td||'',dc:o.dc||'',sdt:o.sdt||'',mon:o.mon||'VH',coso_id:o.coSoId});
-const lopFromDb=r=>({id:r.id,lop:r.lop,gv:r.gv||'',siso:Number(r.siso)||0,mon:r.mon||'VH',coSoId:r.coso_id});
+const lopFromDb=r=>({id:r.id,lop:r.lop,gv:r.gv||'',siso:Number(r.siso)||0,mon:r.mon||'VH',coSoId:r.coso_id,gvId:(r.gv_id!=null?r.gv_id:null)});
 const lopToDb=o=>({lop:o.lop,gv:o.gv||'',siso:Number(o.siso)||0,mon:o.mon||'VH',coso_id:o.coSoId});
 let gvLive=false;   // true khi đã chạy SQL Giai đoạn 2 (GV/Lớp lấy từ Supabase)
 async function loadCloud(){
@@ -793,13 +793,20 @@ async function loadCloud(){
   OPS.gd=(gd.data||[]).map(gdFromDb);
   OPS.ddHV={}; (dd.data||[]).forEach(r=>{const k=r.lop_id+'|'+r.ngay;(OPS.ddHV[k]=OPS.ddHV[k]||{})[r.hv_id]=r.trang_thai;});
   OPS.ccGV={}; (cc.data||[]).forEach(r=>{OPS.ccGV['cc|'+r.lop_id+'|'+r.ngay]=r.trang_thai;});
-  // Nếu đã migrate (bảng giao_vien có dữ liệu) → dùng bản SỐNG; chưa thì giữ data.js
-  gvLive = !gvR.error && !lopR.error && (gvR.data||[]).length>0;
-  if(gvLive){
-    GV.length=0; (gvR.data||[]).forEach(r=>GV.push(gvFromDb(r)));
+  // GV giảng dạy: RLS chỉ trả lớp mình phụ trách → LOP = đúng các lớp đó (GV có thể rỗng)
+  if(USER.role==='teacher'){
+    gvLive=true;
     LOP.length=0; (lopR.data||[]).forEach(r=>LOP.push(lopFromDb(r)));
-  } else if(!ge.error){
-    applyGvEdits(ge.data||[]);
+    GV.length=0; (gvR.data||[]).forEach(r=>GV.push(gvFromDb(r)));
+  } else {
+    // Nếu đã migrate (bảng giao_vien có dữ liệu) → dùng bản SỐNG; chưa thì giữ data.js
+    gvLive = !gvR.error && !lopR.error && (gvR.data||[]).length>0;
+    if(gvLive){
+      GV.length=0; (gvR.data||[]).forEach(r=>GV.push(gvFromDb(r)));
+      LOP.length=0; (lopR.data||[]).forEach(r=>LOP.push(lopFromDb(r)));
+    } else if(!ge.error){
+      applyGvEdits(ge.data||[]);
+    }
   }
 }
 /* gộp các chỉnh sửa giáo viên (lưu ở Supabase) đè lên dữ liệu tĩnh data.js */
@@ -1127,7 +1134,8 @@ const IC={
   diemdanh:'<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M9 3.5h6v3H9z"/><path d="M8.3 12.5l2 2 4-4"/>',
   hocvien:'<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.6" cy="10" r="2.2"/><path d="M5.4 16c0-1.7 1.4-2.7 3.2-2.7s3.2 1 3.2 2.7"/><path d="M14.5 9h4M14.5 12h4M14.5 15h2.6"/>',
   search:'<circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/>',
-  huongdan:'<path d="M4 4.5A1.5 1.5 0 0 1 5.5 3H18a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H6a2 2 0 0 1-2-2z"/><path d="M8 7.5h7M8 11h7M8 14.5h4"/>'
+  huongdan:'<path d="M4 4.5A1.5 1.5 0 0 1 5.5 3H18a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H6a2 2 0 0 1-2-2z"/><path d="M8 7.5h7M8 11h7M8 14.5h4"/>',
+  taikhoan:'<circle cx="9" cy="8" r="3.4"/><path d="M3.5 19c0-3 2.6-4.7 5.5-4.7s5.5 1.7 5.5 4.7"/><circle cx="17.5" cy="9" r="2.6"/><path d="M17.5 3.8v1.4M17.5 12.8v1.4M21.7 8.2l-1.2.7M14.5 8.2l1.2.7M20.6 11.6l-.8-1.1M14.4 6.4l.8 1.1"/>'
 };
 const svg=(p,sw=1.9)=>`<svg viewBox="0 0 24 24" fill="none" stroke-width="${sw}">${p}</svg>`;
 
@@ -1138,14 +1146,20 @@ const NAV=[
   {k:'coso',t:'Cơ sở',i:IC.coso,cnt:()=>COSO.length,adminOnly:true},
   {k:'lop',t:'Lớp học',i:IC.lop,cnt:()=>inLOP().length},
   {k:'hocvien',t:'Học sinh',i:IC.hocvien,cnt:()=>inHV().length},
-  {k:'ghidanh',t:'Ghi danh',i:IC.ghidanh},
-  {k:'diemdanh',t:'Điểm danh',i:IC.diemdanh},
+  {k:'ghidanh',t:'Ghi danh',i:IC.ghidanh,teach:true},
+  {k:'diemdanh',t:'Điểm danh',i:IC.diemdanh,teach:true},
   {k:'thu',t:'Khoản thu',i:IC.thu},
-  {k:'huongdan',t:'Hướng dẫn',i:IC.huongdan},
+  {k:'taikhoan',t:'Tài khoản',i:IC.taikhoan,adminOnly:true},
+  {k:'huongdan',t:'Hướng dẫn',i:IC.huongdan,teach:true},
 ];
-const visibleNav=()=>NAV.filter(n=>!n.adminOnly||USER.role==='admin');
+// GV chỉ thấy các mục có teach:true; admin thấy tất cả; lễ tân thấy mọi mục trừ adminOnly
+const visibleNav=()=> USER.role==='teacher'
+  ? NAV.filter(n=>n.teach)
+  : NAV.filter(n=>!n.adminOnly||USER.role==='admin');
 function botNav(){
-  const pick=USER.role==='admin'?['dashboard','gv','coso','diemdanh','thu']:['dashboard','diemdanh','ghidanh','gv','thu'];
+  const pick = USER.role==='teacher' ? ['diemdanh','ghidanh','huongdan']
+    : USER.role==='admin' ? ['dashboard','gv','coso','diemdanh','thu']
+    : ['dashboard','diemdanh','ghidanh','gv','thu'];
   return pick.map(k=>NAV.find(n=>n.k===k)).filter(Boolean);
 }
 
@@ -1177,7 +1191,10 @@ async function afterAuth(preUser){
   const {data:prof,error}=await SB.from('profiles').select('*').eq('id',user.id).maybeSingle();
   if(error){showLoginErr('Không kết nối được máy chủ. Kiểm tra mạng rồi thử lại.');return;}   // lỗi mạng/hết hạn tạm → GIỮ phiên, KHÔNG đăng xuất
   if(!prof||!prof.role){showLoginErr('Tài khoản chưa được phân quyền. Liên hệ quản trị viên.');await SB.auth.signOut();return;}
-  USER = prof.role==='admin' ? {role:'admin',coSoId:null,email:user.email} : {role:'owner',coSoId:prof.coso_id,email:user.email};
+  if(prof.role==='teacher' && !prof.gv_id){showLoginErr('Tài khoản giáo viên chưa được gắn lớp phụ trách. Liên hệ quản trị viên.');await SB.auth.signOut();return;}
+  USER = prof.role==='admin' ? {role:'admin',coSoId:null,email:user.email,hoTen:prof.ho_ten||''}
+       : prof.role==='teacher' ? {role:'teacher',coSoId:prof.coso_id,gvId:prof.gv_id,email:user.email,hoTen:prof.ho_ten||''}
+       : {role:'owner',coSoId:prof.coso_id,email:user.email,hoTen:prof.ho_ten||''};
   scope='all';
   const btn=$('#loginBtn'); if(btn){btn.disabled=true;btn.textContent='Đang tải dữ liệu…';}
   try{ await loadCloud(); }
@@ -1190,11 +1207,11 @@ $('#upass').addEventListener('keydown',e=>{if(e.key==='Enter')$('#loginBtn').cli
 function startApp(){
   $('#login').style.display='none';
   $('#app').style.display='block';
-  const nm=USER.role==='admin'?'Ban Quản trị':('Chủ cơ sở '+csName(USER.coSoId));
-  $('#uName').textContent=USER.role==='admin'?'Quản trị chuỗi':csName(USER.coSoId);
-  $('#uRole').textContent=USER.role==='admin'?'Toàn hệ thống':'Lễ tân Cơ Sở';
-  $('#uAva').textContent=USER.role==='admin'?'QT':initials(csName(USER.coSoId));
-  buildScope(); renderNav(); go('dashboard');
+  const isTe=USER.role==='teacher';
+  $('#uName').textContent=USER.role==='admin'?'Quản trị chuỗi':isTe?(USER.hoTen||'Giáo viên'):csName(USER.coSoId);
+  $('#uRole').textContent=USER.role==='admin'?'Toàn hệ thống':isTe?('Giáo viên · '+csName(USER.coSoId)):'Lễ tân Cơ Sở';
+  $('#uAva').textContent=USER.role==='admin'?'QT':isTe?initials(USER.hoTen||'GV'):initials(csName(USER.coSoId));
+  buildScope(); renderNav(); go(isTe?'diemdanh':'dashboard');
   subscribeRealtime(); initBell();
 }
 /* ===== REALTIME: tự cập nhật khi bất kỳ cơ sở nào lưu thay đổi ===== */
@@ -1373,17 +1390,148 @@ function closeSide(){$('#side').classList.remove('open');$('#scrim').classList.r
 $('#burger').onclick=openSide; $('#scrim').onclick=closeSide;
 
 /* ============ ROUTER ============ */
-const TITLES={dashboard:['Bảng điều hành','Toàn cảnh điều hành'],gv:['Giáo viên','Danh sách & hồ sơ giáo viên'],coso:['Cơ sở','Mạng lưới các trung tâm'],lop:['Lớp học','Lớp học & sĩ số'],hocvien:['Học sinh','Hồ sơ học sinh toàn hệ thống'],ghidanh:['Ghi danh','Đăng ký học sinh vào lớp'],diemdanh:['Điểm danh','Điểm danh học sinh & chấm công GV'],thu:['Sổ quỹ thu – chi','Kế toán thu chi & tồn quỹ'],huongdan:['Hướng dẫn sử dụng','Tính năng & cách dùng hệ thống']};
+const TITLES={dashboard:['Bảng điều hành','Toàn cảnh điều hành'],gv:['Giáo viên','Danh sách & hồ sơ giáo viên'],coso:['Cơ sở','Mạng lưới các trung tâm'],lop:['Lớp học','Lớp học & sĩ số'],hocvien:['Học sinh','Hồ sơ học sinh toàn hệ thống'],ghidanh:['Ghi danh','Đăng ký học sinh vào lớp'],diemdanh:['Điểm danh','Điểm danh học sinh & chấm công GV'],thu:['Sổ quỹ thu – chi','Kế toán thu chi & tồn quỹ'],taikhoan:['Tài khoản giáo viên','Tạo & quản lý tài khoản đăng nhập cho GV'],huongdan:['Hướng dẫn sử dụng','Tính năng & cách dùng hệ thống']};
 function go(k){
   if(k==='coso'&&USER.role!=='admin')k='dashboard';
+  if(k==='taikhoan'&&USER.role!=='admin')k='dashboard';
+  if(USER.role==='teacher' && !['ghidanh','diemdanh','huongdan'].includes(k)) k='diemdanh';   // GV chỉ vào 3 mục này
   if(k==='coso')csDetailId=null;
   VIEW=k;
   const scopeTxt=USER.role==='admin'?(scope==='all'?'Toàn hệ thống':csName(Number(scope))):csName(USER.coSoId);
   $('#pgTitle').textContent=TITLES[k][0];
   $('#pgSub').textContent=TITLES[k][1]+' · '+scopeTxt;
   syncNav(); renderNavCounts();
-  ({dashboard:renderDash,gv:renderGV,coso:renderCoso,lop:renderLop,hocvien:renderHocVien,ghidanh:renderGhiDanh,diemdanh:renderDiemDanh,thu:renderThu,huongdan:renderHuongDan}[k])();
+  ({dashboard:renderDash,gv:renderGV,coso:renderCoso,lop:renderLop,hocvien:renderHocVien,ghidanh:renderGhiDanh,diemdanh:renderDiemDanh,thu:renderThu,taikhoan:renderTaiKhoan,huongdan:renderHuongDan}[k])();
   window.scrollTo(0,0);
+}
+
+/* ============ TÀI KHOẢN GIÁO VIÊN (admin) ============ */
+let tkList=null, tkCs='all';
+async function callTK(action,payload){
+  try{
+    const {data,error}=await SB.functions.invoke('quan-ly-tk',{body:{action,...(payload||{})}});
+    if(error){ let msg=error.message||'Không gọi được máy chủ';
+      try{ if(error.context&&error.context.json){const j=await error.context.json(); if(j&&j.error)msg=j.error;} }catch(_){}
+      return {error:msg}; }
+    if(data&&data.error) return {error:data.error};
+    return {data:data?data.data:null};
+  }catch(e){ return {error:String(e&&e.message||e)}; }
+}
+async function renderTaiKhoan(){
+  if(USER.role!=='admin'){go('dashboard');return;}
+  if(tkList===null){
+    $('#view').innerHTML=`<div class="panel"><div class="pbody"><div class="empty">Đang tải danh sách tài khoản…</div></div></div>`;
+    const r=await callTK('list',{});
+    tkList = r.error ? [] : (r.data||[]);
+    if(r.error) avaAlert('Chưa lấy được danh sách tài khoản.\n\n'+r.error+'\n\nHãy kiểm tra đã cài Edge Function "quan-ly-tk" trên Supabase chưa.');
+  }
+  const acctByGv={}; tkList.forEach(a=>{ if(a.gv_id!=null) acctByGv[a.gv_id]=a; });
+  const opts=COSO.filter(c=>!c.build);
+  if(tkCs==='all') tkCs=String(opts[0]?opts[0].id:0);
+  const csId=Number(tkCs);
+  const gvs=GV.filter(g=>g.coSoId===csId).slice().sort((a,b)=>String(a.ten).localeCompare(String(b.ten),'vi'));
+  const nCo=gvs.filter(g=>acctByGv[g.id]).length;
+  const csSel=`<select class="fsel" id="tkCsSel" style="flex:1;min-width:180px;max-width:100%">${opts.map(c=>`<option value="${c.id}" ${csId===c.id?'selected':''}>${esc(c.ten)}</option>`).join('')}</select>`;
+  let h=`<div class="toolbar">${csSel}<button class="btn btn-sm btn-ghost" id="tkReload" style="white-space:nowrap">↻ Tải lại</button></div>
+    <div class="panel"><div class="phead"><div style="display:flex;align-items:baseline;gap:8px"><h3>Tài khoản giáo viên</h3><span class="sub">${gvs.length} GV · ${nCo} đã có TK</span></div></div>
+    <div class="pbody">
+      <p class="muted" style="font-size:.8rem;line-height:1.5;margin:0 2px 12px">Giáo viên đăng nhập chỉ thấy <b>lớp mình phụ trách</b> để <b>ghi danh</b> (thêm HS) và <b>điểm danh</b>. Muốn GV thấy lớp nào: vào <b>Giáo viên → mở hồ sơ → Phụ trách lớp</b> rồi tích lớp cho GV đó.</p>`;
+  if(!gvs.length){ h+=`<div class="empty">Cơ sở này chưa có giáo viên.</div>`; }
+  else{
+    h+=`<div class="ddgrid">`;
+    gvs.forEach((g,i)=>{
+      const a=acctByGv[g.id];
+      const nLop=LOP.filter(l=>l.gvId===g.id).length;
+      const stat = !a ? `<span class="paidtag no">Chưa có TK</span>` : a.banned ? `<span class="paidtag no">Đã khóa</span>` : `<span class="paidtag yes">Đang dùng</span>`;
+      const info=[nLop?nLop+' lớp':'⚠ chưa gắn lớp', a?a.email:''].filter(Boolean).join(' · ');
+      const acts = !a
+        ? `<button class="btn btn-sm btn-primary" data-new="${g.id}">Tạo tài khoản</button>`
+        : `<button class="btn btn-sm btn-light" data-pw="${a.id}">Đổi MK</button><button class="btn btn-sm btn-light" data-ban="${a.id}" data-b="${a.banned?0:1}">${a.banned?'Mở khóa':'Khóa'}</button><button class="btn btn-sm btn-light" data-del="${a.id}" style="color:var(--rose)">Xóa</button>`;
+      h+=`<div class="ddrow"><div class="idx">${i+1}</div>
+        <div class="nm"><b>${esc(g.ten)}</b><small>${esc(info)} ${stat}</small></div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">${acts}</div></div>`;
+    });
+    h+=`</div>`;
+  }
+  h+=`</div></div>`;
+  $('#view').innerHTML=h;
+  $('#tkCsSel').onchange=e=>{tkCs=e.target.value;renderTaiKhoan();};
+  $('#tkReload').onclick=()=>{tkList=null;renderTaiKhoan();};
+  $$('#view [data-new]').forEach(b=>b.onclick=()=>tkCreate(Number(b.dataset.new)));
+  $$('#view [data-pw]').forEach(b=>b.onclick=()=>tkResetPw(b.dataset.pw));
+  $$('#view [data-ban]').forEach(b=>b.onclick=()=>tkBan(b.dataset.ban,b.dataset.b==='1'));
+  $$('#view [data-del]').forEach(b=>b.onclick=()=>tkDelete(b.dataset.del));
+}
+function tkCreate(gvId){
+  const g=GV.find(x=>x.id===gvId); if(!g)return;
+  const nLop=LOP.filter(l=>l.gvId===gvId).length;
+  $('#mcard').innerHTML=`
+   <div class="mhead" style="background:var(--dots),linear-gradient(150deg,#10264c,#2f6fd0);background-size:18px 18px,auto">
+     <div class="mava">${initials(g.ten)}</div>
+     <div style="flex:1"><h3>Tạo tài khoản giáo viên</h3><p>${esc(g.ten)} · ${esc(csName(g.coSoId))}</p></div>
+     <button class="mclose" onclick="closeModal()">${svg('<path d="M6 6l12 12M18 6L6 18"/>')}</button>
+   </div>
+   <div class="mbody"><div class="form2">
+     ${nLop?'':`<div class="fld full"><div style="font-size:.8rem;color:#c0392b;font-weight:600">⚠ GV này chưa được gắn lớp. Nên vào Giáo viên → hồ sơ → Phụ trách lớp tích lớp trước, nếu không GV đăng nhập sẽ không thấy lớp nào.</div></div>`}
+     <div class="fld full"><label>Họ tên hiển thị</label><input id="tk_ht" value="${esc(g.ten)}"/></div>
+     <div class="fld"><label>Tên đăng nhập</label><input id="tk_u" value="gv${gvId}" autocapitalize="off" spellcheck="false"/></div>
+     <div class="fld"><label>Mật khẩu</label><input id="tk_p" placeholder="≥ 6 ký tự"/></div>
+     <div class="fld full"><small class="muted" style="font-size:.74rem">GV đăng nhập bằng tên trên (hệ thống tự thêm <b>@avatar.vn</b>). Ghi lại mật khẩu để đưa cho GV.</small></div>
+     <div id="tkErr" style="display:none;color:#c0392b;font-size:.85rem;font-weight:600" class="fld full"></div>
+     <div class="fld full" style="display:flex;gap:9px"><button class="btn btn-light" style="flex:1" onclick="closeModal()">Hủy</button><button class="btn btn-primary" style="flex:2" id="tk_ok">✓ Tạo tài khoản</button></div>
+   </div></div>`;
+  $('#modal').classList.add('on');
+  const err=m=>{const e=$('#tkErr');e.textContent=m||'';e.style.display=m?'block':'none';};
+  $('#tk_ok').onclick=async()=>{
+    let u=$('#tk_u').value.trim().toLowerCase().replace(/\s+/g,'');
+    const p=$('#tk_p').value, ht=$('#tk_ht').value.trim()||g.ten;
+    if(!u){err('Nhập tên đăng nhập.');return;}
+    if(p.length<6){err('Mật khẩu cần ít nhất 6 ký tự.');return;}
+    const email=u.includes('@')?u:u+'@avatar.vn';
+    const btn=$('#tk_ok'); btn.disabled=true; btn.textContent='Đang tạo…'; err('');
+    const r=await callTK('create',{email,password:p,ho_ten:ht,coso_id:g.coSoId,gv_id:gvId});
+    btn.disabled=false; btn.textContent='✓ Tạo tài khoản';
+    if(r.error){err(r.error);return;}
+    closeModal(); tkList=null; renderTaiKhoan();
+    avaAlert('Đã tạo tài khoản cho '+ht+'.\n\nTên đăng nhập: '+u+'\nMật khẩu: '+p+'\n\nHãy đưa thông tin này cho giáo viên.');
+  };
+}
+function tkResetPw(id){
+  const a=(tkList||[]).find(x=>x.id===id); if(!a)return;
+  $('#mcard').innerHTML=`
+   <div class="mhead" style="background:var(--dots),linear-gradient(150deg,#10264c,#2f6fd0);background-size:18px 18px,auto">
+     <div class="mava">🔑</div><div style="flex:1"><h3>Đổi mật khẩu</h3><p>${esc(a.email)}</p></div>
+     <button class="mclose" onclick="closeModal()">${svg('<path d="M6 6l12 12M18 6L6 18"/>')}</button></div>
+   <div class="mbody"><div class="form2">
+     <div class="fld full"><label>Mật khẩu mới</label><input id="tk_np" placeholder="≥ 6 ký tự"/></div>
+     <div id="tkErr2" style="display:none;color:#c0392b;font-size:.85rem;font-weight:600" class="fld full"></div>
+     <div class="fld full" style="display:flex;gap:9px"><button class="btn btn-light" style="flex:1" onclick="closeModal()">Hủy</button><button class="btn btn-primary" style="flex:2" id="tk_npok">Đổi mật khẩu</button></div>
+   </div></div>`;
+  $('#modal').classList.add('on');
+  const err=m=>{const e=$('#tkErr2');e.textContent=m||'';e.style.display=m?'block':'none';};
+  $('#tk_npok').onclick=async()=>{
+    const p=$('#tk_np').value;
+    if(p.length<6){err('Mật khẩu cần ít nhất 6 ký tự.');return;}
+    const btn=$('#tk_npok');btn.disabled=true;btn.textContent='Đang đổi…';err('');
+    const r=await callTK('resetpw',{id,password:p});
+    btn.disabled=false;btn.textContent='Đổi mật khẩu';
+    if(r.error){err(r.error);return;}
+    closeModal(); avaAlert('Đã đổi mật khẩu cho '+a.email+'.\nMật khẩu mới: '+p);
+  };
+}
+async function tkBan(id,ban){
+  const a=(tkList||[]).find(x=>x.id===id); if(!a)return;
+  if(!await avaConfirm((ban?'Khóa':'Mở khóa')+' tài khoản '+a.email+'?'+(ban?' GV sẽ không đăng nhập được cho tới khi mở lại.':'')))return;
+  const r=await callTK('ban',{id,banned:ban});
+  if(r.error){avaAlert('Lỗi: '+r.error);return;}
+  tkList=null; renderTaiKhoan();
+}
+async function tkDelete(id){
+  const a=(tkList||[]).find(x=>x.id===id); if(!a)return;
+  if(!await avaConfirm('Xóa hẳn tài khoản '+a.email+'? Không thể hoàn tác. (Dữ liệu ghi danh/điểm danh GV đã tạo vẫn giữ nguyên.)',{danger:true,okText:'Xóa'}))return;
+  const r=await callTK('delete',{id});
+  if(r.error){avaAlert('Lỗi xóa: '+r.error);return;}
+  tkList=null; renderTaiKhoan();
 }
 
 /* ============ HƯỚNG DẪN SỬ DỤNG ============ */
@@ -1751,9 +1899,9 @@ function showGV(id){
       const checked=new Set(box?[...box.querySelectorAll('input:checked')].map(x=>Number(x.value)):[]);
       const newName=rec.ten.trim();
       for(const l of LOP.filter(x=>x.coSoId===g.coSoId)){
-        const was=(l.gv||'').trim()===oldName;
-        if(checked.has(l.id)){ if((l.gv||'')!==newName){await SB.from('lop_hoc').update({gv:newName}).eq('id',l.id); l.gv=newName;} }
-        else if(was){ await SB.from('lop_hoc').update({gv:''}).eq('id',l.id); l.gv=''; }
+        const was=(l.gv||'').trim()===oldName || l.gvId===g.id;
+        if(checked.has(l.id)){ if((l.gv||'')!==newName||l.gvId!==g.id){await SB.from('lop_hoc').update({gv:newName,gv_id:g.id}).eq('id',l.id); l.gv=newName; l.gvId=g.id;} }
+        else if(was){ await SB.from('lop_hoc').update({gv:'',gv_id:null}).eq('id',l.id); l.gv=''; l.gvId=null; }
       }
     }
     btn.disabled=false; btn.textContent='💾 Lưu thay đổi';
@@ -1811,7 +1959,7 @@ function openGvNew(){
     if(error){btn.disabled=false;btn.textContent='＋ Thêm giáo viên';err('Lỗi thêm: '+error.message);return;}
     await SB.from('giao_vien').update({ngay_hd:hdIso}).eq('id',data.id);   // ngày hợp đồng; bỏ qua êm nếu chưa chạy SQL
     // phân công lớp cho GV mới
-    for(const id of lopIds){ await SB.from('lop_hoc').update({gv:ten}).eq('id',id); const l=LOP.find(x=>x.id===id); if(l)l.gv=ten; }
+    for(const id of lopIds){ await SB.from('lop_hoc').update({gv:ten,gv_id:data.id}).eq('id',id); const l=LOP.find(x=>x.id===id); if(l){l.gv=ten;l.gvId=data.id;} }
     const obj=gvFromDb(data); obj.ngayHd=obj.ngayHd||hdIso;
     GV.push(obj);
     btn.disabled=false; btn.textContent='＋ Thêm giáo viên';
@@ -2440,20 +2588,21 @@ function openHvEdit(h){
 
 /* ============ GHI DANH ============ */
 function renderGhiDanh(){
+  const isTe=USER.role==='teacher';
   const lops=inLOP().filter(l=>l.siso>0||hvOfLop(l.id).length);
   if(!lops.length){$('#view').innerHTML=`<div class="panel"><div class="pbody"><div class="empty">Chưa có lớp học trong phạm vi này</div></div></div>`;return;}
   if(!lops.find(l=>l.id===ghiLopId)) ghiLopId=lops[0].id;
   const lop=LOP.find(l=>l.id===ghiLopId), ds=hvOfLop(ghiLopId).filter(hvActive);
   const conThieu=Math.max(0,(lop.siso||0)-ds.length);
   let h=`<div class="toolbar"><select class="fsel" id="ghiLop" style="flex:1;min-width:180px;max-width:100%">${lopPickHTML(ghiLopId)}</select>
-    <button class="btn btn-sm btn-ghost" id="hsTpl" style="white-space:nowrap">⬇ Tải mẫu Excel (cả cơ sở)</button>
-    <button class="btn btn-sm btn-primary" id="hsImp" style="white-space:nowrap">⬆ Nhập Excel</button></div>
+    ${isTe?'':`<button class="btn btn-sm btn-ghost" id="hsTpl" style="white-space:nowrap">⬇ Tải mẫu Excel (cả cơ sở)</button>
+    <button class="btn btn-sm btn-primary" id="hsImp" style="white-space:nowrap">⬆ Nhập Excel</button>`}</div>
   <div class="grid2">
     <div class="panel"><div class="phead"><h3>Ghi danh học sinh mới</h3></div>
       <div class="pbody"><div class="form2">
         <div class="fld full"><label>Họ và tên</label><input id="gd_ten" placeholder="VD: Nguyễn Văn An"/></div>
         <div class="fld"><label>Ngày sinh</label><input id="gd_ns" placeholder="dd/mm/yyyy"/></div>
-        <div class="fld"><label>Học phí (đ/khóa)</label><input id="gd_hp" inputmode="numeric" placeholder="VD: 600.000"/></div>
+        ${isTe?'':`<div class="fld"><label>Học phí (đ/khóa)</label><input id="gd_hp" inputmode="numeric" placeholder="VD: 600.000"/></div>`}
         <div class="fld"><label>Phụ huynh</label><input id="gd_ph" placeholder="Tên phụ huynh"/></div>
         <div class="fld"><label>Điện thoại</label><input id="gd_sdt" inputmode="tel" placeholder="SĐT liên hệ"/></div>
         <div class="fld full"><button class="btn btn-primary btn-block" id="gd_add">＋ Ghi danh vào lớp</button></div>
@@ -2470,7 +2619,7 @@ function renderGhiDanh(){
           <div class="p"><b>${ds.length}</b><span>đã ghi danh</span></div>
           <div class="p"><b>${conThieu}</b><span>còn thiếu</span></div>
         </div>
-        <p class="muted" style="font-size:.78rem;line-height:1.5;margin:13px 2px 0">💡 Nhập thông tin thật của từng em ở form bên trái. Sau đó vào mục <b>Học sinh</b> để cập nhật học phí và đánh dấu đã đóng.</p>
+        <p class="muted" style="font-size:.78rem;line-height:1.5;margin:13px 2px 0">${isTe?'💡 Nhập thông tin thật của từng em ở form bên trái. Học phí do Lễ tân/Quản trị cập nhật sau.':'💡 Nhập thông tin thật của từng em ở form bên trái. Sau đó vào mục <b>Học sinh</b> để cập nhật học phí và đánh dấu đã đóng.'}</p>
       </div>
     </div>
   </div>
@@ -2478,19 +2627,20 @@ function renderGhiDanh(){
     <div class="pbody">${ds.length?`<div class="ddgrid">${ds.map((v,i)=>`
       <div class="ddrow"><div class="idx">${i+1}</div>
         <div class="nm"><b>${esc(v.ten)}</b><small>${[v.ns,v.sdt,v.hocPhi?fmtVND(v.hocPhi):''].filter(Boolean).join(' · ')||'—'}</small></div>
-        <button class="btn btn-sm btn-light" data-del="${v.id}">Xóa</button>
+        ${isTe?'':`<button class="btn btn-sm btn-light" data-del="${v.id}">Xóa</button>`}
       </div>`).join('')}</div>`:'<div class="empty">Chưa có học sinh. Ghi danh từng em ở form trên.</div>'}
     </div>
   </div>`;
   $('#view').innerHTML=h;
   $('#ghiLop').onchange=e=>{ghiLopId=Number(e.target.value);renderGhiDanh();};
-  $('#hsTpl').onclick=()=>hsDownloadTemplate(lop);
-  $('#hsImp').onclick=()=>hsImportExcel(lop);
-  attachMoneyFormat($('#gd_hp')); attachDateFormat($('#gd_ns'));
+  const tplB=$('#hsTpl'); if(tplB)tplB.onclick=()=>hsDownloadTemplate(lop);
+  const impB=$('#hsImp'); if(impB)impB.onclick=()=>hsImportExcel(lop);
+  const hpEl=$('#gd_hp'); if(hpEl)attachMoneyFormat(hpEl); attachDateFormat($('#gd_ns'));
   $('#gd_add').onclick=async()=>{
     const ten=$('#gd_ten').value.trim(); if(!ten){$('#gd_ten').focus();return;}
     if(!isValidDob($('#gd_ns').value)){avaAlert('Ngày sinh chưa đúng dạng ngày/tháng/năm (VD: 01/09/2015).');$('#gd_ns').focus();return;}
-    const rec={ten,ns:$('#gd_ns').value.trim(),ph:$('#gd_ph').value.trim(),sdt:$('#gd_sdt').value.trim(),hocPhi:Number($('#gd_hp').value.replace(/\D/g,''))||0,lopId:ghiLopId,coSoId:lop.coSoId,mau:false};
+    const _hpEl=$('#gd_hp');
+    const rec={ten,ns:$('#gd_ns').value.trim(),ph:$('#gd_ph').value.trim(),sdt:$('#gd_sdt').value.trim(),hocPhi:_hpEl?Number(_hpEl.value.replace(/\D/g,''))||0:0,lopId:ghiLopId,coSoId:lop.coSoId,mau:false};
     const {data,error}=await SB.from('hoc_vien').insert(hvToDb(rec)).select().single();
     if(error){avaAlert('Lỗi ghi danh: '+error.message);return;}
     const today=todayISO();
