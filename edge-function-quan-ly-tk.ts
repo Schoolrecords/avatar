@@ -22,17 +22,20 @@ Deno.serve(async (req) => {
     const ANON = Deno.env.get("SUPABASE_ANON_KEY")!;
     const SERVICE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-    // 1) Người gọi phải là admin
+    // 1) Lấy token đăng nhập từ header và xác thực (truyền token TRỰC TIẾP cho getUser)
     const authHeader = req.headers.get("Authorization") || "";
-    const caller = createClient(URL, ANON, { global: { headers: { Authorization: authHeader } } });
-    const { data: ures } = await caller.auth.getUser();
+    const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+    if (!token) return json(401, { error: "Thiếu token đăng nhập." });
+    const anonClient = createClient(URL, ANON);
+    const { data: ures, error: uerr } = await anonClient.auth.getUser(token);
     const uid = ures?.user?.id;
-    if (!uid) return json(401, { error: "Chưa đăng nhập." });
-    const { data: prof } = await caller.from("profiles").select("role").eq("id", uid).maybeSingle();
+    if (uerr || !uid) return json(401, { error: "Phiên đăng nhập không hợp lệ. Hãy đăng nhập lại." });
+
+    // 2) Client quyền cao (service_role) — đọc quyền (bỏ RLS) + tạo/sửa/xóa user
+    const admin = createClient(URL, SERVICE, { auth: { autoRefreshToken: false, persistSession: false } });
+    const { data: prof } = await admin.from("profiles").select("role").eq("id", uid).maybeSingle();
     if (!prof || prof.role !== "admin") return json(403, { error: "Chỉ quản trị mới được thao tác tài khoản." });
 
-    // 2) Client quyền cao (service_role) để tạo/sửa/xóa user
-    const admin = createClient(URL, SERVICE, { auth: { autoRefreshToken: false, persistSession: false } });
     const body = await req.json().catch(() => ({} as any));
     const action = body.action;
 
@@ -82,7 +85,6 @@ Deno.serve(async (req) => {
 
     if (action === "delete") {
       const id = body.id;
-      // Xóa hồ sơ trước (phòng khi khóa ngoại), rồi xóa tài khoản đăng nhập
       await admin.from("profiles").delete().eq("id", id);
       const { error } = await admin.auth.admin.deleteUser(id);
       if (error) return json(400, { error: error.message });
