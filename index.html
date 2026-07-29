@@ -826,7 +826,11 @@ function applyGvEdits(rows){
     if(e.ngay_hd) g.ngayHd=e.ngay_hd;});
 }
 const fmtVND=n=>Math.round(n).toLocaleString('vi-VN')+'₫';
-const fmtShort=n=>n>=1e9?(n/1e9).toFixed(n>=1e10?0:1).replace(/\.0$/,'')+' tỷ':n>=1e6?(n/1e6).toFixed(1).replace(/\.0$/,'')+' tr':n>=1e3?Math.round(n/1e3)+'k':String(n);
+const fmtShort=n=>{n=Math.round(n);
+  if(n>=1e9)return (n/1e9).toFixed(n>=1e10?0:1).replace(/\.0$/,'')+' tỷ';
+  if(n>=1e6)return (n/1e6).toFixed(1).replace(/\.0$/,'')+' tr';
+  if(n>=1e3){const k=Math.round(n/1e3); return k>=1000?(n/1e6).toFixed(1).replace(/\.0$/,'')+' tr':k+'k';}   // 999.999 → "1 tr" thay vì "1000k"
+  return n+'₫';};
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 /* Ô nhập tiền: tự thêm dấu chấm nghìn khi gõ (1200000 → 1.200.000) */
 function attachMoneyFormat(el){
@@ -903,9 +907,12 @@ const csAbbr=id=>CS_ABBR[id]||'?';
 let GV=[],LOP=[];
 DATA.forEach(c=>{(c.gv||[]).forEach(g=>GV.push({...g,coSoId:c.id})); (c.lop||[]).forEach(l=>LOP.push({...l,coSoId:c.id}));});
 const csName=id=>COSO.find(c=>c.id===id)?.ten||'—';
+/* Số học sinh ĐANG HỌC thực tế (từ bảng hoc_vien) theo phạm vi cơ sở —
+   dùng thống nhất cho KPI, thẻ cơ sở & badge menu để không lệch với trang Học sinh. */
+const hsActiveCount=ids=>OPS.hv.filter(h=>ids.includes(h.coSoId)&&hvActive(h)).length;
 function csStat(id){
   const g=GV.filter(x=>x.coSoId===id), l=LOP.filter(x=>x.coSoId===id);
-  return {gv:g.length,lop:l.length,hs:l.reduce((s,x)=>s+(x.siso||0),0),thu:l.reduce((s,x)=>s+(x.duthu||0),0)};
+  return {gv:g.length,lop:l.length,hs:hsActiveCount([id]),thu:l.reduce((s,x)=>s+(x.duthu||0),0)};
 }
 /* ===== SỐ LIỆU THẬT (từ Supabase) ===== */
 /* Học phí theo phạm vi cơ sở: dự thu = Σ học phí mọi HS; đã thu = HS đã đóng */
@@ -914,11 +921,15 @@ function hpStat(ids){
   OPS.hv.forEach(h=>{ if(!ids.includes(h.coSoId)||!hvActive(h))return; const p=h.hocPhi||0; const sd=Math.min(Number(h.soTienDong)||0,p); du+=p; n++; if(sd>0){da+=sd;nDa++;} });
   return {du,da,chua:Math.max(0,du-da),rate:du?da/du:0,n,nDa};
 }
-/* Chuyên cần thật = (có mặt + muộn) / tổng lượt điểm danh; null nếu chưa có dữ liệu */
+/* Chuyên cần thật = (có mặt + muộn) / tổng lượt điểm danh trong 30 NGÀY GẦN NHẤT;
+   null nếu chưa có dữ liệu. (Trước đây tính cả lịch sử nên loãng dần theo thời gian.) */
 function ccStat(ids){
+  const d=new Date(); d.setDate(d.getDate()-30);
+  const cutoff=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   let pres=0,tot=0;
   for(const k in OPS.ddHV){
-    const lopId=Number(k.split('|')[0]), lop=LOP.find(l=>l.id===lopId);
+    const parts=k.split('|'); if(parts[1]<cutoff)continue;
+    const lop=LOP.find(l=>l.id===Number(parts[0]));
     if(!lop||!ids.includes(lop.coSoId))continue;
     const obj=OPS.ddHV[k];
     for(const hid in obj){ tot++; const st=obj[hid]; if(st==='co'||st==='muon')pres++; }
@@ -970,7 +981,6 @@ function duyetPending(){
 /* ===== NGHIỆP VỤ: ghi danh & điểm danh — lưu trên Supabase (đồng bộ mọi máy) ===== */
 /* OPS là bộ nhớ đệm trong trình duyệt; nạp bằng loadCloud() sau khi đăng nhập. */
 let OPS={hv:[],ddHV:{},ccGV:{},gd:[],duyet:{}};
-function saveOps(){/* dữ liệu nay lưu trên Supabase; giữ hàm rỗng cho tương thích */}
 const HM_THU=['Học phí','Ghi danh/Nhập học','Bán tài liệu','Thu khác'];
 const HM_CHI=['Lương giáo viên','Thuê mặt bằng','Điện nước','Vật tư/Văn phòng phẩm','Marketing','Chi khác'];
 const isoVN=s=>{if(!s)return'';const p=String(s).split('-');return `${p[2]}/${p[1]}/${p[0]}`;};
@@ -979,7 +989,7 @@ let ktThang='all', ktLoai='all';
 function ensureXLSX(){return new Promise((res,rej)=>{if(window.XLSX)return res();const s=document.createElement('script');s.src='xlsx.full.min.js';s.onload=()=>res();s.onerror=()=>rej(new Error('load'));document.head.appendChild(s);});}
 
 /* ===== NHẬP/XUẤT EXCEL ĐẸP (ExcelJS) — mẫu tải về + đọc file upload ===== */
-function ensureExcelJS(){return new Promise((res,rej)=>{if(window.ExcelJS)return res();const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js';s.onload=()=>res();s.onerror=()=>rej(new Error('load'));document.head.appendChild(s);});}
+function ensureExcelJS(){return new Promise((res,rej)=>{if(window.ExcelJS)return res();const s=document.createElement('script');s.src='exceljs.min.js';s.onload=()=>res();s.onerror=()=>rej(new Error('load'));document.head.appendChild(s);});}
 const XL_NAVY='FF1F4276', XL_LINE='FFB9C6DA';
 function xlBorder(argb){const s={style:'thin',color:{argb:argb||XL_LINE}};return{top:s,left:s,bottom:s,right:s};}
 function dlBlob(buf,filename){const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),3000);}
@@ -1141,7 +1151,6 @@ const hvOfLop=id=>OPS.hv.filter(h=>h.lopId===id);
 const lopHP=id=>OPS.hv.filter(h=>h.lopId===id&&hvActive(h)).reduce((s,h)=>s+(h.hocPhi||0),0);
 const inHV=()=>OPS.hv.filter(h=>scopeIds().includes(h.coSoId));
 const lopName=id=>{const l=LOP.find(x=>x.id===id);return l?l.lop:'—';};
-const nextHvId=()=>OPS.hv.reduce((m,h)=>Math.max(m,h.id),0)+1;
 function todayISO(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
 const CC_LABEL={day:'Lên lớp',nghi:'Nghỉ',bu:'Dạy bù'};
 let ddDate=todayISO(), ddLopId=null, ghiLopId=null;
@@ -1185,7 +1194,7 @@ const NAV=[
   {k:'gv',t:'Giáo viên',i:IC.gv,cnt:()=>inGV().length},
   {k:'coso',t:'Cơ sở',i:IC.coso,cnt:()=>COSO.length,adminOnly:true},
   {k:'lop',t:'Lớp học',i:IC.lop,cnt:()=>inLOP().length},
-  {k:'hocvien',t:'Học sinh',i:IC.hocvien,cnt:()=>inHV().length},
+  {k:'hocvien',t:'Học sinh',i:IC.hocvien,cnt:()=>inHV().filter(hvActive).length},
   {k:'ghidanh',t:'Ghi danh',i:IC.ghidanh,teach:true},
   {k:'diemdanh',t:'Điểm danh',i:IC.diemdanh,teach:true},
   {k:'duyet',t:'Đối soát',i:IC.duyet,cnt:()=>duyetPending()||''},
@@ -1264,9 +1273,12 @@ function renderCurrent(){
 function subscribeRealtime(){
   if(rtChannel)return;
   let timer=null;
+  // Đang thao tác thì KHÔNG vẽ lại (tránh mất chữ đang gõ / đóng phiếu) — chỉ cập nhật chuông.
+  const busy=()=>$('#modal').classList.contains('on') || $('#voucher').classList.contains('on')
+    || (document.activeElement && /^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement.tagName));
   const bump=()=>{ clearTimeout(timer); timer=setTimeout(async()=>{
-    try{ await loadCloud(); if(!$('#modal').classList.contains('on')) renderCurrent(); }catch(e){}
-  },600); };
+    try{ await loadCloud(); if(busy()) renderBell(); else renderCurrent(); }catch(e){}
+  },800); };
   rtChannel=SB.channel('avatar-rt');
   ['hoc_vien','so_quy','diem_danh_hv','cham_cong_gv','gv_edits','giao_vien','lop_hoc','duyet_diem_danh'].forEach(t=>
     rtChannel.on('postgres_changes',{event:'*',schema:'public',table:t},bump));
@@ -1730,7 +1742,7 @@ function renderDash(){
   const cosos=inCOSO().filter(c=>!c.build);
   const g=GV.filter(x=>ids.includes(x.coSoId)).length;
   const ls=LOP.filter(x=>ids.includes(x.coSoId));
-  const hs=ls.reduce((s,x)=>s+(x.siso||0),0);
+  const hs=hsActiveCount(ids);                 // số HS đang học thực tế (khớp badge menu & trang Học sinh)
 
   // ---- tài chính THẬT: học phí từng học sinh ----
   const money=hpStat(ids);
@@ -1772,7 +1784,7 @@ function renderDash(){
         </div>
       </div>`}</div>
     </div>
-    <div class="panel"><div class="phead"><h3>Chuyên cần</h3><span class="sub">theo điểm danh đã ghi</span></div>
+    <div class="panel"><div class="phead"><h3>Chuyên cần</h3><span class="sub">30 ngày gần nhất</span></div>
       <div class="pbody">${ccReal==null?'<div class="empty" style="padding:26px 0">Chưa có dữ liệu điểm danh trong phạm vi này.<br/>Vào <b>Điểm danh</b> để bắt đầu ghi nhận.</div>':`<div class="finrow">
         ${ring(ccAvg,'có mặt')}
         <div class="finnums">
@@ -2070,7 +2082,6 @@ function openGvNew(){
     closeModal(); renderGV();
   };
 }
-function mrow(ic,label,val){return `<div class="mrow"><div class="mi">${svg(ic)}</div><div style="flex:1"><small>${label}</small><b>${val}</b></div></div>`;}
 function closeModal(){$('#modal').classList.remove('on');}
 $('#modal').onclick=e=>{if(e.target.id==='modal')closeModal();};
 
@@ -2188,7 +2199,7 @@ function renderLop(){
   if(USER.role==='admin'&&lopCs!=='all') list=list.filter(l=>l.coSoId===Number(lopCs));
   if(lopSearch.trim()){const q=lopSearch.trim().toLowerCase();list=list.filter(l=>((l.lop||'')+' '+(l.gv||'')).toLowerCase().includes(q));}
   list=list.slice().sort((a,b)=>a.coSoId-b.coSoId);
-  const hs=list.reduce((s,l)=>s+(l.siso||0),0), thu=list.reduce((s,l)=>s+lopHP(l.id),0);
+  const hs=list.reduce((s,l)=>s+hvOfLop(l.id).filter(hvActive).length,0), thu=list.reduce((s,l)=>s+lopHP(l.id),0);
 
   let h=`<div class="toolbar">
     <div class="search">${svg(IC.search,2)}<input id="lopq" placeholder="Tìm lớp hoặc giáo viên…" value="${esc(lopSearch)}"/></div>
@@ -2308,13 +2319,15 @@ function renderThu(){
   list.sort((a,b)=>b.ngay.localeCompare(a.ngay)||b.id-a.id);
   const tThu=list.filter(g=>g.loai==='thu').reduce((s,g)=>s+g.soTien,0);
   const tChi=list.filter(g=>g.loai==='chi').reduce((s,g)=>s+g.soTien,0);
-  const ton=tThu-tChi;
+  // Tồn quỹ = tiền mặt thực có: lũy kế TOÀN BỘ sổ trong phạm vi, KHÔNG theo bộ lọc tháng/loại
+  // (nếu tính trên danh sách đã lọc thì chọn "Chỉ Thu" sẽ ra Tồn quỹ = Tổng thu — sai).
+  const ton=inSc.reduce((s,g)=>s+(g.loai==='thu'?g.soTien:-g.soTien),0);
   const adm=USER.role==='admin';
 
   let h=`<div class="kpis">
     <div class="kpi"><div class="kpi-top"><div class="kpi-ic ic-em">${svg(IC.thu)}</div></div><b>${fmtShort(tThu)}</b><span>Tổng thu</span></div>
     <div class="kpi"><div class="kpi-top"><div class="kpi-ic ic-am">${svg(IC.thu)}</div></div><b>${fmtShort(tChi)}</b><span>Tổng chi</span></div>
-    <div class="kpi"><div class="kpi-top"><div class="kpi-ic ic-teal">${svg(IC.thu)}</div></div><b>${fmtShort(ton)}</b><span>Tồn quỹ</span></div>
+    <div class="kpi"><div class="kpi-top"><div class="kpi-ic ic-teal">${svg(IC.thu)}</div></div><b>${fmtShort(ton)}</b><span>Tồn quỹ (toàn bộ)</span></div>
     <div class="kpi"><div class="kpi-top"><div class="kpi-ic ic-sky">${svg(IC.diemdanh)}</div></div><b>${list.length}</b><span>Số phiếu</span></div>
   </div>
   <div class="toolbar">
@@ -2340,7 +2353,7 @@ function renderThu(){
       <td class="tright num ${g.loai==='chi'?'chi':''}">${g.loai==='chi'?fmtVND(g.soTien):'—'}</td>
       <td class="tright" style="white-space:nowrap"><button class="linkbtn" data-view="${g.id}">Xem</button> &nbsp;<button class="linkbtn" data-del="${g.id}" style="color:var(--rose)">Xóa</button></td></tr>`;});
     h+=`<tr style="background:var(--soft)"><td colspan="${adm?5:4}" class="tright"><b>TỔNG</b></td><td class="tright num thu">${fmtVND(tThu)}</td><td class="tright num chi">${fmtVND(tChi)}</td><td></td></tr>
-    <tr style="background:var(--soft)"><td colspan="${adm?5:4}" class="tright"><b>TỒN QUỸ</b></td><td colspan="2" class="tright"><b style="color:var(--brand-700);font-size:1.03rem">${fmtVND(ton)}</b></td><td></td></tr>`;
+    <tr style="background:var(--soft)"><td colspan="${adm?5:4}" class="tright"><b>TỒN QUỸ (toàn bộ)</b></td><td colspan="2" class="tright"><b style="color:var(--brand-700);font-size:1.03rem">${fmtVND(ton)}</b></td><td></td></tr>`;
   }
   h+='</tbody></table></div></div>';
 
@@ -2362,8 +2375,24 @@ function renderThu(){
   $('#addChi').onclick=()=>addGD('chi');
   $('#expXls').onclick=()=>exportSoQuy(list,{tThu,tChi,ton});
   $$('#view [data-view]').forEach(b=>b.onclick=()=>{const g=OPS.gd.find(x=>x.id===Number(b.dataset.view));if(g)openVoucher(g);});
-  $$('#view [data-del]').forEach(b=>b.onclick=async()=>{const id=Number(b.dataset.del);const g=OPS.gd.find(x=>x.id===id);const {error}=await SB.from('so_quy').delete().eq('id',id);if(error){avaAlert('Lỗi xóa phiếu: '+error.message);return;}OPS.gd=OPS.gd.filter(x=>x.id!==id);
-    if(g&&g.hvId!=null){const hv=OPS.hv.find(x=>x.id===g.hvId);if(hv&&hv.daDong){await SB.from('hoc_vien').update({da_dong:false}).eq('id',hv.id);await SB.from('hoc_vien').update({so_tien_dong:0}).eq('id',hv.id);hv.daDong=false;hv.soTienDong=0;}}
+  $$('#view [data-del]').forEach(b=>b.onclick=async()=>{
+    const id=Number(b.dataset.del);
+    const g=OPS.gd.find(x=>x.id===id);
+    const hv=(g&&g.hvId!=null)?OPS.hv.find(x=>x.id===g.hvId):null;
+    // Phiếu thu học phí gắn với 1 học sinh: xóa sẽ đánh dấu lại "chưa đóng" — cần cảnh báo rõ.
+    const msg=(hv&&hv.daDong)
+      ? `Xóa phiếu thu học phí của "${esc(hv.ten)}"?\nHọc sinh này sẽ được đánh dấu lại là CHƯA đóng học phí.\nThao tác không thể hoàn tác.`
+      : 'Xóa phiếu này khỏi sổ quỹ? Thao tác không thể hoàn tác.';
+    if(!await avaConfirm(msg,{danger:true,okText:'Xóa'}))return;
+    const {error}=await SB.from('so_quy').delete().eq('id',id);
+    if(error){avaAlert('Lỗi xóa phiếu: '+error.message);return;}
+    OPS.gd=OPS.gd.filter(x=>x.id!==id);
+    if(hv&&hv.daDong){
+      await SB.from('hoc_vien').update({da_dong:false}).eq('id',hv.id);
+      await SB.from('hoc_vien').update({so_tien_dong:0}).eq('id',hv.id);
+      await SB.from('hoc_vien').update({ngay_dong:null}).eq('id',hv.id);   // xóa luôn ngày đóng để dữ liệu nhất quán
+      hv.daDong=false;hv.soTienDong=0;hv.ngayDong=null;
+    }
     renderThu();});
 }
 
@@ -2412,7 +2441,7 @@ async function exportSoQuy(list,t){
   list.forEach((g,i)=>A.push([i+1,isoVN(g.ngay),g.loai==='thu'?'Thu':'Chi',g.hangMuc,g.noiDung||'',csName(g.coSoId),g.loai==='thu'?g.soTien:'',g.loai==='chi'?g.soTien:'',g.nguoiLap||'']));
   A.push([]);
   A.push(['','','','','','TỔNG',t.tThu,t.tChi,'']);
-  A.push(['','','','','','TỒN QUỸ',t.ton,'','']);
+  A.push(['','','','','','TỒN QUỸ (toàn bộ)',t.ton,'','']);
   const ws=XLSX.utils.aoa_to_sheet(A);
   ws['!cols']=[{wch:5},{wch:12},{wch:7},{wch:20},{wch:34},{wch:16},{wch:15},{wch:15},{wch:18}];
   ws['!merges']=[{s:{r:0,c:0},e:{r:0,c:8}},{s:{r:1,c:0},e:{r:1,c:8}},{s:{r:2,c:0},e:{r:2,c:8}}];
@@ -2815,7 +2844,7 @@ function renderDiemDanh(){
   const caBtn=$('#caAct');
   if(caBtn) caBtn.onclick=async()=>{
     const act=caBtn.dataset.act; caBtn.disabled=true; let r;
-    if(act==='submit'){ if(!marked&&!cc){caBtn.disabled=false;avaAlert('Chưa điểm danh gì để gửi đối soát.');return;} r=await caSetState(ddLopId,ddDate,lop.coSoId,'cho_duyet'); }
+    if(act==='submit'||act==='ownersubmit'){ if(!marked&&!cc){caBtn.disabled=false;avaAlert('Chưa điểm danh gì để gửi đối soát.');return;} r=await caSetState(ddLopId,ddDate,lop.coSoId, act==='ownersubmit'?'da_doi_soat':'cho_duyet'); }
     else if(act==='accept') r=await caSetState(ddLopId,ddDate,lop.coSoId,'da_doi_soat');
     else if(act==='chot'){ if(!await avaConfirm('Chốt số liệu ca "'+lop.lop+'" ngày '+isoVN(ddDate)+'?\nSau khi chốt sẽ KHÓA, muốn sửa phải Mở khóa.')){caBtn.disabled=false;return;} r=await caSetState(ddLopId,ddDate,lop.coSoId,'da_chot'); }
     else if(act==='unlock'){ if(!await avaConfirm('Mở khóa ca này để sửa lại điểm danh?')){caBtn.disabled=false;return;} r=await caUnlock(ddLopId,ddDate); }
@@ -2859,12 +2888,13 @@ function duyetBar(ca,lop){
   const info=m=>`<span class="muted" style="font-size:.8rem;font-weight:600">${m}</span>`;
   if(USER.role==='teacher'){
     if(st==='da_chot') action=info('🔒 Đã chốt — không sửa được');
-    else action=`<button class="btn btn-sm btn-primary" id="caAct" data-act="submit">${st?'↻ Gửi lại đối soát':'✓ Gửi đối soát'}</button>`;
+    else if(st==='da_doi_soat') action=info('✓ Lễ tân đã đối soát · chờ Quản trị chốt');   // không cho GV kéo ngược về "chờ" (sẽ vướng RLS)
+    else action=`<button class="btn btn-sm btn-primary" id="caAct" data-act="submit">${st==='cho_duyet'?'↻ Gửi lại đối soát':'✓ Gửi đối soát'}</button>`;
   } else if(USER.role==='owner'){
     if(st==='cho_duyet') action=`<button class="btn btn-sm btn-primary" id="caAct" data-act="accept">✓ Chấp nhận (đối soát)</button>`;
     else if(st==='da_doi_soat') action=info('Đã đối soát · chờ Quản trị chốt');
     else if(st==='da_chot') action=info('🔒 Đã chốt');
-    else action=info('Giáo viên chưa gửi đối soát');
+    else action=`<button class="btn btn-sm btn-primary" id="caAct" data-act="ownersubmit">✓ Gửi đối soát</button>`;   // cơ sở không có TK giáo viên: lễ tân tự điểm danh & gửi thẳng
   } else if(USER.role==='admin'){
     if(st==='da_chot') action=`<button class="btn btn-sm btn-light" id="caAct" data-act="unlock" style="color:var(--rose)">🔓 Mở khóa</button>`;
     else if(st) action=`<button class="btn btn-sm btn-primary" id="caAct" data-act="chot">✓ Chốt số liệu</button>`;

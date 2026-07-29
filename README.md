@@ -1,45 +1,49 @@
-# AVATAR Center — Hệ thống quản trị chuỗi (Bản demo giao diện)
+# AVATAR Center — Hệ thống quản trị chuỗi
 
-Giao diện quản trị nội bộ cho **Trung tâm Anh ngữ AVATAR** (Nghệ An): quản lý **15 cơ sở thành viên + 1 Trung tâm chính**, tập trung vào **giáo viên, lớp học, học sinh** và **quản lý các khoản thu học phí**.
+Giao diện quản trị nội bộ cho **Trung tâm Anh ngữ AVATAR** (Nghệ An): quản lý chuỗi cơ sở thành viên, tập trung vào **giáo viên, lớp học, học sinh, học phí** và **điểm danh – đối soát**.
 
-- Tông màu **xanh navy** chủ đạo, thiết kế **mobile-first**, dùng tốt trên cả điện thoại và máy tính.
-- Công nghệ: **HTML + CSS + JavaScript thuần**, không cần máy chủ, không cần build. Chạy tốt trên GitHub Pages ở đường dẫn con.
+- Tông màu **xanh navy** chủ đạo, thiết kế **mobile-first**, dùng tốt trên điện thoại và máy tính; cài được như ứng dụng (PWA).
+- Frontend: **HTML + CSS + JavaScript thuần**, không cần build, chạy trên GitHub Pages.
+- Backend: **Supabase** (Postgres + Auth + RLS + Realtime) — dữ liệu tập trung, đồng bộ mọi máy theo thời gian thực.
 
 ## Phân quyền (3 vai trò)
 
-| Vai trò | Phạm vi | Chức năng |
+| Vai trò | Phạm vi | Chức năng chính |
 |---|---|---|
-| **Giám đốc** (admin) | Toàn hệ thống | Xem/tổng hợp toàn bộ 16 cơ sở; chọn xem từng cơ sở qua bộ lọc "Cơ sở" |
-| **Lễ tân** (chủ cơ sở) | Cố định 1 cơ sở | Quản lý giáo viên, lớp, học sinh, khoản thu của cơ sở mình |
-| **Giáo viên** | Cố định 1 cơ sở | Xem lớp học và học sinh; không thấy khoản thu |
+| **Giám đốc** (`admin`) | Toàn hệ thống | Xem/tổng hợp mọi cơ sở; lọc theo từng cơ sở; quản lý GV/lớp/HS/khoản thu; tạo & quản lý tài khoản giáo viên; **chốt** số liệu điểm danh. |
+| **Lễ tân** (`owner`) | Cố định 1 cơ sở | Quản lý GV, lớp, học sinh, khoản thu của cơ sở mình; điểm danh & **đối soát**. |
+| **Giáo viên** (`teacher`) | Lớp được phân công | Xem lớp mình phụ trách, **ghi danh** (thêm học sinh) và **điểm danh**; gửi đối soát. Không thấy khoản thu, không thấy lớp/cơ sở khác. |
+
+Phân quyền được khóa ở tầng CSDL bằng **RLS** (Row Level Security) theo `role` và `coso_id`/`gv_id`.
 
 ## Chức năng
 
-- **Bảng điều hành** — KPI (giáo viên, học sinh, lớp, đã thu / còn nợ trong tháng), biểu đồ doanh thu theo cơ sở, danh sách công nợ cần nhắc.
-- **Cơ sở** — danh mục 15 chi nhánh + Trung tâm chính (chỉ Giám đốc).
-- **Giáo viên / Lớp học / Học sinh** — danh sách, tìm kiếm, lọc, thêm mới.
-- **Khoản thu** ⭐ — theo dõi học phí theo tháng: phải đóng / đã đóng / còn nợ, tỷ lệ thu, nút "Thu đủ", lọc theo tháng và trạng thái.
-- **Báo cáo** — tổng hợp doanh thu theo cơ sở và xu hướng 3 tháng.
-
-## Chạy thử
-
-Mở trực tiếp `index.html` bằng trình duyệt, hoặc truy cập bản đã triển khai trên GitHub Pages. Chọn vai trò ở màn đăng nhập để xem quyền hạn khác nhau.
-
-## Lộ trình
-
-- **Giai đoạn 1 (hiện tại):** Giao diện hoàn chỉnh, chạy bằng **dữ liệu mẫu**, lưu tạm bằng `localStorage` của trình duyệt — dùng để Trung tâm duyệt giao diện & luồng.
-- **Giai đoạn 2:** Kết nối kho dữ liệu thật **Supabase** (đăng nhập, phân quyền theo cơ sở, lưu dữ liệu tập trung cho 16 cơ sở).
-- **Giai đoạn 3:** Tạo tài khoản cho Giám đốc + 15 Lễ tân, nhập dữ liệu thật, đưa vào vận hành.
-
-## Lưu ý về dữ liệu
-
-- Đây là **bản demo giao diện**: mọi giáo viên, lớp, học sinh, khoản thu đều là **dữ liệu mẫu**, không phải thông tin thật.
-- Dữ liệu thêm/sửa trong phiên được lưu tạm bằng `localStorage`; xóa dữ liệu duyệt web sẽ xóa các thay đổi này.
+- **Bảng điều hành** — KPI (dự thu / đã thu học phí, học sinh đang học, lớp), tài chính học phí, chuyên cần (30 ngày gần nhất), điểm danh hôm nay, cảnh báo điều hành, hoạt động gần đây.
+- **Cơ sở** — danh mục cơ sở + trang chi tiết từng cơ sở (chỉ Giám đốc).
+- **Giáo viên / Lớp học / Học sinh** — danh sách, tìm kiếm, lọc, thêm/sửa, phân công lớp, nhập Excel hàng loạt.
+- **Ghi danh & Điểm danh** — ghi danh học sinh vào lớp; điểm danh học sinh + chấm công giáo viên từng buổi.
+- **Đối soát** — luồng duyệt: Giáo viên gửi → Lễ tân đối soát → Quản trị **chốt** (khóa số liệu ca dạy).
+- **Khoản thu** — sổ quỹ thu–chi theo hạng mục, tồn quỹ, phiếu thu/chi (in & tải Word), xuất Excel; tự sinh phiếu thu học phí theo số tiền học sinh đã đóng.
+- **Tài khoản giáo viên** (chỉ Giám đốc) — tạo/đổi mật khẩu/khóa/xóa tài khoản GV (qua Edge Function `quan-ly-tk`).
 
 ## Cấu trúc
 
 | File | Vai trò |
 |------|---------|
-| `index.html` | Toàn bộ hệ thống quản trị (đăng nhập + 7 module). |
-| `trung-tam-dieu-hanh.html` | Tự chuyển hướng về `index.html` (giữ tương thích đường dẫn cũ). |
-| `HUONG_DAN.txt` | Ghi chú đưa demo lên GitHub Pages. |
+| `index.html` | Toàn bộ ứng dụng (đăng nhập + các module). |
+| `data.js` | Dữ liệu giáo viên/lớp gốc (đã nạp vào Supabase ở Giai đoạn 2; giữ để đối chiếu id). |
+| `supabase-schema.sql` | Tạo bảng nền + RLS. |
+| `sql-giai-doan-2.sql` … `sql-giai-doan-4-duyet.sql` | Các bước migration theo giai đoạn (GV/lớp sống, vai trò GV, luồng đối soát). |
+| `sql-*.sql` khác | Bổ sung cột (ngày nhập/thôi học, ngày đóng, số tiền đóng, hợp đồng GV…), dọn dữ liệu thử. |
+| `edge-function-quan-ly-tk.ts` | Edge Function quản lý tài khoản giáo viên (deploy trên Supabase). |
+| `xlsx.full.min.js`, `exceljs.min.js` | Thư viện Excel (tự host). |
+| `fonts/` | Font thương hiệu UTM Avo (tự host). |
+
+## Vận hành
+
+1. Chạy các file `sql-*.sql` trong Supabase → SQL Editor theo thứ tự giai đoạn (an toàn khi chạy lại — dùng `if not exists`).
+2. Deploy Edge Function `quan-ly-tk`.
+3. Tạo tài khoản Giám đốc/Lễ tân trong Authentication, gán `role`/`coso_id` trong bảng `profiles`.
+4. Đăng nhập tại `index.html`. Tên đăng nhập ngắn sẽ tự thêm đuôi `@avatar.vn`.
+
+> Lưu ý: dữ liệu hiện là **dữ liệu vận hành thật** lưu tập trung trên Supabase (không còn dùng dữ liệu mẫu/localStorage).
