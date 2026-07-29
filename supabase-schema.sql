@@ -24,7 +24,8 @@ create table if not exists public.hoc_vien (
   ns       text,
   ph       text,
   sdt      text,
-  hoc_phi  numeric default 0,
+  hoc_phi  numeric default 0,          -- học phí CẢ KHÓA
+  so_tien_dong numeric default 0,      -- số tiền đã đóng thực tế (có thể đóng một phần)
   lop_id   int  not null,
   coso_id  int  not null,
   mau      boolean default false,     -- học viên mẫu (tạo nhanh để thử)

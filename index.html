@@ -365,6 +365,7 @@ tbody tr:hover{background:var(--soft)}
 @keyframes avaPop{from{transform:translateY(8px) scale(.96);opacity:.5}to{transform:none;opacity:1}}
 .paidtag{display:inline-block;font-size:.66rem;font-weight:800;padding:1px 7px;border-radius:99px;margin-left:5px;vertical-align:middle}
 .paidtag.yes{background:#eafaf1;color:var(--emerald)}
+.paidtag.part{background:#fff5e6;color:#c47f16}
 .paidtag.no{background:#fdf1ec;color:#d9663b}
 .leftTag{display:inline-block;font-size:.66rem;font-weight:800;padding:1px 7px;border-radius:99px;margin-left:5px;vertical-align:middle;background:#eef1f5;color:#6b7688}
 .ddrow.hv-left{opacity:.72}
@@ -734,7 +735,12 @@ const SB_URL='https://hdvtlbeozyumvnhgejxp.supabase.co';
 const SB_KEY='sb_publishable_eGYgGZpxRRdIgLeO6_S_JQ_N7rHsINZ';
 const SB=window.supabase.createClient(SB_URL,SB_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:false,storageKey:'avatar-auth'}});
 /* ánh xạ giữa cột CSDL (chữ_gạch) và tên dùng trong app (chữHoa) */
-const hvFromDb=r=>({id:r.id,ten:r.ten,ns:r.ns||'',ph:r.ph||'',sdt:r.sdt||'',hocPhi:Number(r.hoc_phi)||0,daDong:!!r.da_dong,ngayDong:r.ngay_dong||null,ngayNhapHoc:r.ngay_nhap_hoc||null,ngayThoiHoc:r.ngay_thoi_hoc||null,lyDo:r.ly_do_thoi_hoc||'',lopId:r.lop_id,coSoId:r.coso_id,mau:!!r.mau,createdAt:r.created_at||null});
+const hvFromDb=r=>{
+  const hp=Number(r.hoc_phi)||0;
+  // Số tiền đã đóng thực tế. HS cũ (trước khi có cột so_tien_dong): da_dong=true coi như đã đóng đủ = học phí.
+  const sd=r.so_tien_dong!=null?(Number(r.so_tien_dong)||0):(r.da_dong?hp:0);
+  return {id:r.id,ten:r.ten,ns:r.ns||'',ph:r.ph||'',sdt:r.sdt||'',hocPhi:hp,soTienDong:sd,daDong:sd>0,ngayDong:r.ngay_dong||null,ngayNhapHoc:r.ngay_nhap_hoc||null,ngayThoiHoc:r.ngay_thoi_hoc||null,lyDo:r.ly_do_thoi_hoc||'',lopId:r.lop_id,coSoId:r.coso_id,mau:!!r.mau,createdAt:r.created_at||null};
+};
 /* Học sinh đang học = chưa có ngày thôi học */
 const hvActive=h=>!h.ngayThoiHoc;
 const hvToDb=o=>({ten:o.ten,ns:o.ns||'',ph:o.ph||'',sdt:o.sdt||'',hoc_phi:o.hocPhi||0,da_dong:!!o.daDong,lop_id:o.lopId,coso_id:o.coSoId,mau:!!o.mau});
@@ -742,12 +748,17 @@ const gdFromDb=r=>({id:r.id,ngay:r.ngay,loai:r.loai,hangMuc:r.hang_muc,coSoId:r.
 const gdToDb=o=>({ngay:o.ngay,loai:o.loai,hang_muc:o.hangMuc,coso_id:o.coSoId,so_tien:o.soTien,noi_dung:o.noiDung||'',nguoi_lap:o.nguoiLap||''});
 /* Đồng bộ phiếu thu học phí trong Sổ quỹ theo trạng thái "đã đóng" của học sinh.
    Bỏ qua êm nếu chưa chạy SQL thêm cột hv_id. */
-async function syncHocPhiVoucher(h,paid){
+async function syncHocPhiVoucher(h,amt){
   const del=await SB.from('so_quy').delete().eq('hv_id',h.id);
   if(del.error) return;                       // cột hv_id chưa có → chưa chạy SQL đồng bộ
   OPS.gd=OPS.gd.filter(g=>g.hvId!==h.id);
-  if(paid && (h.hocPhi||0)>0){
-    const rec={ngay:h.ngayDong||todayISO(),loai:'thu',hangMuc:'Học phí',coSoId:h.coSoId,soTien:h.hocPhi,noiDung:'Học phí: '+h.ten+' — '+lopName(h.lopId),nguoiLap:USER.role==='admin'?'Quản trị':csName(USER.coSoId)};
+  // Số tiền ghi phiếu thu = số tiền đã đóng thực tế (có thể là một phần của học phí cả khóa).
+  const hp=h.hocPhi||0;
+  const sd=Math.min(Number(amt!=null?amt:h.soTienDong)||0,hp);
+  if(sd>0){
+    const conLai=hp-sd;
+    const noi='Học phí: '+h.ten+' — '+lopName(h.lopId)+(conLai>0?(' (đóng '+fmtVND(sd)+'/'+fmtVND(hp)+', còn '+fmtVND(conLai)+')'):' (đã đủ)');
+    const rec={ngay:h.ngayDong||todayISO(),loai:'thu',hangMuc:'Học phí',coSoId:h.coSoId,soTien:sd,noiDung:noi,nguoiLap:USER.role==='admin'?'Quản trị':csName(USER.coSoId)};
     const {data,error}=await SB.from('so_quy').insert({...gdToDb(rec),hv_id:h.id}).select().single();
     if(!error&&data) OPS.gd.push(gdFromDb(data));
   }
@@ -874,7 +885,7 @@ function csStat(id){
 /* Học phí theo phạm vi cơ sở: dự thu = Σ học phí mọi HS; đã thu = HS đã đóng */
 function hpStat(ids){
   let du=0,da=0,n=0,nDa=0;
-  OPS.hv.forEach(h=>{ if(!ids.includes(h.coSoId)||!hvActive(h))return; const p=h.hocPhi||0; du+=p; n++; if(h.daDong){da+=p;nDa++;} });
+  OPS.hv.forEach(h=>{ if(!ids.includes(h.coSoId)||!hvActive(h))return; const p=h.hocPhi||0; const sd=Math.min(Number(h.soTienDong)||0,p); du+=p; n++; if(sd>0){da+=sd;nDa++;} });
   return {du,da,chua:Math.max(0,du-da),rate:du?da/du:0,n,nDa};
 }
 /* Chuyên cần thật = (có mặt + muộn) / tổng lượt điểm danh; null nếu chưa có dữ liệu */
@@ -1013,12 +1024,12 @@ async function hsDownloadTemplate(lop){
   const coSoId=lop.coSoId;
   const lops=LOP.filter(l=>l.coSoId===coSoId).slice().sort((a,b)=>String(a.lop).localeCompare(String(b.lop),'vi'));
   const lopNames=lops.map(l=>l.lop);
-  const cols=[{h:'TT',k:'tt',w:6},{h:'Họ và tên',k:'ten',w:24},{h:'Lớp',k:'lop',w:16,dvList:lopNames},{h:'Ngày sinh',k:'ns',w:13},{h:'Phụ huynh',k:'ph',w:20},{h:'Điện thoại',k:'sdt',w:15},{h:'Thời gian nhập học',k:'nhaphoc',w:17},{h:'Trạng thái',k:'trangthai',w:14,dv:['Đang học','Hết khóa','Thôi học']},{h:'Học phí (đ/tháng)',k:'hp',w:17}];
+  const cols=[{h:'TT',k:'tt',w:6},{h:'Họ và tên',k:'ten',w:24},{h:'Lớp',k:'lop',w:16,dvList:lopNames},{h:'Ngày sinh',k:'ns',w:13},{h:'Phụ huynh',k:'ph',w:20},{h:'Điện thoại',k:'sdt',w:15},{h:'Thời gian nhập học',k:'nhaphoc',w:17},{h:'Trạng thái',k:'trangthai',w:14,dv:['Đang học','Hết khóa','Thôi học']},{h:'Học phí (đ/khóa)',k:'hp',w:17}];
   await makeTemplate({sheet:'DanhSach',columns:cols,
     example:{tt:1,ten:'Nguyễn Văn An',lop:lopNames[0]||'',ns:'01/09/2015',ph:'Nguyễn Văn Ba',sdt:'0901234567',nhaphoc:isoVN(todayISO()),trangthai:'Đang học',hp:600000},
     filename:'Mau-hoc-sinh-'+csName(coSoId).replace(/[\\/:*?"<>|\s]+/g,'-')+'.xlsx',
     title:'DANH SÁCH HỌC SINH — '+csName(coSoId),
-    guide:['• Mẫu này dùng cho CẢ CƠ SỞ — nhập nhiều lớp trong một file.','• Điền mỗi học sinh 1 dòng, ngay dưới hàng tiêu đề màu xanh.','• Cột "TT" chỉ để đánh số cho dễ nhìn — không ảnh hưởng khi nhập.','• "Họ và tên" là bắt buộc; dòng để trống tên sẽ bị bỏ qua.','• Cột "Lớp": bấm vào ô sẽ hiện danh sách lớp của cơ sở — CHỌN lớp, KHÔNG gõ tay để tránh sai. Để trống thì hệ thống xếp vào lớp đang chọn trên web.','• Ngày sinh & Thời gian nhập học ghi dạng ngày/tháng/năm (VD: 01/09/2015). Để trống Thời gian nhập học thì lấy ngày nhập file.','• Cột "Trạng thái" chọn: Đang học / Hết khóa / Thôi học (để trống coi như Đang học).','• Học phí ghi số, không dấu chấm (VD: 600000).','• Lưu file rồi vào web bấm "Nhập Excel".']});
+    guide:['• Mẫu này dùng cho CẢ CƠ SỞ — nhập nhiều lớp trong một file.','• Điền mỗi học sinh 1 dòng, ngay dưới hàng tiêu đề màu xanh.','• Cột "TT" chỉ để đánh số cho dễ nhìn — không ảnh hưởng khi nhập.','• "Họ và tên" là bắt buộc; dòng để trống tên sẽ bị bỏ qua.','• Cột "Lớp": bấm vào ô sẽ hiện danh sách lớp của cơ sở — CHỌN lớp, KHÔNG gõ tay để tránh sai. Để trống thì hệ thống xếp vào lớp đang chọn trên web.','• Ngày sinh & Thời gian nhập học ghi dạng ngày/tháng/năm (VD: 01/09/2015). Để trống Thời gian nhập học thì lấy ngày nhập file.','• Cột "Trạng thái" chọn: Đang học / Hết khóa / Thôi học (để trống coi như Đang học).','• Học phí ghi cho CẢ KHÓA, dạng số không dấu chấm (VD: 600000).','• Lưu file rồi vào web bấm "Nhập Excel".']});
 }
 function hsImportExcel(lop){
   const coSoId=lop.coSoId;
@@ -1384,7 +1395,7 @@ function renderHuongDan(){
   ];
   const steps=[
     ['Ghi danh học sinh mới','Vào <b>Ghi danh</b> → chọn lớp → nhập họ tên, ngày sinh, học phí → bấm <b>Thêm</b>. Hoặc bấm <b>Nhập Excel</b> để thêm cả danh sách một lần.'],
-    ['Đánh dấu đã đóng học phí','Vào <b>Học sinh</b> → bấm <b>Hồ sơ</b> em cần → chọn <b>✓ Đã đóng</b> + ngày đóng → <b>Lưu</b>. Phiếu thu tự tạo trong Sổ quỹ.'],
+    ['Đánh dấu đã đóng học phí','Vào <b>Học sinh</b> → bấm <b>Hồ sơ</b> em cần → chọn <b>✓ Đã đóng</b>, nhập <b>số tiền đã đóng</b> (đóng đủ hoặc một phần) + ngày đóng → <b>Lưu</b>. Phiếu thu tự tạo trong Sổ quỹ đúng số tiền đã nộp.'],
     ['Nhập danh sách từ Excel','Vào <b>Ghi danh</b> → <b>Tải mẫu Excel (cả cơ sở)</b> → điền, chọn Lớp trong ô danh sách → <b>Nhập Excel</b> → xem trước → xác nhận.'],
     ['Điểm danh & chấm công','Vào <b>Điểm danh</b> → chọn ngày & lớp → tích trạng thái từng học sinh; kéo xuống mục <b>Chấm công giáo viên</b> để đánh dấu buổi dạy.'],
     ['Lập phiếu thu – chi & xuất Excel','Vào <b>Khoản thu</b> → thêm phiếu thu/chi theo hạng mục → xem tồn quỹ → bấm <b>Xuất Excel</b> khi cần báo cáo.'],
@@ -2072,7 +2083,7 @@ function renderThu(){
   $('#expXls').onclick=()=>exportSoQuy(list,{tThu,tChi,ton});
   $$('#view [data-view]').forEach(b=>b.onclick=()=>{const g=OPS.gd.find(x=>x.id===Number(b.dataset.view));if(g)openVoucher(g);});
   $$('#view [data-del]').forEach(b=>b.onclick=async()=>{const id=Number(b.dataset.del);const g=OPS.gd.find(x=>x.id===id);const {error}=await SB.from('so_quy').delete().eq('id',id);if(error){avaAlert('Lỗi xóa phiếu: '+error.message);return;}OPS.gd=OPS.gd.filter(x=>x.id!==id);
-    if(g&&g.hvId!=null){const hv=OPS.hv.find(x=>x.id===g.hvId);if(hv&&hv.daDong){await SB.from('hoc_vien').update({da_dong:false}).eq('id',hv.id);hv.daDong=false;}}
+    if(g&&g.hvId!=null){const hv=OPS.hv.find(x=>x.id===g.hvId);if(hv&&hv.daDong){await SB.from('hoc_vien').update({da_dong:false}).eq('id',hv.id);await SB.from('hoc_vien').update({so_tien_dong:0}).eq('id',hv.id);hv.daDong=false;hv.soTienDong=0;}}
     renderThu();});
 }
 
@@ -2206,8 +2217,8 @@ function renderHocVien(){
   if(q) list=list.filter(h=>fold(h.ten+' '+h.ph+' '+h.sdt).toLowerCase().includes(q));
   list=list.slice().sort((a,b)=>(a.coSoId-b.coSoId)||String(a.ten).localeCompare(String(b.ten),'vi'));
   const tongHP=list.filter(hvActive).reduce((s,h)=>s+(h.hocPhi||0),0);
-  const daThu=list.filter(h=>h.daDong&&hvActive(h)).reduce((s,h)=>s+(h.hocPhi||0),0);
-  const nDa=list.filter(h=>h.daDong&&hvActive(h)).length, nChua=list.filter(hvActive).length-nDa;
+  const daThu=list.filter(hvActive).reduce((s,h)=>s+Math.min(Number(h.soTienDong)||0,h.hocPhi||0),0);
+  const nDa=list.filter(h=>hvActive(h)&&(Number(h.soTienDong)||0)>0).length, nChua=list.filter(hvActive).length-nDa;
   // Học sinh mẫu cũ (cờ mau) còn sót trong DB — cho phép dọn hàng loạt theo phạm vi cơ sở đang xem
   let mauList=inHV();
   if(isAdmin && hvCs!=='all') mauList=mauList.filter(h=>h.coSoId===Number(hvCs));
@@ -2239,7 +2250,13 @@ function renderHocVien(){
     list.forEach((v,i)=>{
       const left=!hvActive(v);
       const info=[lopName(v.lopId),isAdmin?csName(v.coSoId):'',v.sdt,(!left&&v.hocPhi)?fmtVND(v.hocPhi):''].filter(Boolean).join(' · ');
-      const paidTag=(!left&&v.hocPhi)?`<span class="paidtag ${v.daDong?'yes':'no'}">${v.daDong?('Đã đóng'+(v.ngayDong?' '+isoVN(v.ngayDong):'')):'Chưa đóng'}</span>`:'';
+      let paidTag='';
+      if(!left&&v.hocPhi){
+        const _sd=Math.min(Number(v.soTienDong)||0,v.hocPhi||0), _con=(v.hocPhi||0)-_sd;
+        if(_sd<=0) paidTag=`<span class="paidtag no">Chưa đóng</span>`;
+        else if(_con>0) paidTag=`<span class="paidtag part">Đã đóng ${fmtShort(_sd)}/${fmtShort(v.hocPhi)}${v.ngayDong?' · '+isoVN(v.ngayDong):''}</span>`;
+        else paidTag=`<span class="paidtag yes">Đã đóng đủ${v.ngayDong?' '+isoVN(v.ngayDong):''}</span>`;
+      }
       const leftTag=left?`<span class="leftTag">Đã thôi học${v.ngayThoiHoc?' '+isoVN(v.ngayThoiHoc):''}${v.lyDo?' · '+esc(v.lyDo):''}</span>`:'';
       h+=`<div class="ddrow${left?' hv-left':''}"><div class="idx">${i+1}</div>
         <div class="nm"><b>${esc(v.ten)}${paidTag}${leftTag}</b><small>${esc(info)||'—'}</small></div>
@@ -2290,13 +2307,15 @@ function openHvEdit(h){
    <div class="mbody"><div class="form2">
      <div class="fld full"><label>Họ và tên</label><input id="hv_ten" value="${esc(h.ten)}"/></div>
      <div class="fld"><label>Ngày sinh</label><input id="hv_ns" value="${esc(h.ns)}" placeholder="dd/mm/yyyy"/></div>
-     <div class="fld"><label>Học phí (đ/tháng)</label><input id="hv_hp" inputmode="numeric" value="${h.hocPhi||''}" placeholder="VD: 600.000"/></div>
+     <div class="fld"><label>Học phí (đ/khóa)</label><input id="hv_hp" inputmode="numeric" value="${h.hocPhi||''}" placeholder="VD: 600.000"/></div>
      <div class="fld full"><label>Tình trạng học phí · ngày đóng</label>
        <div class="hv-paid3" id="hv_paid">
          <button type="button" data-p="1">✓ Đã đóng</button>
          <button type="button" data-p="0">Chưa đóng</button>
          <input id="hv_ngaydong" placeholder="dd/mm/yyyy" value="${h.daDong&&h.ngayDong?isoVN(h.ngayDong):''}"/>
        </div></div>
+     <div class="fld full"><label>Số tiền đã đóng (đ)</label><input id="hv_sotien" inputmode="numeric" value="${h.soTienDong||''}" placeholder="VD: đóng trước 200.000"/>
+       <small class="muted" style="font-size:.72rem">Nhập số tiền phụ huynh đã nộp. Đóng đủ thì bằng học phí cả khóa. Phiếu thu trong Sổ quỹ ghi đúng số này.</small></div>
      <div class="fld"><label>Phụ huynh</label><input id="hv_ph" value="${esc(h.ph)}" placeholder="Tên phụ huynh"/></div>
      <div class="fld"><label>Điện thoại</label><input id="hv_sdt" value="${esc(h.sdt)}" inputmode="tel" placeholder="SĐT liên hệ"/></div>
      <div class="fld full"><label>Lớp đang học</label><select id="hv_lop">${lopsCs.map(l=>`<option value="${l.id}" ${l.id===h.lopId?'selected':''}>${esc(l.lop)} — ${esc(l.gv||'?')}</option>`).join('')}</select></div>
@@ -2316,14 +2335,18 @@ function openHvEdit(h){
      <div class="fld full" style="display:flex;gap:9px"><button class="btn btn-primary" id="hv_save" style="flex:1">✓ Lưu hồ sơ</button><button class="btn btn-light" id="hv_del" style="color:var(--rose)">Xóa</button></div>
    </div></div>`;
   $('#modal').classList.add('on');
-  attachMoneyFormat($('#hv_hp')); attachDateFormat($('#hv_ns')); attachDateFormat($('#hv_ngaydong'));
+  attachMoneyFormat($('#hv_hp')); attachMoneyFormat($('#hv_sotien')); attachDateFormat($('#hv_ns')); attachDateFormat($('#hv_ngaydong'));
   attachDateFormat($('#hv_nhaphoc')); attachDateFormat($('#hv_thoihoc'));
   let paid=!!h.daDong;
-  const ndInp=$('#hv_ngaydong');
+  const ndInp=$('#hv_ngaydong'), sdInp=$('#hv_sotien');
+  const numOf=el=>Number(String(el.value).replace(/[^\d]/g,''))||0;
   const setPaidUI=()=>{
     $$('#hv_paid button').forEach(x=>x.classList.toggle('sel',x.dataset.p===(paid?'1':'0')));
-    ndInp.disabled=!paid;
-    if(paid){ if(!ndInp.value) ndInp.value=isoVN(todayISO()); } else { ndInp.value=''; }
+    ndInp.disabled=!paid; sdInp.disabled=!paid;
+    if(paid){
+      if(!ndInp.value) ndInp.value=isoVN(todayISO());
+      if(!numOf(sdInp)) sdInp.value=String(numOf($('#hv_hp')));   // mồi = học phí cả khóa; lễ tân sửa xuống nếu đóng một phần
+    } else { ndInp.value=''; sdInp.value=''; }
   };
   $$('#hv_paid button').forEach(b=>b.onclick=()=>{paid=b.dataset.p==='1';setPaidUI();});
   setPaidUI();
@@ -2341,11 +2364,15 @@ function openHvEdit(h){
     const ten=$('#hv_ten').value.trim();
     if(!ten){err('Vui lòng nhập họ tên.');return;}
     if(!isValidDob($('#hv_ns').value)){err('Ngày sinh chưa đúng dạng ngày/tháng/năm (VD: 01/09/2015).');$('#hv_ns').focus();return;}
-    let ndIso=null;
+    const hp=Number(String($('#hv_hp').value).replace(/[^\d]/g,''))||0;
+    let ndIso=null, sd=0;
     if(paid){
       const ndv=$('#hv_ngaydong').value.trim();
       if(ndv && !isValidDob(ndv)){err('Ngày đóng chưa đúng dạng ngày/tháng/năm.');$('#hv_ngaydong').focus();return;}
       ndIso = ndv ? vnToIso(ndv) : todayISO();
+      sd=Number(String($('#hv_sotien').value).replace(/[^\d]/g,''))||0;
+      if(sd<=0){err('Đã chọn "Đã đóng" — vui lòng nhập số tiền đã đóng (VD: 200.000).');$('#hv_sotien').focus();return;}
+      if(hp>0 && sd>hp){err('Số tiền đã đóng ('+fmtVND(sd)+') lớn hơn học phí cả khóa ('+fmtVND(hp)+'). Vui lòng kiểm tra lại.');$('#hv_sotien').focus();return;}
     }
     // ngày nhập học
     const nhv=$('#hv_nhaphoc').value.trim();
@@ -2359,17 +2386,18 @@ function openHvEdit(h){
       thIso = thv ? vnToIso(thv) : todayISO();
       lyDo = $('#hv_lydo').value || 'Khác';
     }
-    const hp=Number(String($('#hv_hp').value).replace(/[^\d]/g,''))||0;
     const lopId=Number($('#hv_lop').value);
-    const patch={ten,ns:$('#hv_ns').value.trim(),ph:$('#hv_ph').value.trim(),sdt:$('#hv_sdt').value.trim(),hocPhi:hp,daDong:paid,ngayDong:ndIso,ngayNhapHoc:nhIso,ngayThoiHoc:thIso,lyDo:lyDo||'',lopId};
+    const daDong=sd>0;
+    const patch={ten,ns:$('#hv_ns').value.trim(),ph:$('#hv_ph').value.trim(),sdt:$('#hv_sdt').value.trim(),hocPhi:hp,soTienDong:sd,daDong,ngayDong:ndIso,ngayNhapHoc:nhIso,ngayThoiHoc:thIso,lyDo:lyDo||'',lopId};
     const btn=$('#hv_save'); btn.disabled=true; btn.textContent='Đang lưu…'; err('');
-    const {error}=await SB.from('hoc_vien').update({ten:patch.ten,ns:patch.ns,ph:patch.ph,sdt:patch.sdt,hoc_phi:hp,da_dong:paid,lop_id:lopId,mau:false}).eq('id',h.id);
+    const {error}=await SB.from('hoc_vien').update({ten:patch.ten,ns:patch.ns,ph:patch.ph,sdt:patch.sdt,hoc_phi:hp,da_dong:daDong,lop_id:lopId,mau:false}).eq('id',h.id);
     btn.disabled=false; btn.textContent='✓ Lưu hồ sơ';
     if(error){err('Lỗi lưu: '+error.message);return;}
     await SB.from('hoc_vien').update({ngay_dong:ndIso}).eq('id',h.id);   // cần cột ngay_dong; bỏ qua êm nếu chưa chạy SQL
     await SB.from('hoc_vien').update({ngay_nhap_hoc:nhIso,ngay_thoi_hoc:thIso,ly_do_thoi_hoc:lyDo}).eq('id',h.id);   // cần cột mới; bỏ qua êm nếu chưa chạy SQL
+    await SB.from('hoc_vien').update({so_tien_dong:sd}).eq('id',h.id);   // cần cột so_tien_dong; bỏ qua êm nếu chưa chạy SQL
     Object.assign(h,patch,{mau:false});
-    await syncHocPhiVoucher(h,paid);        // đồng bộ phiếu thu trong Sổ quỹ
+    await syncHocPhiVoucher(h);              // đồng bộ phiếu thu trong Sổ quỹ (theo số tiền đã đóng)
     closeModal(); renderHocVien();
   };
   $('#hv_del').onclick=async()=>{
@@ -2377,7 +2405,7 @@ function openHvEdit(h){
     const {error}=await SB.from('hoc_vien').delete().eq('id',h.id);
     if(error){err('Lỗi xóa: '+error.message);return;}
     OPS.hv=OPS.hv.filter(x=>x.id!==h.id);
-    await syncHocPhiVoucher(h,false);       // xóa luôn phiếu thu tự sinh của em này
+    await syncHocPhiVoucher(h,0);           // xóa luôn phiếu thu tự sinh của em này
     closeModal(); renderHocVien();
   };
 }
@@ -2397,7 +2425,7 @@ function renderGhiDanh(){
       <div class="pbody"><div class="form2">
         <div class="fld full"><label>Họ và tên</label><input id="gd_ten" placeholder="VD: Nguyễn Văn An"/></div>
         <div class="fld"><label>Ngày sinh</label><input id="gd_ns" placeholder="dd/mm/yyyy"/></div>
-        <div class="fld"><label>Học phí (đ/tháng)</label><input id="gd_hp" inputmode="numeric" placeholder="VD: 600.000"/></div>
+        <div class="fld"><label>Học phí (đ/khóa)</label><input id="gd_hp" inputmode="numeric" placeholder="VD: 600.000"/></div>
         <div class="fld"><label>Phụ huynh</label><input id="gd_ph" placeholder="Tên phụ huynh"/></div>
         <div class="fld"><label>Điện thoại</label><input id="gd_sdt" inputmode="tel" placeholder="SĐT liên hệ"/></div>
         <div class="fld full"><button class="btn btn-primary btn-block" id="gd_add">＋ Ghi danh vào lớp</button></div>
