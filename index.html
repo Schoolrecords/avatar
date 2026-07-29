@@ -486,6 +486,8 @@ td.chi{color:var(--rose);font-weight:800}
 .ah-emerald{background:linear-gradient(135deg,#37b083,#1c7a54)}
 .ah-rose{background:linear-gradient(135deg,#e06666,#b23b3b)}
 .ah-slate{background:linear-gradient(135deg,#6b7688,#454f63)}
+.ah-teal{background:linear-gradient(135deg,#38b0b8,#1c7e86)}
+.ah-orange{background:linear-gradient(135deg,#e8823a,#c05f16)}
 .actcard-b{padding:4px 12px 8px}
 .actitem{display:flex;flex-direction:column;padding:9px 2px;border-bottom:1px solid #f1f4f8}
 .actitem:last-child{border-bottom:0}
@@ -497,7 +499,10 @@ td.chi{color:var(--rose);font-weight:800}
 .cctag.cc-nghi{color:#d93838}
 .cctag.cc-bu{color:#e08a1e}
 .actcard-empty{padding:22px 12px;text-align:center;color:var(--faint);font-size:.82rem}
-.actmore{padding:9px 2px 3px;font-size:.76rem;color:var(--brand);font-weight:800}
+.acthide{display:none}
+.actcard.open .acthide{display:block}
+.actmore{display:block;width:100%;text-align:left;padding:9px 2px 3px;font-size:.76rem;color:var(--brand);font-weight:800;background:none;border:0;cursor:pointer}
+.actmore:hover{text-decoration:underline}
 /* ===== Trang Hướng dẫn ===== */
 .guide-hero{position:relative;overflow:hidden;background:var(--dots),linear-gradient(120deg,#1c3c6e,#0b1d3d);background-size:20px 20px,auto;color:#fff;border-radius:16px;padding:22px 22px;margin-bottom:14px;box-shadow:0 16px 34px -22px rgba(11,29,61,.85)}
 .guide-hero .ghb{display:inline-block;background:rgba(255,255,255,.15);color:#f0c552;font-weight:800;font-size:.72rem;padding:3px 12px;border-radius:99px;letter-spacing:.06em;margin-bottom:10px}
@@ -1547,47 +1552,66 @@ function renderDash(){
   const scopeLbl=isAdm?(scope==='all'?'toàn chuỗi':csName(Number(scope))):'cơ sở của bạn';
   // 1) Học sinh mới ghi danh
   const hsAll=(OPS.hv||[]).filter(x=>!x.mau&&x.createdAt&&ids.includes(x.coSoId)).sort((a,b)=>Date.parse(b.createdAt)-Date.parse(a.createdAt));
-  const hsItems=hsAll.slice(0,CAP).map(x=>({main:x.ten,sub:[lopName(x.lopId),isAdm?csName(x.coSoId):''].filter(Boolean).join(' · '),rt:relTime(x.createdAt)}));
-  // 2) Đóng học phí & khoản thu
+  const hsItems=hsAll.map(x=>({main:x.ten,sub:[lopName(x.lopId),isAdm?csName(x.coSoId):''].filter(Boolean).join(' · '),rt:relTime(x.createdAt)}));
+  // 2) Điểm danh giáo viên (chấm công buổi dạy)
+  const CC_TXT={day:'Lên lớp',nghi:'Nghỉ',bu:'Dạy bù'};
+  const ccAll=[];
+  for(const k in (OPS.ccGV||{})){ const p=k.split('|'); const lop=LOP.find(l=>l.id===Number(p[1])); if(!lop||!ids.includes(lop.coSoId))continue; ccAll.push({lop,ngay:p[2],st:OPS.ccGV[k]}); }
+  ccAll.sort((a,b)=> a.ngay<b.ngay?1:a.ngay>b.ngay?-1:0);
+  const ccItems=ccAll.map(x=>({main:(x.lop.gv||'—')+' · '+x.lop.lop,tag:{text:CC_TXT[x.st]||x.st,cls:'cc-'+x.st},sub:isAdm?csName(x.lop.coSoId):'',rt:isoVN(x.ngay)}));
+  // 3) Điểm danh học sinh — mỗi buổi 1 dòng, ghi số có mặt/tổng đã điểm theo lớp (VD 34/35)
+  const ddAll=[];
+  for(const k in (OPS.ddHV||{})){ const p=k.split('|'); const lop=LOP.find(l=>l.id===Number(p[0])); if(!lop||!ids.includes(lop.coSoId))continue; const m=Object.values(OPS.ddHV[k]); if(!m.length)continue; const co=m.filter(s=>s==='co'||s==='muon').length; ddAll.push({lop,ngay:p[1],co,tot:m.length}); }
+  ddAll.sort((a,b)=> a.ngay<b.ngay?1:a.ngay>b.ngay?-1:0);
+  const ddItems=ddAll.map(x=>({main:'Lớp '+x.lop.lop,tag:{text:x.co+'/'+x.tot+' có mặt',cls:x.co>=x.tot?'cc-day':(x.co*2>=x.tot?'cc-bu':'cc-nghi')},sub:isAdm?csName(x.lop.coSoId):'',rt:isoVN(x.ngay)}));
+  // 4) Học sinh vắng học — tên cụ thể + lớp, mỗi HS vắng 1 dòng
+  const vangAll=[];
+  for(const k in (OPS.ddHV||{})){ const p=k.split('|'); const lop=LOP.find(l=>l.id===Number(p[0])); if(!lop||!ids.includes(lop.coSoId))continue; const obj=OPS.ddHV[k];
+    for(const hid in obj){ const st=obj[hid]; if(st==='vang'||st==='phep'){ const hv=(OPS.hv||[]).find(h=>h.id===Number(hid)); vangAll.push({ten:hv?hv.ten:('HS #'+hid),lop,ngay:p[1],st}); } } }
+  vangAll.sort((a,b)=> a.ngay<b.ngay?1:a.ngay>b.ngay?-1:0);
+  const vangItems=vangAll.map(x=>({main:x.ten,tag:{text:x.st==='phep'?'Vắng phép':'Vắng',cls:'cc-nghi'},sub:['Lớp '+x.lop.lop,isAdm?csName(x.lop.coSoId):''].filter(Boolean).join(' · '),rt:isoVN(x.ngay)}));
+  // 5) Học sinh thôi học
+  const thoiAll=(OPS.hv||[]).filter(x=>!x.mau&&x.ngayThoiHoc&&ids.includes(x.coSoId)).sort((a,b)=>a.ngayThoiHoc<b.ngayThoiHoc?1:a.ngayThoiHoc>b.ngayThoiHoc?-1:0);
+  const thoiItems=thoiAll.map(x=>({main:x.ten,sub:[lopName(x.lopId),x.lyDo,isAdm?csName(x.coSoId):''].filter(Boolean).join(' · '),rt:isoVN(x.ngayThoiHoc)}));
+  // 6) Đóng học phí & khoản thu (tài chính — xếp sau các hoạt động)
   const thuAll=(OPS.gd||[]).filter(x=>x.loai==='thu'&&x.createdAt&&ids.includes(x.coSoId)).sort((a,b)=>Date.parse(b.createdAt)-Date.parse(a.createdAt));
-  const thuItems=thuAll.slice(0,CAP).map(x=>{
+  const thuItems=thuAll.map(x=>{
     let name=''; if(x.hvId!=null){const hv=(OPS.hv||[]).find(h=>h.id===x.hvId); if(hv)name=hv.ten;}
     return isAdm
       ? {main:'Thu '+fmtVND(x.soTien),sub:[x.hangMuc||'Khoản thu',csName(x.coSoId)].filter(Boolean).join(' · '),rt:relTime(x.createdAt)}
       : {main:(name||x.hangMuc||'Khoản thu')+' · '+fmtVND(x.soTien),sub:name?(x.hangMuc||''):'',rt:relTime(x.createdAt)};
   });
-  // 3) Điểm danh giáo viên (chấm công buổi dạy)
-  const CC_TXT={day:'Lên lớp',nghi:'Nghỉ',bu:'Dạy bù'};
-  const ccAll=[];
-  for(const k in (OPS.ccGV||{})){ const p=k.split('|'); const lop=LOP.find(l=>l.id===Number(p[1])); if(!lop||!ids.includes(lop.coSoId))continue; ccAll.push({lop,ngay:p[2],st:OPS.ccGV[k]}); }
-  ccAll.sort((a,b)=> a.ngay<b.ngay?1:a.ngay>b.ngay?-1:0);
-  const ccItems=ccAll.slice(0,CAP).map(x=>({main:(x.lop.gv||'—')+' · '+x.lop.lop,tag:{text:CC_TXT[x.st]||x.st,cls:'cc-'+x.st},sub:isAdm?csName(x.lop.coSoId):'',rt:isoVN(x.ngay)}));
-  // 4) Chi tiêu gần đây
+  // 7) Chi tiêu gần đây (tài chính)
   const chiAll=(OPS.gd||[]).filter(x=>x.loai==='chi'&&x.createdAt&&ids.includes(x.coSoId)).sort((a,b)=>Date.parse(b.createdAt)-Date.parse(a.createdAt));
-  const chiItems=chiAll.slice(0,CAP).map(x=>isAdm
+  const chiItems=chiAll.map(x=>isAdm
     ? {main:'Chi '+fmtVND(x.soTien),sub:[x.hangMuc||'Khoản chi',csName(x.coSoId)].filter(Boolean).join(' · '),rt:relTime(x.createdAt)}
     : {main:(x.hangMuc||'Khoản chi')+' · '+fmtVND(x.soTien),sub:x.noiDung||'',rt:relTime(x.createdAt)});
-  // 5) Học sinh thôi học
-  const thoiAll=(OPS.hv||[]).filter(x=>!x.mau&&x.ngayThoiHoc&&ids.includes(x.coSoId)).sort((a,b)=>a.ngayThoiHoc<b.ngayThoiHoc?1:a.ngayThoiHoc>b.ngayThoiHoc?-1:0);
-  const thoiItems=thoiAll.slice(0,CAP).map(x=>({main:x.ten,sub:[lopName(x.lopId),x.lyDo,isAdm?csName(x.coSoId):''].filter(Boolean).join(' · '),rt:isoVN(x.ngayThoiHoc)}));
   h+=`<div class="panel" style="background:transparent;border:0;box-shadow:none;padding:0">
     <div class="phead" style="padding:0 2px 10px;border:0"><h3>Hoạt động gần đây</h3><span class="sub">${esc(scopeLbl)}</span></div>
     <div class="actgrid">
       ${actCatCard('🧑‍🎓','n-hs','Học sinh mới ghi danh',hsItems,hsAll.length,CAP,'ah-blue')}
-      ${actCatCard('💰','n-thu','Đóng học phí & khoản thu',thuItems,thuAll.length,CAP,'ah-amber')}
       ${actCatCard('🗓️','n-cc','Điểm danh giáo viên',ccItems,ccAll.length,CAP,'ah-emerald')}
-      ${actCatCard('🧾','n-chi','Chi tiêu gần đây',chiItems,chiAll.length,CAP,'ah-rose')}
+      ${actCatCard('📋','n-dd','Điểm danh học sinh',ddItems,ddAll.length,CAP,'ah-teal')}
+      ${actCatCard('🚫','n-vang','Học sinh vắng học',vangItems,vangAll.length,CAP,'ah-orange')}
       ${actCatCard('🚪','n-left','Học sinh thôi học',thoiItems,thoiAll.length,CAP,'ah-slate')}
+      ${actCatCard('💰','n-thu','Đóng học phí & khoản thu',thuItems,thuAll.length,CAP,'ah-amber')}
+      ${actCatCard('🧾','n-chi','Chi tiêu gần đây',chiItems,chiAll.length,CAP,'ah-rose')}
     </div></div>`;
   $('#view').innerHTML=h;
+  // Bấm "… và N mục nữa" để mở rộng / thu gọn thẻ
+  $$('#view [data-more]').forEach(b=>b.onclick=()=>{const c=b.closest('.actcard'); const open=c.classList.toggle('open'); b.textContent=open?'Thu gọn ▲':('… và '+b.dataset.n+' mục nữa');});
 }
 function ring(pct,sub){pct=Math.max(0,Math.min(100,pct));return `<div class="ringbox" style="--p:${pct.toFixed(1)}"><div class="rc"></div><div class="rin"><b>${Math.round(pct)}%</b><span>${sub||''}</span></div></div>`;}
 /* Thẻ 1 nhóm hoạt động: icon + tiêu đề + badge tổng, tối đa `cap` dòng, còn lại "… và N nữa" */
 function actCatCard(ic,cls,title,items,total,cap,hcls){
-  const body = items.length
-    ? items.map(it=>`<div class="actitem"><b>${esc(it.main)}</b><small>${it.tag?`<span class="cctag ${it.tag.cls}">${esc(it.tag.text)}</span> · `:''}${it.sub?esc(it.sub)+' · ':''}<span class="rt">${esc(it.rt||'')}</span></small></div>`).join('')
-      + (total>cap?`<div class="actmore">… và ${total-cap} mục nữa</div>`:'')
-    : `<div class="actcard-empty">Chưa có cập nhật</div>`;
+  cap=cap||5;
+  const render=it=>`<div class="actitem"><b>${esc(it.main)}</b><small>${it.tag?`<span class="cctag ${it.tag.cls}">${esc(it.tag.text)}</span> · `:''}${it.sub?esc(it.sub)+' · ':''}<span class="rt">${esc(it.rt||'')}</span></small></div>`;
+  let body;
+  if(items.length){
+    const shown=items.slice(0,cap), hidden=items.slice(cap);
+    body=shown.map(render).join('')
+      + (hidden.length?`<div class="acthide">${hidden.map(render).join('')}</div><button class="actmore" data-more data-n="${hidden.length}">… và ${hidden.length} mục nữa</button>`:'');
+  } else body=`<div class="actcard-empty">Chưa có cập nhật</div>`;
   return `<div class="actcard"><div class="actcard-h ${hcls||''}"><span class="kdeco"></span><div class="ci">${ic}</div><b>${title}</b><span class="cnt">${total}</span></div><div class="actcard-b">${body}</div></div>`;
 }
 function dashWarns(ids){
