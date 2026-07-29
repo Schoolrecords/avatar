@@ -156,6 +156,7 @@ svg{display:block}
 .bell-ic.n-chi{background:rgba(224,69,94,.13)}
 .bell-ic.n-hs{background:rgba(37,99,235,.13)}
 .bell-ic.n-cc{background:rgba(217,150,59,.15)}
+.bell-ic.n-left{background:#eef1f5}
 .bell-tx{flex:1;min-width:0}
 .bell-tx b{display:block;font-size:.85rem;font-weight:700;line-height:1.32}
 .bell-tx small{display:block;color:var(--muted);font-size:.74rem;margin-top:1px}
@@ -1380,12 +1381,22 @@ function renderDash(){
   for(const k in (OPS.ccGV||{})){ const p=k.split('|'); const lop=LOP.find(l=>l.id===Number(p[1])); if(!lop||!ids.includes(lop.coSoId))continue; ccAll.push({lop,ngay:p[2],st:OPS.ccGV[k]}); }
   ccAll.sort((a,b)=> a.ngay<b.ngay?1:a.ngay>b.ngay?-1:0);
   const ccItems=ccAll.slice(0,CAP).map(x=>({main:(x.lop.gv||'—')+' · '+x.lop.lop,sub:[CC_TXT[x.st]||x.st,isAdm?csName(x.lop.coSoId):''].filter(Boolean).join(' · '),rt:isoVN(x.ngay)}));
+  // 4) Chi tiêu gần đây
+  const chiAll=(OPS.gd||[]).filter(x=>x.loai==='chi'&&x.createdAt&&ids.includes(x.coSoId)).sort((a,b)=>Date.parse(b.createdAt)-Date.parse(a.createdAt));
+  const chiItems=chiAll.slice(0,CAP).map(x=>isAdm
+    ? {main:'Chi '+fmtVND(x.soTien),sub:[x.hangMuc||'Khoản chi',csName(x.coSoId)].filter(Boolean).join(' · '),rt:relTime(x.createdAt)}
+    : {main:(x.hangMuc||'Khoản chi')+' · '+fmtVND(x.soTien),sub:x.noiDung||'',rt:relTime(x.createdAt)});
+  // 5) Học sinh thôi học
+  const thoiAll=(OPS.hv||[]).filter(x=>!x.mau&&x.ngayThoiHoc&&ids.includes(x.coSoId)).sort((a,b)=>a.ngayThoiHoc<b.ngayThoiHoc?1:a.ngayThoiHoc>b.ngayThoiHoc?-1:0);
+  const thoiItems=thoiAll.slice(0,CAP).map(x=>({main:x.ten,sub:[lopName(x.lopId),x.lyDo,isAdm?csName(x.coSoId):''].filter(Boolean).join(' · '),rt:isoVN(x.ngayThoiHoc)}));
   h+=`<div class="panel" style="background:transparent;border:0;box-shadow:none;padding:0">
     <div class="phead" style="padding:0 2px 10px;border:0"><h3>Hoạt động gần đây</h3><span class="sub">${esc(scopeLbl)}</span></div>
     <div class="actgrid">
       ${actCatCard('🧑‍🎓','n-hs','Học sinh mới ghi danh',hsItems,hsAll.length,CAP)}
       ${actCatCard('💰','n-thu','Đóng học phí & khoản thu',thuItems,thuAll.length,CAP)}
       ${actCatCard('🗓️','n-cc','Điểm danh giáo viên',ccItems,ccAll.length,CAP)}
+      ${actCatCard('🧾','n-chi','Chi tiêu gần đây',chiItems,chiAll.length,CAP)}
+      ${actCatCard('🚪','n-left','Học sinh thôi học',thoiItems,thoiAll.length,CAP)}
     </div></div>`;
   $('#view').innerHTML=h;
 }
