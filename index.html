@@ -1055,8 +1055,9 @@ async function afterAuth(preUser){
   let user=preUser;
   if(!user){const r=await SB.auth.getUser(); user=r.data&&r.data.user;}
   if(!user)return;
-  const {data:prof,error}=await SB.from('profiles').select('*').eq('id',user.id).single();
-  if(error||!prof||!prof.role){showLoginErr('Tài khoản chưa được phân quyền. Liên hệ quản trị viên.');await SB.auth.signOut();return;}
+  const {data:prof,error}=await SB.from('profiles').select('*').eq('id',user.id).maybeSingle();
+  if(error){showLoginErr('Không kết nối được máy chủ. Kiểm tra mạng rồi thử lại.');return;}   // lỗi mạng/hết hạn tạm → GIỮ phiên, KHÔNG đăng xuất
+  if(!prof||!prof.role){showLoginErr('Tài khoản chưa được phân quyền. Liên hệ quản trị viên.');await SB.auth.signOut();return;}
   USER = prof.role==='admin' ? {role:'admin',coSoId:null,email:user.email} : {role:'owner',coSoId:prof.coso_id,email:user.email};
   scope='all';
   const btn=$('#loginBtn'); if(btn){btn.disabled=true;btn.textContent='Đang tải dữ liệu…';}
@@ -2312,8 +2313,19 @@ const EYE_OFF='<svg viewBox="0 0 24 24" fill="none" stroke-width="1.9"><path d="
 $('#eyeBtn').innerHTML=EYE_ON;
 $('#eyeBtn').onclick=()=>{const i=$('#upass');const show=i.type==='password';i.type=show?'text':'password';$('#eyeBtn').innerHTML=show?EYE_OFF:EYE_ON;$('#eyeBtn').setAttribute('aria-label',show?'Ẩn mật khẩu':'Hiện mật khẩu');i.focus();};
 
-/* Giữ đăng nhập: nếu còn phiên hợp lệ thì vào thẳng app (không cần nhập lại) */
-(async()=>{ try{ const {data:{session}}=await SB.auth.getSession(); if(session&&session.user) await afterAuth(session.user); }catch(e){} })();
+/* Giữ đăng nhập: khôi phục phiên khi mở lại app; làm mới token để tránh hết hạn (>1 giờ) */
+(async()=>{
+  try{
+    let {data:{session}}=await SB.auth.getSession();
+    if(session){
+      const rf=await SB.auth.refreshSession();          // dùng refresh-token đổi lấy token mới
+      if(rf.data&&rf.data.session) session=rf.data.session;
+    }
+    if(session&&session.user) await afterAuth(session.user);
+  }catch(e){}
+})();
+/* Làm mới token định kỳ khi app đang mở (Supabase tự chạy, nhưng gọi lại khi quay lại tab cho chắc) */
+document.addEventListener('visibilitychange',()=>{ const app=$('#app'); if(!document.hidden && app && app.style.display!=='none') SB.auth.getSession().catch(()=>{}); });
 </script>
 </body>
 </html>
