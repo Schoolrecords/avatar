@@ -292,6 +292,10 @@ tbody tr:hover{background:var(--soft)}
 .hv-paid3 button[data-p="0"].sel{background:#fdf1ec;border-color:#d9663b;color:#d9663b}
 .hv-paid3 input{padding:10px 6px;border:1.5px solid var(--line);border-radius:11px;background:#fff;font-weight:600;font-size:.82rem;text-align:center;color:var(--ink);min-width:0;width:100%}
 .hv-paid3 input:disabled{background:#f2f4f8;color:var(--faint)}
+.hv-stt2{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.hv-stt2 button{padding:10px 4px;border:1.5px solid var(--line);border-radius:11px;background:#fff;font-weight:700;font-size:.82rem;color:var(--muted);cursor:pointer;transition:.12s}
+.hv-stt2 button[data-s="0"].sel{background:#eafaf1;border-color:var(--emerald);color:var(--emerald)}
+.hv-stt2 button[data-s="1"].sel{background:#eef1f5;border-color:#8a94a6;color:#5a6475}
 /* Hộp thoại AVATAR thông báo (thay alert/confirm mặc định) */
 .ava-dlg-ov{position:fixed;inset:0;z-index:9999;background:rgba(11,29,61,.5);display:grid;place-items:center;padding:20px;animation:avaFade .15s ease}
 .ava-dlg{background:#fff;border-radius:18px;max-width:410px;width:100%;box-shadow:0 30px 70px -20px rgba(11,29,61,.65);overflow:hidden;animation:avaPop .18s ease}
@@ -310,6 +314,9 @@ tbody tr:hover{background:var(--soft)}
 .paidtag{display:inline-block;font-size:.66rem;font-weight:800;padding:1px 7px;border-radius:99px;margin-left:5px;vertical-align:middle}
 .paidtag.yes{background:#eafaf1;color:var(--emerald)}
 .paidtag.no{background:#fdf1ec;color:#d9663b}
+.leftTag{display:inline-block;font-size:.66rem;font-weight:800;padding:1px 7px;border-radius:99px;margin-left:5px;vertical-align:middle;background:#eef1f5;color:#6b7688}
+.ddrow.hv-left{opacity:.72}
+.ddrow.hv-left .nm b{color:#8a94a6}
 
 /* ===== GHI DANH / ĐIỂM DANH ===== */
 .form2{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
@@ -624,7 +631,9 @@ const SB_URL='https://hdvtlbeozyumvnhgejxp.supabase.co';
 const SB_KEY='sb_publishable_eGYgGZpxRRdIgLeO6_S_JQ_N7rHsINZ';
 const SB=window.supabase.createClient(SB_URL,SB_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:false,storageKey:'avatar-auth'}});
 /* ánh xạ giữa cột CSDL (chữ_gạch) và tên dùng trong app (chữHoa) */
-const hvFromDb=r=>({id:r.id,ten:r.ten,ns:r.ns||'',ph:r.ph||'',sdt:r.sdt||'',hocPhi:Number(r.hoc_phi)||0,daDong:!!r.da_dong,ngayDong:r.ngay_dong||null,lopId:r.lop_id,coSoId:r.coso_id,mau:!!r.mau,createdAt:r.created_at||null});
+const hvFromDb=r=>({id:r.id,ten:r.ten,ns:r.ns||'',ph:r.ph||'',sdt:r.sdt||'',hocPhi:Number(r.hoc_phi)||0,daDong:!!r.da_dong,ngayDong:r.ngay_dong||null,ngayNhapHoc:r.ngay_nhap_hoc||null,ngayThoiHoc:r.ngay_thoi_hoc||null,lyDo:r.ly_do_thoi_hoc||'',lopId:r.lop_id,coSoId:r.coso_id,mau:!!r.mau,createdAt:r.created_at||null});
+/* Học sinh đang học = chưa có ngày thôi học */
+const hvActive=h=>!h.ngayThoiHoc;
 const hvToDb=o=>({ten:o.ten,ns:o.ns||'',ph:o.ph||'',sdt:o.sdt||'',hoc_phi:o.hocPhi||0,da_dong:!!o.daDong,lop_id:o.lopId,coso_id:o.coSoId,mau:!!o.mau});
 const gdFromDb=r=>({id:r.id,ngay:r.ngay,loai:r.loai,hangMuc:r.hang_muc,coSoId:r.coso_id,soTien:Number(r.so_tien)||0,noiDung:r.noi_dung||'',nguoiLap:r.nguoi_lap||'',hvId:(r.hv_id!=null?r.hv_id:null),createdAt:r.created_at||null});
 const gdToDb=o=>({ngay:o.ngay,loai:o.loai,hang_muc:o.hangMuc,coso_id:o.coSoId,so_tien:o.soTien,noi_dung:o.noiDung||'',nguoi_lap:o.nguoiLap||''});
@@ -761,7 +770,7 @@ function csStat(id){
 /* Học phí theo phạm vi cơ sở: dự thu = Σ học phí mọi HS; đã thu = HS đã đóng */
 function hpStat(ids){
   let du=0,da=0,n=0,nDa=0;
-  OPS.hv.forEach(h=>{ if(!ids.includes(h.coSoId))return; const p=h.hocPhi||0; du+=p; n++; if(h.daDong){da+=p;nDa++;} });
+  OPS.hv.forEach(h=>{ if(!ids.includes(h.coSoId)||!hvActive(h))return; const p=h.hocPhi||0; du+=p; n++; if(h.daDong){da+=p;nDa++;} });
   return {du,da,chua:Math.max(0,du-da),rate:du?da/du:0,n,nDa};
 }
 /* Chuyên cần thật = (có mặt + muộn) / tổng lượt điểm danh; null nếu chưa có dữ liệu */
@@ -820,8 +829,8 @@ async function makeTemplate({sheet,columns,example,filename,title,guide}){
     cell.font={bold:true,color:{argb:'FFFFFFFF'},size:12,name:'Calibri'}; cell.alignment={vertical:'middle',horizontal:'center',wrapText:true}; cell.border=xlBorder('FF2A5490');});
   // Dòng 3: ví dụ (chữ xám nghiêng)
   const ex=ws.getRow(3); columns.forEach((c,i)=>{const cell=ex.getCell(i+1); cell.value=example[c.k]!=null?example[c.k]:''; cell.font={italic:true,color:{argb:'FF9AA6BC'},size:11}; cell.border=xlBorder(); cell.alignment={vertical:'middle'};});
-  // 20 dòng trống kẻ viền sẵn để điền
-  for(let r=0;r<20;r++){const row=ws.getRow(4+r); row.height=20; columns.forEach((c,i)=>{row.getCell(i+1).border=xlBorder();});}
+  // 20 dòng trống kẻ viền sẵn để điền (cột TT tự đánh số cho dễ nhìn)
+  for(let r=0;r<20;r++){const row=ws.getRow(4+r); row.height=20; columns.forEach((c,i)=>{const cell=row.getCell(i+1); cell.border=xlBorder(); if(c.k==='tt'){cell.value=r+1; cell.alignment={horizontal:'center'}; cell.font={color:{argb:'FF9AA6BC'},size:11};}});}
   ws.autoFilter={from:{row:2,column:1},to:{row:2,column:columns.length}};
   // Sheet hướng dẫn
   if(guide&&guide.length){const g=wb.addWorksheet('Hướng dẫn'); g.getColumn(1).width=90;
@@ -846,14 +855,15 @@ async function readSheet(file){
   return rows;
 }
 const xlPick=(o,keys)=>{for(const k in o){if(keys.some(x=>k.includes(x)))return o[k];}return '';};
-/* Nạp hàng loạt lên Supabase theo lô 500 */
+/* Nạp hàng loạt lên Supabase theo lô 500. Trả về mảng bản ghi DB đã nhập (theo đúng thứ tự), hoặc false nếu lỗi. */
 async function importRows(table,dbRows,fromDb,targetArr){
+  const inserted=[];
   for(let i=0;i<dbRows.length;i+=500){
     const {data,error}=await SB.from(table).insert(dbRows.slice(i,i+500)).select();
     if(error){avaAlert('Lỗi nhập dữ liệu: '+error.message);return false;}
-    (data||[]).forEach(r=>targetArr.push(fromDb(r)));
+    (data||[]).forEach(r=>{targetArr.push(fromDb(r));inserted.push(r);});
   }
-  return true;
+  return inserted;
 }
 /* Cửa sổ xem trước trước khi nạp */
 function previewImport(label,recs,badLines,onConfirm){
@@ -876,23 +886,38 @@ function previewImport(label,recs,badLines,onConfirm){
   $('#modal').classList.add('on');
   const ok=$('#imp_ok'); if(ok&&recs.length)ok.onclick=async()=>{ok.disabled=true;ok.textContent='Đang nhập…';await onConfirm();};
 }
-const HS_COLS=[{h:'Họ và tên',k:'ten',w:26},{h:'Ngày sinh',k:'ns',w:14},{h:'Phụ huynh',k:'ph',w:22},{h:'Điện thoại',k:'sdt',w:16},{h:'Học phí (đ/tháng)',k:'hp',w:18}];
+const HS_COLS=[{h:'TT',k:'tt',w:6},{h:'Họ và tên',k:'ten',w:26},{h:'Ngày sinh',k:'ns',w:14},{h:'Phụ huynh',k:'ph',w:22},{h:'Điện thoại',k:'sdt',w:16},{h:'Thời gian nhập học',k:'nhaphoc',w:18},{h:'Trạng thái',k:'trangthai',w:15},{h:'Học phí (đ/tháng)',k:'hp',w:18}];
 const GV_COLS=[{h:'Họ và tên',k:'ten',w:26},{h:'Ngày sinh',k:'ns',w:14},{h:'Môn (VH/TA)',k:'mon',w:14},{h:'Trình độ',k:'td',w:16},{h:'Điện thoại',k:'sdt',w:16},{h:'Địa chỉ',k:'dc',w:32}];
 function pickFile(cb){const inp=document.createElement('input');inp.type='file';inp.accept='.xlsx,.xls';inp.onchange=()=>{if(inp.files&&inp.files[0])cb(inp.files[0]);};inp.click();}
 async function hsDownloadTemplate(lop){
   await makeTemplate({sheet:'DanhSach',columns:HS_COLS,
-    example:{ten:'Nguyễn Văn An',ns:'01/09/2015',ph:'Nguyễn Văn Ba',sdt:'0901234567',hp:600000},
+    example:{tt:1,ten:'Nguyễn Văn An',ns:'01/09/2015',ph:'Nguyễn Văn Ba',sdt:'0901234567',nhaphoc:isoVN(todayISO()),trangthai:'Đang học',hp:600000},
     filename:'Mau-hoc-sinh-'+((lop&&lop.lop)||'lop').replace(/[\\/:*?"<>|\s]+/g,'-')+'.xlsx',
     title:'DANH SÁCH HỌC SINH'+(lop?' — '+lop.lop:''),
-    guide:['• Điền mỗi học sinh 1 dòng, ngay dưới hàng tiêu đề màu xanh.','• "Họ và tên" là bắt buộc; dòng để trống tên sẽ bị bỏ qua.','• Ngày sinh ghi dạng ngày/tháng/năm (VD: 01/09/2015).','• Học phí ghi số, không dấu chấm (VD: 600000).','• Dòng chữ xám nghiêng là ví dụ — có thể xóa hoặc ghi đè.','• Lưu file rồi vào web, chọn đúng lớp và bấm "Nhập Excel".']});
+    guide:['• Điền mỗi học sinh 1 dòng, ngay dưới hàng tiêu đề màu xanh.','• Cột "TT" chỉ để đánh số cho dễ nhìn — có thể để nguyên, không ảnh hưởng khi nhập.','• "Họ và tên" là bắt buộc; dòng để trống tên sẽ bị bỏ qua.','• Ngày sinh & Thời gian nhập học ghi dạng ngày/tháng/năm (VD: 01/09/2015). Để trống Thời gian nhập học thì hệ thống lấy ngày nhập file.','• Cột "Trạng thái" ghi "Đang học" hoặc "Đã thôi học" (để trống coi như Đang học).','• Học phí ghi số, không dấu chấm (VD: 600000).','• Dòng chữ xám nghiêng là ví dụ — có thể xóa hoặc ghi đè.','• Lưu file rồi vào web, chọn đúng lớp và bấm "Nhập Excel".']});
 }
 function hsImportExcel(lop){
   pickFile(async file=>{
     let rows; try{rows=await readSheet(file);}catch(e){avaAlert('Không đọc được file. Hãy dùng file .xlsx theo mẫu tải về.');return;}
     const recs=[],bad=[];
     rows.forEach((r,i)=>{const ten=String(xlPick(r,['ho va ten','ho ten','ten'])).trim(); if(!ten){bad.push(i+2);return;}
-      recs.push({ten,ns:String(xlPick(r,['ngay sinh','sinh'])).trim(),ph:String(xlPick(r,['phu huynh','huynh','cha me'])).trim(),sdt:String(xlPick(r,['dien thoai','sdt','so dt','phone'])).trim(),hocPhi:Number(String(xlPick(r,['hoc phi','phi'])).replace(/\D/g,''))||0,daDong:false,lopId:lop.id,coSoId:lop.coSoId,mau:false});});
-    previewImport('học sinh vào lớp '+lop.lop,recs,bad,async()=>{const okAll=await importRows('hoc_vien',recs.map(hvToDb),hvFromDb,OPS.hv);if(okAll){closeModal();renderGhiDanh();}});
+      const nh=vnToIso(String(xlPick(r,['thoi gian nhap','ngay nhap'])).trim());
+      const tt=fold(String(xlPick(r,['trang thai']))).toLowerCase();
+      const thoi=tt.includes('thoi');   // "da thoi hoc"
+      recs.push({ten,ns:String(xlPick(r,['ngay sinh','sinh'])).trim(),ph:String(xlPick(r,['phu huynh','huynh','cha me'])).trim(),sdt:String(xlPick(r,['dien thoai','sdt','so dt','phone'])).trim(),hocPhi:Number(String(xlPick(r,['hoc phi','phi'])).replace(/\D/g,''))||0,daDong:false,lopId:lop.id,coSoId:lop.coSoId,mau:false,ngayNhapHoc:nh||todayISO(),ngayThoiHoc:thoi?todayISO():null,lyDo:thoi?'Khác':''});});
+    previewImport('học sinh vào lớp '+lop.lop,recs,bad,async()=>{
+      const ins=await importRows('hoc_vien',recs.map(hvToDb),hvFromDb,OPS.hv);
+      if(ins){
+        // Gán ngày nhập học / thôi học theo lô (gộp các dòng cùng giá trị) — bỏ qua êm nếu chưa chạy SQL
+        const groups={};
+        ins.forEach((db,i)=>{const r=recs[i]; if(!r)return;
+          const key=(r.ngayNhapHoc||'')+'|'+(r.ngayThoiHoc||'')+'|'+(r.lyDo||'');
+          (groups[key]=groups[key]||{patch:{ngay_nhap_hoc:r.ngayNhapHoc||null,ngay_thoi_hoc:r.ngayThoiHoc||null,ly_do_thoi_hoc:r.lyDo||null},ids:[]}).ids.push(db.id);});
+        let touched=false;
+        for(const k in groups){const {patch,ids}=groups[k]; const {error}=await SB.from('hoc_vien').update(patch).in('id',ids); if(!error)touched=true;}
+        if(touched) await loadCloud();
+        closeModal();renderGhiDanh();
+      }});
   });
 }
 async function gvDownloadTemplate(){
@@ -915,7 +940,7 @@ function gvImportExcel(){
   });
 }
 const hvOfLop=id=>OPS.hv.filter(h=>h.lopId===id);
-const lopHP=id=>OPS.hv.filter(h=>h.lopId===id).reduce((s,h)=>s+(h.hocPhi||0),0);
+const lopHP=id=>OPS.hv.filter(h=>h.lopId===id&&hvActive(h)).reduce((s,h)=>s+(h.hocPhi||0),0);
 const inHV=()=>OPS.hv.filter(h=>scopeIds().includes(h.coSoId));
 const lopName=id=>{const l=LOP.find(x=>x.id===id);return l?l.lop:'—';};
 const nextHvId=()=>OPS.hv.reduce((m,h)=>Math.max(m,h.id),0)+1;
@@ -930,7 +955,8 @@ function lopPickHTML(selId){
 /* ============ STATE ============ */
 let USER={role:'admin',coSoId:null}, VIEW='dashboard', scope='all';
 let gvSearch='',gvCs='all',gvMon='all', lopSearch='',lopCs='all', csSort='thu';
-let hvSearch='',hvCs='all',hvLop='all',hvPaid='all';
+let hvSearch='',hvCs='all',hvLop='all',hvPaid='all',hvStt='active';
+const LY_DO_THOI=['Hết khóa','Chuyển trường','Nghỉ hẳn','Khác'];
 let csDetailId=null;
 
 /* ============ ICONS ============ */
@@ -1555,7 +1581,7 @@ function renderCosoDetail(id){
     <div class="twrap"><table><thead><tr><th>Lớp</th><th>Giáo viên phụ trách</th><th class="tright">Sĩ số</th><th class="tright">Dự thu</th></tr></thead><tbody>`;
   if(!lops.length){h+=`<tr><td colspan="4"><div class="empty">${svg(IC.lop,1.6)}Trung tâm chưa có lớp học</div></td></tr>`;}
   else lops.forEach(l=>{
-    const lopDu=OPS.hv.filter(h=>h.lopId===l.id).reduce((sm,h)=>sm+(h.hocPhi||0),0);
+    const lopDu=OPS.hv.filter(h=>h.lopId===l.id&&hvActive(h)).reduce((sm,h)=>sm+(h.hocPhi||0),0);
     h+=`<tr><td><b>${esc(l.lop||'—')}</b> ${l.mon==='TA'?'<span class="badge bg-ta" style="margin-left:4px">TA</span>':''}</td>
       <td>${esc(l.gv||'—')}</td>
       <td class="tright num">${l.siso||0}</td>
@@ -1872,14 +1898,18 @@ function renderHocVien(){
   let list=inHV();
   if(isAdmin && hvCs!=='all') list=list.filter(h=>h.coSoId===Number(hvCs));
   if(hvLop!=='all') list=list.filter(h=>h.lopId===Number(hvLop));
+  // đếm đang học / đã thôi học trong phạm vi cơ sở+lớp (trước khi lọc trạng thái)
+  const nActive=list.filter(hvActive).length, nLeft=list.length-nActive;
+  if(hvStt==='active') list=list.filter(hvActive);
+  else if(hvStt==='left') list=list.filter(h=>!hvActive(h));
   if(hvPaid==='yes') list=list.filter(h=>h.daDong);
   else if(hvPaid==='no') list=list.filter(h=>!h.daDong);
   const q=fold(hvSearch).toLowerCase().trim();
   if(q) list=list.filter(h=>fold(h.ten+' '+h.ph+' '+h.sdt).toLowerCase().includes(q));
   list=list.slice().sort((a,b)=>(a.coSoId-b.coSoId)||String(a.ten).localeCompare(String(b.ten),'vi'));
-  const tongHP=list.reduce((s,h)=>s+(h.hocPhi||0),0);
-  const daThu=list.filter(h=>h.daDong).reduce((s,h)=>s+(h.hocPhi||0),0);
-  const nDa=list.filter(h=>h.daDong).length, nChua=list.length-nDa;
+  const tongHP=list.filter(hvActive).reduce((s,h)=>s+(h.hocPhi||0),0);
+  const daThu=list.filter(h=>h.daDong&&hvActive(h)).reduce((s,h)=>s+(h.hocPhi||0),0);
+  const nDa=list.filter(h=>h.daDong&&hvActive(h)).length, nChua=list.filter(hvActive).length-nDa;
   // Học sinh mẫu cũ (cờ mau) còn sót trong DB — cho phép dọn hàng loạt theo phạm vi cơ sở đang xem
   let mauList=inHV();
   if(isAdmin && hvCs!=='all') mauList=mauList.filter(h=>h.coSoId===Number(hvCs));
@@ -1890,10 +1920,11 @@ function renderHocVien(){
     .slice().sort((a,b)=>a.coSoId-b.coSoId);
   const lopSel=`<select class="fsel" id="hvLopSel"><option value="all">Tất cả lớp</option>${lopPool.map(l=>`<option value="${l.id}" ${hvLop===String(l.id)?'selected':''}>${isAdmin?csAbbr(l.coSoId)+' · ':''}${esc(l.lop)}</option>`).join('')}</select>`;
   const paidSel=`<select class="fsel" id="hvPaidSel">${[['all','Học phí: tất cả'],['yes','Đã đóng'],['no','Chưa đóng']].map(([k,t])=>`<option value="${k}" ${hvPaid===k?'selected':''}>${t}</option>`).join('')}</select>`;
+  const sttSel=`<select class="fsel" id="hvSttSel">${[['active','Đang học'+(nActive?' ('+nActive+')':'')],['left','Đã thôi học'+(nLeft?' ('+nLeft+')':'')],['all','Tất cả trạng thái']].map(([k,t])=>`<option value="${k}" ${hvStt===k?'selected':''}>${t}</option>`).join('')}</select>`;
 
   let h=`<div class="toolbar">
     <div class="search" style="flex:1;min-width:200px">${svg(IC.search,1.9)}<input id="hvq" placeholder="Tìm tên học sinh, phụ huynh, SĐT…" value="${esc(hvSearch)}" style="border:0;outline:0;background:none;flex:1;font-weight:600;font-size:.9rem"/></div>
-    ${csSel}${lopSel}${paidSel}
+    ${csSel}${lopSel}${sttSel}${paidSel}
   </div>
   <div class="panel"><div class="phead"><div style="display:flex;align-items:baseline;gap:8px"><h3>Hồ sơ học sinh</h3><span class="sub">${list.length} học sinh</span></div>${mauList.length?`<button class="btn btn-sm btn-light" id="hvClean" style="color:var(--rose);white-space:nowrap">🧹 Dọn ${mauList.length} HS mẫu</button>`:''}</div>
     <div class="pbody">
@@ -1908,10 +1939,12 @@ function renderHocVien(){
   }else{
     h+=`<div class="ddgrid">`;
     list.forEach((v,i)=>{
-      const info=[lopName(v.lopId),isAdmin?csName(v.coSoId):'',v.sdt,v.hocPhi?fmtVND(v.hocPhi):''].filter(Boolean).join(' · ');
-      const paidTag=v.hocPhi?`<span class="paidtag ${v.daDong?'yes':'no'}">${v.daDong?('Đã đóng'+(v.ngayDong?' '+isoVN(v.ngayDong):'')):'Chưa đóng'}</span>`:'';
-      h+=`<div class="ddrow"><div class="idx">${i+1}</div>
-        <div class="nm"><b>${esc(v.ten)}${paidTag}</b><small>${esc(info)||'—'}</small></div>
+      const left=!hvActive(v);
+      const info=[lopName(v.lopId),isAdmin?csName(v.coSoId):'',v.sdt,(!left&&v.hocPhi)?fmtVND(v.hocPhi):''].filter(Boolean).join(' · ');
+      const paidTag=(!left&&v.hocPhi)?`<span class="paidtag ${v.daDong?'yes':'no'}">${v.daDong?('Đã đóng'+(v.ngayDong?' '+isoVN(v.ngayDong):'')):'Chưa đóng'}</span>`:'';
+      const leftTag=left?`<span class="leftTag">Đã thôi học${v.ngayThoiHoc?' '+isoVN(v.ngayThoiHoc):''}${v.lyDo?' · '+esc(v.lyDo):''}</span>`:'';
+      h+=`<div class="ddrow${left?' hv-left':''}"><div class="idx">${i+1}</div>
+        <div class="nm"><b>${esc(v.ten)}${paidTag}${leftTag}</b><small>${esc(info)||'—'}</small></div>
         <button class="btn btn-sm btn-light" data-edit="${v.id}" style="flex:none">Hồ sơ</button>
       </div>`;
     });
@@ -1923,6 +1956,7 @@ function renderHocVien(){
   const cs=$('#hvCsSel'); if(cs)cs.onchange=e=>{hvCs=e.target.value;hvLop='all';renderHocVien();};
   const ls=$('#hvLopSel'); if(ls)ls.onchange=e=>{hvLop=e.target.value;renderHocVien();};
   const ps=$('#hvPaidSel'); if(ps)ps.onchange=e=>{hvPaid=e.target.value;renderHocVien();};
+  const ss=$('#hvSttSel'); if(ss)ss.onchange=e=>{hvStt=e.target.value;renderHocVien();};
   const tg=$('#toGhi2'); if(tg)tg.onclick=()=>go('ghidanh');
   const cl=$('#hvClean'); if(cl)cl.onclick=()=>cleanMauHV(mauList);
   $$('#view [data-edit]').forEach(b=>b.onclick=()=>{const hv=OPS.hv.find(x=>x.id===Number(b.dataset.edit));if(hv)openHvEdit(hv);});
@@ -1968,11 +2002,24 @@ function openHvEdit(h){
      <div class="fld"><label>Phụ huynh</label><input id="hv_ph" value="${esc(h.ph)}" placeholder="Tên phụ huynh"/></div>
      <div class="fld"><label>Điện thoại</label><input id="hv_sdt" value="${esc(h.sdt)}" inputmode="tel" placeholder="SĐT liên hệ"/></div>
      <div class="fld full"><label>Lớp đang học</label><select id="hv_lop">${lopsCs.map(l=>`<option value="${l.id}" ${l.id===h.lopId?'selected':''}>${esc(l.lop)} — ${esc(l.gv||'?')}</option>`).join('')}</select></div>
+     <div class="fld"><label>Thời gian nhập học</label><input id="hv_nhaphoc" placeholder="dd/mm/yyyy" value="${h.ngayNhapHoc?isoVN(h.ngayNhapHoc):''}"/></div>
+     <div class="fld"><label>Trạng thái học</label>
+       <div class="hv-stt2" id="hv_stt">
+         <button type="button" data-s="0">● Đang học</button>
+         <button type="button" data-s="1">Đã thôi học</button>
+       </div></div>
+     <div class="fld full" id="hv_thoibox" style="display:none">
+       <div style="display:flex;gap:10px;flex-wrap:wrap">
+         <div class="fld" style="flex:1;min-width:150px;margin:0"><label>Ngày thôi học</label><input id="hv_thoihoc" placeholder="dd/mm/yyyy" value="${h.ngayThoiHoc?isoVN(h.ngayThoiHoc):''}"/></div>
+         <div class="fld" style="flex:1;min-width:150px;margin:0"><label>Lý do thôi học</label><select id="hv_lydo">${LY_DO_THOI.map(x=>`<option ${h.lyDo===x?'selected':''}>${x}</option>`).join('')}</select></div>
+       </div>
+     </div>
      <div id="hvErr" style="display:none;color:#c0392b;font-size:.85rem;font-weight:600"></div>
      <div class="fld full" style="display:flex;gap:9px"><button class="btn btn-primary" id="hv_save" style="flex:1">✓ Lưu hồ sơ</button><button class="btn btn-light" id="hv_del" style="color:var(--rose)">Xóa</button></div>
    </div></div>`;
   $('#modal').classList.add('on');
   attachMoneyFormat($('#hv_hp')); attachDateFormat($('#hv_ns')); attachDateFormat($('#hv_ngaydong'));
+  attachDateFormat($('#hv_nhaphoc')); attachDateFormat($('#hv_thoihoc'));
   let paid=!!h.daDong;
   const ndInp=$('#hv_ngaydong');
   const setPaidUI=()=>{
@@ -1982,6 +2029,15 @@ function openHvEdit(h){
   };
   $$('#hv_paid button').forEach(b=>b.onclick=()=>{paid=b.dataset.p==='1';setPaidUI();});
   setPaidUI();
+  // Trạng thái học: Đang học / Đã thôi học
+  let thoi=!!h.ngayThoiHoc;
+  const setSttUI=()=>{
+    $$('#hv_stt button').forEach(x=>x.classList.toggle('sel',x.dataset.s===(thoi?'1':'0')));
+    $('#hv_thoibox').style.display=thoi?'block':'none';
+    if(thoi && !$('#hv_thoihoc').value) $('#hv_thoihoc').value=isoVN(todayISO());
+  };
+  $$('#hv_stt button').forEach(b=>b.onclick=()=>{thoi=b.dataset.s==='1';setSttUI();});
+  setSttUI();
   const err=m=>{const e=$('#hvErr');e.textContent=m||'';e.style.display=m?'block':'none';};
   $('#hv_save').onclick=async()=>{
     const ten=$('#hv_ten').value.trim();
@@ -1993,14 +2049,27 @@ function openHvEdit(h){
       if(ndv && !isValidDob(ndv)){err('Ngày đóng chưa đúng dạng ngày/tháng/năm.');$('#hv_ngaydong').focus();return;}
       ndIso = ndv ? vnToIso(ndv) : todayISO();
     }
+    // ngày nhập học
+    const nhv=$('#hv_nhaphoc').value.trim();
+    if(nhv && !isValidDob(nhv)){err('Thời gian nhập học chưa đúng dạng ngày/tháng/năm.');$('#hv_nhaphoc').focus();return;}
+    const nhIso = nhv ? vnToIso(nhv) : null;
+    // trạng thái thôi học
+    let thIso=null, lyDo=null;
+    if(thoi){
+      const thv=$('#hv_thoihoc').value.trim();
+      if(thv && !isValidDob(thv)){err('Ngày thôi học chưa đúng dạng ngày/tháng/năm.');$('#hv_thoihoc').focus();return;}
+      thIso = thv ? vnToIso(thv) : todayISO();
+      lyDo = $('#hv_lydo').value || 'Khác';
+    }
     const hp=Number(String($('#hv_hp').value).replace(/[^\d]/g,''))||0;
     const lopId=Number($('#hv_lop').value);
-    const patch={ten,ns:$('#hv_ns').value.trim(),ph:$('#hv_ph').value.trim(),sdt:$('#hv_sdt').value.trim(),hocPhi:hp,daDong:paid,ngayDong:ndIso,lopId};
+    const patch={ten,ns:$('#hv_ns').value.trim(),ph:$('#hv_ph').value.trim(),sdt:$('#hv_sdt').value.trim(),hocPhi:hp,daDong:paid,ngayDong:ndIso,ngayNhapHoc:nhIso,ngayThoiHoc:thIso,lyDo:lyDo||'',lopId};
     const btn=$('#hv_save'); btn.disabled=true; btn.textContent='Đang lưu…'; err('');
     const {error}=await SB.from('hoc_vien').update({ten:patch.ten,ns:patch.ns,ph:patch.ph,sdt:patch.sdt,hoc_phi:hp,da_dong:paid,lop_id:lopId,mau:false}).eq('id',h.id);
     btn.disabled=false; btn.textContent='✓ Lưu hồ sơ';
     if(error){err('Lỗi lưu: '+error.message);return;}
     await SB.from('hoc_vien').update({ngay_dong:ndIso}).eq('id',h.id);   // cần cột ngay_dong; bỏ qua êm nếu chưa chạy SQL
+    await SB.from('hoc_vien').update({ngay_nhap_hoc:nhIso,ngay_thoi_hoc:thIso,ly_do_thoi_hoc:lyDo}).eq('id',h.id);   // cần cột mới; bỏ qua êm nếu chưa chạy SQL
     Object.assign(h,patch,{mau:false});
     await syncHocPhiVoucher(h,paid);        // đồng bộ phiếu thu trong Sổ quỹ
     closeModal(); renderHocVien();
@@ -2020,7 +2089,7 @@ function renderGhiDanh(){
   const lops=inLOP().filter(l=>l.siso>0||hvOfLop(l.id).length);
   if(!lops.length){$('#view').innerHTML=`<div class="panel"><div class="pbody"><div class="empty">Chưa có lớp học trong phạm vi này</div></div></div>`;return;}
   if(!lops.find(l=>l.id===ghiLopId)) ghiLopId=lops[0].id;
-  const lop=LOP.find(l=>l.id===ghiLopId), ds=hvOfLop(ghiLopId);
+  const lop=LOP.find(l=>l.id===ghiLopId), ds=hvOfLop(ghiLopId).filter(hvActive);
   const conThieu=Math.max(0,(lop.siso||0)-ds.length);
   let h=`<div class="toolbar"><select class="fsel" id="ghiLop" style="flex:1;min-width:180px;max-width:100%">${lopPickHTML(ghiLopId)}</select>
     <button class="btn btn-sm btn-ghost" id="hsTpl" style="white-space:nowrap">⬇ Tải mẫu Excel</button>
@@ -2070,7 +2139,10 @@ function renderGhiDanh(){
     const rec={ten,ns:$('#gd_ns').value.trim(),ph:$('#gd_ph').value.trim(),sdt:$('#gd_sdt').value.trim(),hocPhi:Number($('#gd_hp').value.replace(/\D/g,''))||0,lopId:ghiLopId,coSoId:lop.coSoId,mau:false};
     const {data,error}=await SB.from('hoc_vien').insert(hvToDb(rec)).select().single();
     if(error){avaAlert('Lỗi ghi danh: '+error.message);return;}
-    OPS.hv.push(hvFromDb(data));renderGhiDanh();
+    const today=todayISO();
+    await SB.from('hoc_vien').update({ngay_nhap_hoc:today}).eq('id',data.id);   // ngày nhập học = hôm nay; bỏ qua êm nếu chưa chạy SQL
+    const obj=hvFromDb(data); obj.ngayNhapHoc=obj.ngayNhapHoc||today;
+    OPS.hv.push(obj);renderGhiDanh();
   };
   $$('#view [data-del]').forEach(b=>b.onclick=async()=>{const id=Number(b.dataset.del);const {error}=await SB.from('hoc_vien').delete().eq('id',id);if(error){avaAlert('Lỗi xóa: '+error.message);return;}OPS.hv=OPS.hv.filter(x=>x.id!==id);renderGhiDanh();});
   renderNavCounts();
@@ -2081,7 +2153,7 @@ function renderDiemDanh(){
   const lops=inLOP().filter(l=>l.siso>0||hvOfLop(l.id).length);
   if(!lops.length){$('#view').innerHTML=`<div class="panel"><div class="pbody"><div class="empty">Chưa có lớp học trong phạm vi này</div></div></div>`;return;}
   if(!lops.find(l=>l.id===ddLopId)) ddLopId=lops[0].id;
-  const lop=LOP.find(l=>l.id===ddLopId), ds=hvOfLop(ddLopId);
+  const lop=LOP.find(l=>l.id===ddLopId), ds=hvOfLop(ddLopId).filter(hvActive);
   const ddKey=ddLopId+'|'+ddDate, state=OPS.ddHV[ddKey]||{};
   const ccKey='cc|'+ddLopId+'|'+ddDate, cc=OPS.ccGV[ccKey]||'';
   const cnt={co:0,muon:0,phep:0,vang:0}; ds.forEach(v=>{if(state[v.id])cnt[state[v.id]]++;});
