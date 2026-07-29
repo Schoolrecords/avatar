@@ -25,6 +25,7 @@ Phân quyền được khóa ở tầng CSDL bằng **RLS** (Row Level Security)
 - **Đối soát** — luồng duyệt: Giáo viên gửi → Lễ tân đối soát → Quản trị **chốt** (khóa số liệu ca dạy).
 - **Khoản thu** — sổ quỹ thu–chi theo hạng mục, tồn quỹ, phiếu thu/chi (in & tải Word), xuất Excel; tự sinh phiếu thu học phí theo số tiền học sinh đã đóng.
 - **Tài khoản giáo viên** (chỉ Giám đốc) — tạo/đổi mật khẩu/khóa/xóa tài khoản GV (qua Edge Function `quan-ly-tk`).
+- **Hướng dẫn sử dụng** — hướng dẫn hiển thị **theo vai trò đang đăng nhập** (Giám đốc xem được cả 3 bản để in phát cho nhân viên): 3 việc đầu tiên, sơ đồ quy trình một buổi dạy, menu có gì, thao tác từng bước, cách hệ thống tính số liệu, hỏi đáp – xử lý sự cố. Có nút **In / lưu PDF**.
 
 ## Cấu trúc
 

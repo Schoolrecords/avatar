@@ -407,20 +407,24 @@ tbody tr:hover{background:var(--soft)}
 .ddsum .p.co{background:#f0fdf4;border-color:#bbf7d0}.ddsum .p.co b{color:#16a34a}
 .ddsum .p.muon{background:var(--amber-soft);border-color:#f4dfb0}.ddsum .p.muon b{color:var(--amber)}
 .ddsum .p.vang{background:var(--rose-soft);border-color:#f4cdcf}.ddsum .p.vang b{color:var(--rose)}
+.ddsum .p.phep{background:#eef2ff;border-color:#ccd6f6}.ddsum .p.phep b{color:#4f5fc4}
 .ddsum .p.done{background:var(--emerald-soft);border-color:#c4d8f5}.ddsum .p.done b{color:var(--emerald)}
 /* hàng điểm danh: hover nổi khối */
 .ddgrid>.ddrow:not(.ddh){border-radius:9px;transition:background .12s}
 .ddgrid>.ddrow:not(.ddh):hover{background:var(--soft)}
-/* nút điểm danh học sinh — 3 trạng thái kiểu đèn giao thông */
-.attseg{display:inline-flex;gap:7px;flex:none}
-.attseg button{min-width:60px;padding:8px 4px;font-size:.77rem;font-weight:800;border-radius:10px;border:1.6px solid;background:#fff;transition:.12s}
+/* nút điểm danh học sinh — 4 trạng thái: Có / Muộn / Phép / Vắng */
+.attseg{display:inline-flex;gap:6px;flex:none}
+.attseg button{min-width:54px;padding:8px 4px;font-size:.76rem;font-weight:800;border-radius:10px;border:1.6px solid;background:#fff;transition:.12s}
 .attseg button[data-v=co]{color:#16a34a;border-color:#bbf7d0}
 .attseg button[data-v=muon]{color:var(--amber);border-color:#f0d79a}
+.attseg button[data-v=phep]{color:#4f5fc4;border-color:#ccd6f6}
 .attseg button[data-v=vang]{color:var(--rose);border-color:#f2bcbf}
 .attseg button:hover{filter:brightness(.98);transform:translateY(-1px)}
 .attseg button.on[data-v=co]{background:#16a34a;border-color:#16a34a;color:#fff;box-shadow:0 3px 9px rgba(22,163,74,.30)}
 .attseg button.on[data-v=muon]{background:var(--amber);border-color:var(--amber);color:#fff;box-shadow:0 3px 9px rgba(201,132,16,.30)}
+.attseg button.on[data-v=phep]{background:#4f5fc4;border-color:#4f5fc4;color:#fff;box-shadow:0 3px 9px rgba(79,95,196,.30)}
 .attseg button.on[data-v=vang]{background:var(--rose);border-color:var(--rose);color:#fff;box-shadow:0 3px 9px rgba(224,75,82,.30)}
+@media(max-width:400px){.attseg button{min-width:46px;padding:8px 2px;font-size:.72rem}}
 @media(max-width:520px){.ddrow{flex-wrap:wrap}.ddrow .seg,.ddrow .attseg{margin-left:34px}}
 
 /* ===== SỔ QUỸ THU CHI ===== */
@@ -460,6 +464,15 @@ td.chi{color:var(--rose);font-weight:800}
   #voucher{display:block!important;position:static;background:#fff;padding:0;backdrop-filter:none}
   .vbar{display:none!important}
   .vpaper{box-shadow:none;max-width:100%;padding:10px 6px}
+  /* In trang Hướng dẫn (body.print-guide): chỉ in phần nội dung */
+  body.print-guide #voucher{display:none!important}
+  body.print-guide #app{display:block!important}
+  body.print-guide .shell{display:block}
+  body.print-guide .side,body.print-guide .top,body.print-guide .botnav,body.print-guide .scrim,
+  body.print-guide .g-bar,body.print-guide .g-toc{display:none!important}
+  body.print-guide .main{padding:0}
+  body.print-guide .panel,body.print-guide .g-acc,body.print-guide .g-fstep,body.print-guide .feat{break-inside:avoid;page-break-inside:avoid;box-shadow:none}
+  body.print-guide .guide-hero,body.print-guide .rolecard{-webkit-print-color-adjust:exact;print-color-adjust:exact}
 }
 
 /* rank list */
@@ -535,6 +548,46 @@ td.chi{color:var(--rose);font-weight:800}
 .tiprow{display:flex;gap:9px;padding:8px 0;font-size:.86rem;line-height:1.5;border-bottom:1px solid #f5f7fa}
 .tiprow:last-child{border-bottom:0}
 @media(max-width:760px){.role2{grid-template-columns:1fr}}
+/* --- Hướng dẫn: thanh vai trò, mục lục, sơ đồ quy trình, accordion --- */
+.g-meta{display:flex;flex-wrap:wrap;gap:7px;margin-top:13px}
+.g-meta span{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.18);color:#eaf1ff;font-size:.73rem;font-weight:700;padding:4px 11px;border-radius:99px}
+.g-bar{display:flex;gap:9px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+.g-tabs{display:flex;gap:5px;background:#fff;border:1px solid var(--line);border-radius:14px;padding:5px;box-shadow:var(--shadow-sm);flex-wrap:wrap}
+.g-tabs button{padding:9px 14px;border-radius:10px;font-size:.82rem;font-weight:800;color:var(--muted);background:none;border:0;cursor:pointer;transition:.15s}
+.g-tabs button.on{background:var(--brand);color:#fff}
+.g-toc{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:14px}
+.g-toc button{background:#fff;border:1px solid var(--line);border-radius:99px;padding:7px 13px;font-size:.79rem;font-weight:700;color:var(--brand-600);cursor:pointer;box-shadow:var(--shadow-sm)}
+.g-toc button:hover{background:var(--brand);color:#fff;border-color:var(--brand)}
+.g-flow{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px}
+.g-fstep{position:relative;background:var(--soft);border:1px solid var(--line);border-radius:14px;padding:13px 14px}
+.g-fstep .n{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:8px;background:var(--brand);color:#fff;font-size:.78rem;font-weight:800;margin-bottom:7px}
+.g-fstep b{display:block;font-size:.88rem;margin-bottom:3px}
+.g-fstep span{display:block;font-size:.79rem;color:var(--muted);line-height:1.5}
+.g-fstep .who{display:inline-block;margin-top:8px;font-size:.68rem;font-weight:800;letter-spacing:.03em;text-transform:uppercase;padding:3px 9px;border-radius:99px;background:var(--brand-soft);color:var(--brand-700)}
+.g-acc{border:1px solid var(--line);border-radius:14px;margin-bottom:9px;overflow:hidden;background:#fff}
+.g-acc>summary{list-style:none;cursor:pointer;padding:13px 15px;font-weight:800;font-size:.92rem;color:var(--ink);display:flex;align-items:center;gap:10px;background:var(--soft)}
+.g-acc>summary::-webkit-details-marker{display:none}
+.g-acc>summary:after{content:'▾';margin-left:auto;color:var(--faint);font-size:.9rem;transition:.15s}
+.g-acc[open]>summary:after{transform:rotate(180deg)}
+.g-acc>summary .gi{width:28px;height:28px;border-radius:9px;background:var(--brand-soft);display:grid;place-items:center;font-size:.95rem;flex:none}
+.g-acc ol,.g-acc ul{margin:0;padding:12px 16px 14px 34px}
+.g-acc li{font-size:.85rem;line-height:1.62;color:var(--ink);margin-bottom:6px}
+.g-acc li:last-child{margin-bottom:0}
+.g-kv{display:grid;gap:0}
+.g-kv .r{display:flex;gap:12px;padding:11px 2px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.g-kv .r:last-child{border-bottom:0}
+.g-kv .k{flex:0 0 190px;font-weight:800;font-size:.85rem;color:var(--brand-700)}
+.g-kv .v{flex:1;min-width:200px;font-size:.84rem;color:var(--muted);line-height:1.55}
+.g-note{display:flex;gap:10px;align-items:flex-start;background:var(--amber-soft);border:1px solid #f2dca6;color:#7a5406;border-radius:12px;padding:11px 13px;font-size:.83rem;line-height:1.55;margin:0 0 10px}
+.g-note.ok{background:var(--brand-soft);border-color:#c3d3ee;color:var(--brand-700)}
+.g-note b{color:inherit}
+.g-mrow{display:flex;gap:11px;align-items:flex-start;padding:11px 2px;border-bottom:1px solid var(--line)}
+.g-mrow:last-child{border-bottom:0}
+.g-mrow .mi{width:34px;height:34px;border-radius:10px;background:var(--brand-soft);display:grid;place-items:center;flex:none}
+.g-mrow .mi svg{width:17px;height:17px;stroke:var(--brand-600)}
+.g-mrow b{display:block;font-size:.88rem;margin-bottom:2px}
+.g-mrow span{display:block;font-size:.81rem;color:var(--muted);line-height:1.5}
+@media(max-width:600px){.g-kv .k{flex:1 0 100%}}
 
 .empty{text-align:center;padding:40px 20px;color:var(--muted)}
 .empty svg{width:44px;height:44px;stroke:var(--faint);margin:0 auto 12px}
@@ -741,7 +794,8 @@ td.chi{color:var(--rose);font-weight:800}
 <div class="voucher" id="voucher"></div>
 
 <script src="data.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<!-- Thư viện Supabase tự host (không phụ thuộc CDN — mạng chặn CDN vẫn đăng nhập được) -->
+<script src="supabase.min.js"></script>
 <script>
 /* ============ UTIL ============ */
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -1653,89 +1707,245 @@ function tkBulkSummary(results,csId){
 }
 
 /* ============ HƯỚNG DẪN SỬ DỤNG ============ */
+const HD_ROLE_LABEL={admin:'Giám đốc / Quản trị chuỗi',owner:'Lễ tân cơ sở',teacher:'Giáo viên'};
+const HD_ROLE_ICON={admin:'👑',owner:'🏫',teacher:'👩‍🏫'};
+let hdRole=null;                       // vai trò đang XEM hướng dẫn (admin xem được cả 3 để in phát cho nhân viên)
+const hdRolesAllowed=()=> USER.role==='admin'?['admin','owner','teacher']
+                       : USER.role==='owner'?['owner','teacher'] : ['teacher'];
+const hdNavFor=r=> r==='teacher'?NAV.filter(n=>n.teach):NAV.filter(n=>!n.adminOnly||r==='admin');
+/* Mỗi mục trong menu dùng để làm gì */
+const HD_MENU_DESC={
+  dashboard:'Toàn cảnh: dự thu – đã thu học phí, học sinh đang học, số lớp, chuyên cần 30 ngày, buổi đã điểm danh hôm nay, cảnh báo điều hành và hoạt động gần đây.',
+  gv:'Hồ sơ giáo viên: thêm/sửa, ngày hợp đồng, tích chọn <b>lớp phụ trách</b>, tải mẫu &amp; nhập Excel.',
+  coso:'Danh mục cơ sở của chuỗi; bấm vào một cơ sở để xem chi tiết lớp, học sinh, kinh phí học phí.',
+  lop:'Danh sách lớp: sĩ số, giáo viên phụ trách, dự thu. Thêm / sửa / xóa lớp.',
+  hocvien:'Kho hồ sơ học sinh: tìm kiếm, lọc theo cơ sở – lớp – trạng thái – học phí; bấm <b>Hồ sơ</b> để sửa, ghi nhận đóng tiền, cho thôi học.',
+  ghidanh:'Thêm học sinh vào lớp — nhập từng em hoặc nhập Excel cả cơ sở một lần.',
+  diemdanh:'Điểm danh học sinh và chấm công giáo viên theo từng buổi; gửi đối soát / chốt ca ngay tại đây.',
+  duyet:'Danh sách các ca dạy theo trạng thái: <b>Chờ đối soát → Đã đối soát → Đã chốt</b>, kèm nút xử lý theo vai trò.',
+  baocao:'Chuyên cần học sinh, công giáo viên, tổng hợp theo lớp, chi tiết từng buổi, giáo viên dạy mấy ca/ngày, nhật ký đối soát — xuất Excel 7 sheet khổ A4.',
+  thu:'Sổ quỹ thu – chi theo hạng mục, tồn quỹ, phiếu thu/chi (in &amp; tải Word), xuất Excel; dự thu học phí theo cơ sở.',
+  taikhoan:'Tạo / đổi mật khẩu / khóa / xóa tài khoản đăng nhập của giáo viên (tạo lẻ hoặc hàng loạt cả cơ sở).',
+  huongdan:'Chính là trang này — có nút in để phát cho nhân viên.'
+};
+/* 3 việc đầu tiên của mỗi vai trò */
+const HD_START={
+  admin:[
+    ['Chọn phạm vi xem','Ô <b>Toàn hệ thống</b> ở đầu trang: chọn “Toàn hệ thống” để xem cả chuỗi, hoặc chọn một cơ sở để xem riêng. Mọi trang đều theo lựa chọn này.'],
+    ['Dựng dữ liệu nền','Vào <b>Giáo viên</b> và <b>Lớp học</b> để thêm giáo viên, thêm lớp và phân công lớp cho giáo viên.'],
+    ['Mở tài khoản cho giáo viên','Vào <b>Tài khoản</b> → chọn cơ sở → <b>Tạo tài khoản</b> (hoặc <b>＋ Tạo hàng loạt</b>) rồi phát tên đăng nhập &amp; mật khẩu cho giáo viên.']
+  ],
+  owner:[
+    ['Ghi danh học sinh','Vào <b>Ghi danh</b> → chọn lớp → nhập từng em, hoặc <b>Tải mẫu Excel (cả cơ sở)</b> rồi <b>Nhập Excel</b>.'],
+    ['Cập nhật học phí','Vào <b>Học sinh</b> → bấm <b>Hồ sơ</b> → nhập học phí cả khóa, chọn <b>✓ Đã đóng</b> và số tiền đã nộp. Phiếu thu tự vào Sổ quỹ.'],
+    ['Đối soát mỗi cuối ngày','Vào <b>Đối soát</b> → xem các ca <b>Chờ đối soát</b> giáo viên vừa gửi → bấm <b>✓ Chấp nhận</b>.']
+  ],
+  teacher:[
+    ['Vào Điểm danh','Đăng nhập là vào thẳng <b>Điểm danh</b>. Chọn <b>ngày</b> và <b>lớp</b> mình dạy ở đầu trang.'],
+    ['Điểm danh &amp; chấm công','Tích <b>Có / Muộn / Phép / Vắng</b> cho từng em (lưu ngay, không cần bấm Lưu) và chấm công buổi dạy của mình ở khung phía trên.'],
+    ['Gửi đối soát','Điểm danh xong bấm <b>✓ Gửi đối soát</b> để lễ tân kiểm tra. Cần thêm học sinh mới thì vào <b>Ghi danh</b>.']
+  ]
+};
+/* Sơ đồ một ca dạy đi qua các bước nào */
+const HD_FLOW=[
+  ['Ghi danh','Học sinh mới được thêm vào lớp (giáo viên hoặc lễ tân đều làm được).','GV / Lễ tân'],
+  ['Điểm danh &amp; chấm công','Tích Có / Muộn / Phép / Vắng cho từng em và đánh dấu Lên lớp / Nghỉ / Dạy bù cho buổi dạy.','GV / Lễ tân'],
+  ['Gửi đối soát','Bấm <b>✓ Gửi đối soát</b> — ca chuyển sang trạng thái <b>Chờ đối soát</b>.','Giáo viên'],
+  ['Đối soát','Lễ tân kiểm tra rồi bấm <b>✓ Chấp nhận</b> — ca thành <b>Đã đối soát</b>.','Lễ tân'],
+  ['Chốt số liệu','Quản trị bấm <b>✓ Chốt</b> — ca <b>khóa lại</b>, không ai sửa được nữa (trừ khi Quản trị bấm 🔓 Mở khóa).','Quản trị']
+];
+/* Hướng dẫn thao tác chi tiết — nhóm theo công việc */
+const HD_HOWTO={
+  admin:[
+    ['🏗️','Dựng dữ liệu nền cho một cơ sở',[
+      'Vào <b>Giáo viên</b> → chọn cơ sở ở ô lọc → <b>＋ Thêm giáo viên</b>; hoặc <b>⬇ Tải mẫu Excel</b>, điền rồi <b>⬆ Nhập Excel</b> (phải chọn 1 cơ sở trước khi nhập).',
+      'Vào <b>Lớp học</b> → <b>＋ Thêm lớp</b>: tên lớp, môn, <b>sĩ số dự kiến</b>, giáo viên phụ trách.',
+      '⚠ Lớp chỉ xuất hiện trong ô chọn lớp của <b>Ghi danh / Điểm danh</b> khi đã có <b>sĩ số dự kiến &gt; 0</b> hoặc đã có ít nhất một học sinh.',
+      'Muốn đổi phân công: <b>Giáo viên</b> → mở hồ sơ → mục <b>Phụ trách lớp</b> → tích/bỏ tích lớp → <b>Lưu thay đổi</b>.'
+    ]],
+    ['🔑','Tài khoản đăng nhập cho giáo viên',[
+      'Vào <b>Tài khoản</b> → chọn cơ sở. Mỗi giáo viên hiện một dòng kèm trạng thái: <i>Chưa có TK / Đang dùng / Đã khóa</i>.',
+      'Bấm <b>Tạo tài khoản</b>: tên đăng nhập mặc định là <b>gv + mã</b>, mật khẩu ≥ 6 ký tự. Hệ thống tự thêm đuôi <b>@avatar.vn</b>.',
+      'Hoặc <b>＋ Tạo hàng loạt</b> cho cả cơ sở → xong nhớ bấm <b>📋 Sao chép</b> hoặc <b>⬇ Tải Excel</b> để lưu mật khẩu (đóng cửa sổ là không xem lại được).',
+      '⚠ Nên tích lớp phụ trách cho giáo viên <b>trước khi</b> tạo tài khoản — chưa có lớp thì giáo viên đăng nhập sẽ không thấy gì.',
+      'Giáo viên quên mật khẩu: bấm <b>Đổi MK</b>. Nghỉ việc: bấm <b>Khóa</b> (giữ dữ liệu) hoặc <b>Xóa</b> (xóa hẳn tài khoản, dữ liệu điểm danh vẫn còn).'
+    ]],
+    ['🔒','Chốt số liệu ca dạy',[
+      'Vào <b>Đối soát</b> — mặc định hiện các ca <b>Đã đối soát</b> (lễ tân đã kiểm tra xong).',
+      'Bấm vào tên ca để mở đúng buổi đó trong <b>Điểm danh</b> mà xem chi tiết.',
+      'Bấm <b>✓ Chốt</b> để khóa số liệu ca đó. Con số bên cạnh chữ “Đối soát” trong menu là số ca đang chờ mình xử lý.',
+      'Cần sửa lại một ca đã chốt: bấm <b>🔓 Mở khóa</b> — ca quay về <b>Đã đối soát</b> và sửa được.'
+    ]],
+    ['📊','Báo cáo &amp; theo dõi tiền',[
+      'Vào <b>Báo cáo</b> → chọn <b>Từ ngày – Đến ngày</b> (và lớp nếu cần) → xem 6 bảng trên màn hình.',
+      'Bấm <b>⬇ Xuất Excel</b> để tải file 7 sheet đã căn khổ A4, có tiêu đề lặp mỗi trang — in hoặc gửi đi được ngay.',
+      'Vào <b>Khoản thu</b> để xem sổ quỹ, tồn quỹ và dự thu học phí theo từng cơ sở.',
+      'Ở <b>Bảng điều hành</b>, khung <b>Cảnh báo điều hành</b> tự nhắc cơ sở chưa nhập lớp hoặc thu học phí dưới 72%.'
+    ]]
+  ],
+  owner:[
+    ['🎓','Ghi danh &amp; hồ sơ học sinh',[
+      'Vào <b>Ghi danh</b> → chọn lớp → nhập họ tên, ngày sinh, phụ huynh, điện thoại, học phí → <b>＋ Ghi danh vào lớp</b>.',
+      'Ngày nhập học tự lấy ngày hôm nay; muốn sửa thì vào <b>Học sinh</b> → <b>Hồ sơ</b>.',
+      'Đổi lớp cho một em: <b>Học sinh</b> → <b>Hồ sơ</b> → ô <b>Lớp đang học</b> → chọn lớp mới → <b>Lưu hồ sơ</b>.',
+      'Em nào nghỉ: <b>Hồ sơ</b> → <b>Đã thôi học</b> → nhập ngày + lý do → <b>Lưu</b>. Hồ sơ vẫn giữ nhưng không tính vào sĩ số và dự thu nữa.'
+    ]],
+    ['💰','Học phí &amp; phiếu thu',[
+      'Vào <b>Học sinh</b> → <b>Hồ sơ</b> → nhập <b>Học phí (đ/khóa)</b>.',
+      'Khi phụ huynh nộp tiền: chọn <b>✓ Đã đóng</b>, nhập <b>ngày đóng</b> và <b>số tiền đã đóng</b> (nộp một phần cũng được) → <b>Lưu hồ sơ</b>.',
+      'Hệ thống tự tạo <b>phiếu thu học phí</b> trong <b>Khoản thu</b> đúng số tiền đó; sửa lại số tiền thì phiếu tự cập nhật theo.',
+      '⚠ Xóa phiếu thu học phí trong Sổ quỹ đồng nghĩa đánh dấu em đó <b>chưa đóng</b> — cân nhắc trước khi xóa.',
+      'Các khoản khác (bán tài liệu, thu khác, chi lương, thuê mặt bằng…): <b>Khoản thu</b> → <b>＋ Phiếu thu</b> / <b>－ Phiếu chi</b>; có <b>Xem trước</b>, <b>In phiếu</b> và <b>Tải Word</b>.'
+    ]],
+    ['🗓️','Điểm danh &amp; đối soát',[
+      'Vào <b>Điểm danh</b> → chọn <b>ngày</b> và <b>lớp</b> → tích <b>Có / Muộn / Phép / Vắng</b> (Phép = vắng có xin phép). Mỗi lần tích là lưu ngay; bấm lại đúng nút đang chọn để bỏ điểm danh em đó.',
+      'Khung <b>Chấm công giáo viên</b> phía trên: chọn <b>Lên lớp / Nghỉ / Dạy bù</b> cho buổi dạy.',
+      'Cơ sở <b>có</b> tài khoản giáo viên: giáo viên tự điểm danh rồi gửi lên — lễ tân vào <b>Đối soát</b> bấm <b>✓ Chấp nhận</b>.',
+      'Cơ sở <b>chưa có</b> tài khoản giáo viên: lễ tân tự điểm danh rồi bấm <b>✓ Gửi đối soát</b> — ca chuyển thẳng sang <b>Đã đối soát</b> chờ Quản trị chốt.',
+      'Ca đã <b>Đã chốt</b> sẽ khóa, muốn sửa phải nhờ Quản trị mở khóa.'
+    ]],
+    ['⬆️','Nhập danh sách bằng Excel',[
+      'Vào <b>Ghi danh</b> → <b>⬇ Tải mẫu Excel (cả cơ sở)</b> — một file dùng cho mọi lớp của cơ sở.',
+      'Điền mỗi em một dòng ngay dưới hàng tiêu đề xanh. Cột <b>Lớp</b> hãy <b>bấm chọn</b> trong danh sách xổ xuống, đừng gõ tay.',
+      'Ngày ghi dạng <b>ngày/tháng/năm</b> (01/09/2015); học phí ghi số không dấu chấm (600000); cột <b>TT</b> chỉ để đánh số.',
+      'Lưu file → <b>⬆ Nhập Excel</b> → xem trước danh sách → xác nhận. Dòng thiếu họ tên hoặc sai tên lớp sẽ bị bỏ qua và báo rõ số dòng.'
+    ]]
+  ],
+  teacher:[
+    ['🗓️','Điểm danh học sinh',[
+      'Đăng nhập là vào thẳng <b>Điểm danh</b>. Chọn <b>ngày</b> và <b>lớp</b> mình phụ trách ở đầu trang.',
+      'Tích <b>Có / Muộn / Phép / Vắng</b> cho từng em (Phép = vắng có xin phép) — tích tới đâu lưu tới đó, không cần bấm Lưu.',
+      'Bấm lại đúng nút đang chọn để bỏ điểm danh em đó.',
+      'Khung <b>Chấm công giáo viên</b> phía trên: chọn <b>Lên lớp</b>, <b>Nghỉ</b> hoặc <b>Dạy bù</b> cho buổi dạy của mình.'
+    ]],
+    ['✅','Gửi đối soát',[
+      'Điểm danh xong, bấm <b>✓ Gửi đối soát</b> ở khung <b>Ca dạy</b> phía trên.',
+      'Trạng thái chuyển sang <b>Chờ đối soát</b>; lễ tân kiểm tra và chấp nhận, sau đó Quản trị chốt.',
+      'Còn ở <b>Chờ đối soát</b> thì vẫn sửa điểm danh và bấm <b>↻ Gửi lại đối soát</b> được.',
+      'Khi ca đã <b>Đã chốt</b> (🔒) thì không sửa được nữa — cần sửa hãy báo lễ tân/Quản trị mở khóa.'
+    ]],
+    ['🎓','Ghi danh học sinh mới',[
+      'Vào <b>Ghi danh</b> → chọn lớp → nhập họ tên, ngày sinh, phụ huynh, điện thoại → <b>＋ Ghi danh vào lớp</b>.',
+      'Giáo viên <b>không nhập học phí</b> và không xóa được học sinh — phần đó do lễ tân / Quản trị làm.',
+      'Nhập sai tên một em: báo lễ tân sửa lại trong mục Học sinh.'
+    ]],
+    ['🔐','Tài khoản của tôi',[
+      'Đăng nhập bằng tên ngắn được phát (ví dụ <b>gv12</b>) — hệ thống tự thêm đuôi @avatar.vn.',
+      'Đổi mật khẩu: bấm <b>Đổi mật khẩu</b> ở cuối thanh menu bên trái (trên điện thoại: bấm ☰ rồi kéo xuống).',
+      'Chỉ nên đăng xuất khi dùng máy chung. Không đưa tài khoản cho người khác.'
+    ]]
+  ]
+};
+/* Cách hệ thống tính các con số — để mọi người đọc số liệu giống nhau */
+const HD_NUMBERS=[
+  ['Học sinh đang học','Là những em <b>chưa có ngày thôi học</b>. Em đã thôi học vẫn giữ hồ sơ nhưng không tính vào sĩ số, dự thu.'],
+  ['Dự thu học phí','Tổng <b>học phí cả khóa</b> của các học sinh đang học trong phạm vi đang xem.'],
+  ['Đã thu học phí','Tổng <b>số tiền đã đóng</b> của các em (tối đa bằng học phí cả khóa của em đó).'],
+  ['Còn phải thu','Dự thu trừ Đã thu.'],
+  ['Chuyên cần','(Có mặt + Muộn) chia cho tổng lượt đã điểm danh — <b>Phép</b> và <b>Vắng</b> đều không tính là có mặt. Ở <b>Bảng điều hành</b> tính trong <b>30 ngày gần nhất</b>; ở <b>Báo cáo</b> tính đúng khoảng ngày mình chọn.'],
+  ['Tồn quỹ','Tổng thu trừ tổng chi của <b>toàn bộ sổ quỹ</b> trong phạm vi — không phụ thuộc bộ lọc tháng/loại đang chọn.'],
+  ['Công giáo viên','Số buổi chấm <b>Lên lớp</b> cộng <b>Dạy bù</b>. Buổi <b>Nghỉ</b> được thống kê riêng, không tính vào công.'],
+  ['Ca đã chốt','Số ca dạy Quản trị đã chốt trong khoảng thời gian của báo cáo — đây là số liệu đã khóa, dùng để đối chiếu lương/học phí.']
+];
+/* Hỏi đáp – xử lý sự cố (rút từ tình huống thực tế trên hệ thống) */
+const HD_FAQ=[
+  ['Đăng nhập báo “Tài khoản chưa được phân quyền”','Tài khoản đã tạo nhưng chưa gán vai trò. Báo Quản trị gán vai trò (Giám đốc / Lễ tân) hoặc tạo lại tài khoản giáo viên trong mục <b>Tài khoản</b>.'],
+  ['Giáo viên đăng nhập báo “chưa được gắn lớp phụ trách”','Vào <b>Giáo viên</b> → mở hồ sơ giáo viên đó → mục <b>Phụ trách lớp</b> → tích lớp → <b>Lưu thay đổi</b>. Sau đó giáo viên đăng nhập lại.'],
+  ['Không thấy lớp trong ô chọn lớp của Ghi danh / Điểm danh','Lớp đó chưa có <b>sĩ số dự kiến</b> và cũng chưa có học sinh nào. Vào <b>Lớp học</b> → mở lớp → nhập sĩ số dự kiến.'],
+  ['Không tích được điểm danh, các nút bị mờ','Ca đó đã <b>Đã chốt</b> (khóa). Nhờ Quản trị vào <b>Đối soát</b> bấm <b>🔓 Mở khóa</b>.'],
+  ['Xóa lớp không được','Lớp còn học sinh. Vào <b>Học sinh</b> chuyển các em sang lớp khác (hoặc cho thôi học) rồi xóa lớp.'],
+  ['Nhập Excel bị bỏ qua vài dòng','Dòng thiếu <b>họ và tên</b>, hoặc <b>tên lớp không khớp</b> lớp nào của cơ sở. Cửa sổ xem trước có ghi rõ số dòng bị bỏ — sửa file rồi nhập lại.'],
+  ['Số liệu trên máy này khác máy kia','Hệ thống tự đồng bộ theo thời gian thực. Nếu đang gõ trong ô nhập, việc vẽ lại tạm hoãn để khỏi mất chữ — bấm <b>↻ Tải lại</b> hoặc chuyển sang mục khác rồi quay lại.'],
+  ['Học sinh đã đóng tiền nhưng Sổ quỹ không thấy phiếu','Phiếu thu học phí chỉ sinh khi <b>số tiền đã đóng &gt; 0</b> và đã bấm <b>Lưu hồ sơ</b>. Mở lại hồ sơ em đó kiểm tra ô số tiền.'],
+  ['Quên mật khẩu','Giáo viên: Quản trị vào <b>Tài khoản</b> → <b>Đổi MK</b>. Giám đốc / Lễ tân: liên hệ bộ phận kỹ thuật đặt lại.'],
+  ['Muốn đổi mật khẩu của chính mình','Bấm <b>Đổi mật khẩu</b> ở cuối thanh menu bên trái (điện thoại: bấm ☰ rồi kéo xuống), nhập mật khẩu mới hai lần.']
+];
+const HD_TIPS=[
+  ['📲','Cài lên màn hình chính điện thoại (chọn “Thêm vào Màn hình chính”) để dùng như một ứng dụng riêng, mở nhanh hơn.'],
+  ['💡','Sau khi hệ thống được cập nhật, hãy tải lại trang (máy tính bấm Ctrl+F5, điện thoại kéo xuống làm mới) để nhận bản mới nhất.'],
+  ['🔔','Chuông ở góc trên báo học sinh mới ghi danh và các khoản thu – chi mới. Bấm <b>“Đánh dấu đã đọc”</b> một lần cho gọn.'],
+  ['🖶','Trang Hướng dẫn này bấm <b>In / lưu PDF</b> được — in ra phát cho lễ tân và giáo viên rất tiện.'],
+  ['🔒','Mỗi người một tài khoản, không dùng chung. Chỉ đăng xuất khi dùng máy chung — máy riêng cứ để đăng nhập sẵn cho nhanh.']
+];
 function renderHuongDan(){
-  const feats=[
-    ['🏫','Quản trị chuỗi tập trung','Theo dõi toàn bộ cơ sở trên một màn hình — giáo viên, lớp, học sinh, tài chính đều ở cùng một nơi.'],
-    ['🎓','Hồ sơ học sinh đầy đủ','Lưu thông tin từng em: lớp, phụ huynh, học phí, ngày nhập học, đang học/thôi học. Tìm kiếm & lọc tức thì.'],
-    ['💰','Quản lý học phí thông minh','Đánh dấu đã đóng từng em, tự sinh phiếu thu — biết ngay ai đã đóng, ai còn nợ, thu được bao nhiêu.'],
-    ['📒','Sổ quỹ thu – chi','Ghi phiếu thu/chi theo hạng mục, xem tồn quỹ, xuất Excel & in phiếu chỉ với một cú bấm.'],
-    ['👩‍🏫','Giáo viên & phân công lớp','Hồ sơ giáo viên, ngày hợp đồng, tích chọn lớp phụ trách — nhanh gọn, không nhầm lẫn.'],
-    ['🗓️','Điểm danh & chấm công','Điểm danh học sinh từng buổi; chấm công giáo viên (lên lớp/nghỉ/dạy bù). Chuyên cần tự tính.'],
-    ['📊','Bảng điều hành sống','Dự thu, đã thu, sĩ số, chuyên cần, cảnh báo điều hành — cập nhật theo thời gian thực.'],
-    ['🔔','Thông báo tức thì','Mọi hoạt động (ghi danh, thu học phí…) hiện ngay trên chuông, đồng bộ mọi máy.'],
-    ['⬆️','Nhập Excel hàng loạt','Tải mẫu, điền danh sách, nhập cả cơ sở trong vài giây — cột Lớp chọn sẵn chống sai chính tả.'],
-    ['🔐','Phân quyền an toàn','Giám đốc xem toàn hệ thống; lễ tân chỉ thấy cơ sở mình. Dữ liệu được khóa chặt.'],
-    ['📱','Dùng mọi lúc mọi nơi','Chạy trên máy tính & điện thoại, cài như ứng dụng, giữ đăng nhập bền vững.'],
-    ['🔄','Đồng bộ thời gian thực','Nhiều người cùng làm — một cơ sở cập nhật, mọi máy thấy ngay, không cần tải lại.'],
-  ];
-  const steps=[
-    ['Ghi danh học sinh mới','Vào <b>Ghi danh</b> → chọn lớp → nhập họ tên, ngày sinh, học phí → bấm <b>Thêm</b>. Hoặc bấm <b>Nhập Excel</b> để thêm cả danh sách một lần.'],
-    ['Đánh dấu đã đóng học phí','Vào <b>Học sinh</b> → bấm <b>Hồ sơ</b> em cần → chọn <b>✓ Đã đóng</b>, nhập <b>số tiền đã đóng</b> (đóng đủ hoặc một phần) + ngày đóng → <b>Lưu</b>. Phiếu thu tự tạo trong Sổ quỹ đúng số tiền đã nộp.'],
-    ['Nhập danh sách từ Excel','Vào <b>Ghi danh</b> → <b>Tải mẫu Excel (cả cơ sở)</b> → điền, chọn Lớp trong ô danh sách → <b>Nhập Excel</b> → xem trước → xác nhận.'],
-    ['Điểm danh & chấm công','Vào <b>Điểm danh</b> → chọn ngày & lớp → tích trạng thái từng học sinh; kéo xuống mục <b>Chấm công giáo viên</b> để đánh dấu buổi dạy.'],
-    ['Lập phiếu thu – chi & xuất Excel','Vào <b>Khoản thu</b> → thêm phiếu thu/chi theo hạng mục → xem tồn quỹ → bấm <b>Xuất Excel</b> khi cần báo cáo.'],
-    ['Học sinh thôi học','Mở <b>Hồ sơ</b> học sinh → chọn <b>Đã thôi học</b> + ngày + lý do → <b>Lưu</b>. Em đó được giữ hồ sơ nhưng không tính vào dự thu/sĩ số.'],
-    ['Đổi mật khẩu','Bấm <b>Đổi mật khẩu</b> ở góc dưới thanh menu → nhập mật khẩu mới 2 lần → lưu.'],
-  ];
-  const tips=[
-    ['💡','Sau mỗi lần hệ thống cập nhật, hãy tải lại trang (máy tính bấm Ctrl+F5, điện thoại kéo xuống làm mới) để nhận bản mới nhất.'],
-    ['🔔','Thông báo cũ chỉ cần bấm <b>“Đánh dấu đã đọc”</b> một lần là gọn — sau đó chuông chỉ hiện hoạt động mới.'],
-    ['📲','Có thể cài lên màn hình chính điện thoại (chọn “Thêm vào Màn hình chính”) để dùng như một ứng dụng.'],
-    ['🔒','Đăng nhập một lần dùng lâu dài; chỉ nên đăng xuất trên máy dùng chung.'],
-  ];
-  let h=`
-  <div class="guide-hero">
-    <span class="ghb">✦ CHÀO MỪNG</span>
-    <h2>Hệ thống quản trị Trung tâm Anh ngữ AVATAR</h2>
-    <p>Một nơi duy nhất để điều hành cả chuỗi: quản lý giáo viên, lớp học, học sinh, học phí và theo dõi tình hình theo thời gian thực — nhanh gọn, chính xác, dùng được trên mọi thiết bị.</p>
-  </div>
+  const allowed=hdRolesAllowed();
+  if(!hdRole||!allowed.includes(hdRole)) hdRole=USER.role;
+  const R=hdRole, mine=R===USER.role;
+  const scopeTxt=USER.role==='admin'?(scope==='all'?'Toàn hệ thống':csName(Number(scope))):csName(USER.coSoId);
+  const navs=hdNavFor(R);
+  const sec=(id,title,sub,body,extra)=>`<div class="panel" id="${id}"><div class="phead"><h3>${title}</h3>${sub?`<span class="sub">${sub}</span>`:''}${extra||''}</div><div class="pbody">${body}</div></div>`;
 
-  <div class="panel"><div class="phead"><h3>Tính năng nổi bật</h3><span class="sub">${feats.length} nhóm chức năng</span></div>
-    <div class="pbody"><div class="feat-grid">
-      ${feats.map(f=>`<div class="feat"><div class="fi">${f[0]}</div><b>${f[1]}</b><span>${f[2]}</span></div>`).join('')}
-    </div></div>
-  </div>
-
-  <div class="panel"><div class="phead"><h3>Ai dùng gì?</h3><span class="sub">theo vai trò</span></div>
-    <div class="pbody"><div class="role2">
-      <div class="rolecard gd"><h4>👑 Giám đốc / Quản trị chuỗi</h4>
-        <ul>
-          <li>Xem toàn cảnh 14+ cơ sở trên Bảng điều hành.</li>
-          <li>Theo dõi dự thu – đã thu – còn nợ học phí toàn hệ thống.</li>
-          <li>So sánh, xếp hạng & nhận cảnh báo điều hành từng cơ sở.</li>
-          <li>Quản lý giáo viên, lớp, học sinh của mọi cơ sở.</li>
-          <li>Nhận thông báo hoạt động toàn chuỗi.</li>
-        </ul>
-      </div>
-      <div class="rolecard lt"><h4>🏫 Lễ tân cơ sở</h4>
-        <ul>
-          <li>Ghi danh học sinh, cập nhật hồ sơ của cơ sở mình.</li>
-          <li>Đánh dấu đóng học phí, lập phiếu thu – chi.</li>
-          <li>Điểm danh học sinh & chấm công giáo viên hằng ngày.</li>
-          <li>Nhập danh sách hàng loạt từ Excel.</li>
-          <li>Chỉ thấy dữ liệu cơ sở mình — an toàn, gọn gàng.</li>
-        </ul>
-      </div>
-    </div></div>
-  </div>
-
-  <div class="panel"><div class="phead"><h3>Hướng dẫn nhanh</h3><span class="sub">các thao tác thường dùng</span></div>
-    <div class="pbody">
-      ${steps.map((s,i)=>`<div class="step"><div class="sn">${i+1}</div><div class="sc"><b>${s[0]}</b><span>${s[1]}</span></div></div>`).join('')}
+  let h=`<div class="guide-hero">
+    <span class="ghb">✦ HƯỚNG DẪN SỬ DỤNG</span>
+    <h2>AVATAR English — Hệ thống quản trị chuỗi trung tâm</h2>
+    <p>Một nơi duy nhất để điều hành cả chuỗi: giáo viên, lớp học, học sinh, học phí, điểm danh – đối soát và báo cáo. Dữ liệu lưu tập trung, mọi máy thấy cùng một con số ngay khi có thay đổi.</p>
+    <div class="g-meta">
+      <span>${HD_ROLE_ICON[USER.role]} Bạn đang đăng nhập: <b>${esc(HD_ROLE_LABEL[USER.role])}</b></span>
+      <span>📍 Phạm vi: <b>${esc(scopeTxt)}</b></span>
+      <span>🔄 Đồng bộ thời gian thực</span>
     </div>
-  </div>
+  </div>`;
 
-  <div class="panel"><div class="phead"><h3>Mẹo &amp; lưu ý</h3></div>
-    <div class="pbody">
-      ${tips.map(t=>`<div class="tiprow"><span>${t[0]}</span><span>${t[1]}</span></div>`).join('')}
-    </div>
-  </div>
+  // Thanh chọn vai trò + nút in
+  h+=`<div class="g-bar">
+    ${allowed.length>1?`<div class="g-tabs">${allowed.map(r=>`<button data-hr="${r}" class="${R===r?'on':''}">${HD_ROLE_ICON[r]} ${esc(HD_ROLE_LABEL[r])}</button>`).join('')}</div>`:''}
+    <button class="btn btn-sm btn-ghost" id="hdPrint" style="white-space:nowrap;margin-left:auto">🖶 In / lưu PDF</button>
+  </div>`;
+  if(!mine) h+=`<div class="g-note"><span>👁</span><div>Đang xem hướng dẫn dành cho <b>${esc(HD_ROLE_LABEL[R])}</b> — không phải vai trò của bạn. Dùng để in phát cho nhân viên; bấm lại thẻ <b>${esc(HD_ROLE_LABEL[USER.role])}</b> để về hướng dẫn của mình.</div></div>`;
 
-  <div class="panel"><div class="pbody" style="text-align:center;color:var(--muted);font-size:.86rem;line-height:1.6">
+  // Mục lục
+  const toc=[['hd-start','Bắt đầu'],['hd-flow','Quy trình một buổi'],['hd-menu','Menu có gì'],['hd-howto','Thao tác từng bước'],['hd-num','Cách tính số liệu'],['hd-faq','Hỏi đáp & sự cố'],['hd-tip','Mẹo dùng']];
+  h+=`<div class="g-toc">${toc.map(t=>`<button data-go="${t[0]}">${t[1]}</button>`).join('')}</div>`;
+
+  // 1) Bắt đầu
+  h+=sec('hd-start','Bắt đầu — 3 việc đầu tiên',esc(HD_ROLE_LABEL[R]),
+    HD_START[R].map((s,i)=>`<div class="step"><div class="sn">${i+1}</div><div class="sc"><b>${s[0]}</b><span>${s[1]}</span></div></div>`).join(''));
+
+  // 2) Quy trình
+  h+=sec('hd-flow','Quy trình một buổi dạy','từ ghi danh đến chốt số liệu',
+    `<div class="g-flow">${HD_FLOW.map((f,i)=>`<div class="g-fstep"><span class="n">${i+1}</span><b>${f[0]}</b><span>${f[1]}</span><span class="who">${f[2]}</span></div>`).join('')}</div>
+     <div class="g-note ok" style="margin-top:12px"><span>🎨</span><div>Màu trạng thái ca dạy: <span class="castat ca-none">Chưa gửi đối soát</span> <span class="castat ca-cho">Chờ đối soát</span> <span class="castat ca-soat">Đã đối soát</span> <span class="castat ca-chot">Đã chốt</span> — ca <b>Đã chốt</b> là số liệu đã khóa, dùng để đối chiếu lương và học phí.</div></div>
+     <div class="g-note"><span>💡</span><div>Cơ sở chưa có tài khoản giáo viên: lễ tân tự điểm danh rồi bấm <b>✓ Gửi đối soát</b> — ca chuyển thẳng sang <b>Đã đối soát</b>, bỏ qua bước của giáo viên.</div></div>`);
+
+  // 3) Menu có gì
+  h+=sec('hd-menu','Menu có gì',navs.length+' mục hiện với '+esc(HD_ROLE_LABEL[R]),
+    navs.map(n=>`<div class="g-mrow"><div class="mi">${svg(n.i)}</div><div><b>${esc(n.t)}</b><span>${HD_MENU_DESC[n.k]||''}</span></div></div>`).join('')
+    + (R==='admin'?`<div class="g-note ok" style="margin-top:12px"><span>📍</span><div>Riêng Giám đốc có ô <b>chọn phạm vi</b> ở đầu trang: “Toàn hệ thống” hoặc từng cơ sở — mọi số liệu, danh sách, báo cáo đều đổi theo lựa chọn này.</div></div>`
+      :R==='owner'?`<div class="g-note ok" style="margin-top:12px"><span>🔒</span><div>Lễ tân được khóa cố định ở <b>một cơ sở</b>; mọi trang chỉ hiện dữ liệu của cơ sở mình.</div></div>`
+      :`<div class="g-note ok" style="margin-top:12px"><span>🔒</span><div>Giáo viên chỉ thấy <b>lớp mình phụ trách</b>, không thấy học phí, sổ quỹ hay lớp của cơ sở khác.</div></div>`));
+
+  // 4) Thao tác từng bước
+  h+=sec('hd-howto','Thao tác từng bước','bấm vào từng mục để mở',
+    HD_HOWTO[R].map((g,i)=>`<details class="g-acc" ${i===0?'open':''}><summary><span class="gi">${g[0]}</span>${g[1]}</summary><ol>${g[2].map(x=>`<li>${x}</li>`).join('')}</ol></details>`).join(''));
+
+  // 5) Cách tính số liệu
+  h+=sec('hd-num','Cách hệ thống tính số liệu','để mọi người đọc số giống nhau',
+    `<div class="g-kv">${HD_NUMBERS.map(n=>`<div class="r"><div class="k">${n[0]}</div><div class="v">${n[1]}</div></div>`).join('')}</div>`);
+
+  // 6) FAQ
+  h+=sec('hd-faq','Hỏi đáp &amp; xử lý sự cố',HD_FAQ.length+' tình huống thường gặp',
+    HD_FAQ.map(f=>`<details class="g-acc"><summary><span class="gi">❓</span>${f[0]}</summary><ul><li>${f[1]}</li></ul></details>`).join(''));
+
+  // 7) Mẹo
+  h+=sec('hd-tip','Mẹo dùng &amp; an toàn tài khoản','',
+    HD_TIPS.map(t=>`<div class="tiprow"><span>${t[0]}</span><span>${t[1]}</span></div>`).join(''));
+
+  h+=`<div class="panel"><div class="pbody" style="text-align:center;color:var(--muted);font-size:.86rem;line-height:1.6">
     Cần hỗ trợ thêm? Liên hệ bộ phận kỹ thuật của Trung tâm.<br/>
     <b style="color:var(--brand)">AVATAR English</b> — Hệ thống quản trị chuỗi · Nghệ An
   </div></div>`;
+
   $('#view').innerHTML=h;
+  $$('#view [data-hr]').forEach(b=>b.onclick=()=>{hdRole=b.dataset.hr;renderHuongDan();window.scrollTo(0,0);});
+  $$('#view [data-go]').forEach(b=>b.onclick=()=>{const el=$('#'+b.dataset.go);if(el)el.scrollIntoView({behavior:'smooth',block:'start'});});
+  $('#hdPrint').onclick=()=>{
+    const acc=$$('#view details.g-acc'), was=acc.map(d=>d.open);
+    acc.forEach(d=>d.open=true);                 // mở hết mục gấp để in đủ nội dung
+    document.body.classList.add('print-guide');
+    const restore=()=>{document.body.classList.remove('print-guide');acc.forEach((d,i)=>d.open=was[i]);window.removeEventListener('afterprint',restore);};
+    window.addEventListener('afterprint',restore);
+    window.print(); setTimeout(restore,1500);    // dự phòng cho trình duyệt không bắn afterprint
+  };
 }
 
 /* ============ DASHBOARD ============ */
@@ -2027,11 +2237,23 @@ function showGV(id){
     if(VIEW==='gv')renderGV();
   };
   const del=$('#ev_del'); if(del)del.onclick=async()=>{
-    if(!await avaConfirm('Xóa giáo viên "'+g.ten+'"? Thao tác này không thể hoàn tác.',{danger:true,okText:'Xóa'}))return;
+    // Lớp đang do GV này phụ trách (theo mã, hoặc theo tên với dữ liệu cũ chưa gắn mã)
+    const myLops=LOP.filter(l=>l.coSoId===g.coSoId && (l.gvId===g.id || (l.gv||'').trim()===g.ten.trim()));
+    const msg='Xóa giáo viên "'+g.ten+'"?'
+      + (myLops.length?('\n\n'+myLops.length+' lớp đang phụ trách ('+myLops.map(l=>l.lop).join(', ')+') sẽ được GỠ PHÂN CÔNG, chờ giao cho giáo viên khác.'):'')
+      + '\n\nNếu giáo viên này đã có tài khoản đăng nhập, hãy vào mục Tài khoản để khóa hoặc xóa tài khoản đó.'
+      + '\n\nThao tác này không thể hoàn tác.';
+    if(!await avaConfirm(msg,{danger:true,okText:'Xóa'}))return;
+    // Gỡ phân công TRƯỚC khi xóa — tránh lớp "mồ côi" còn giữ tên và mã của GV đã xóa
+    for(const l of myLops){
+      const {error}=await SB.from('lop_hoc').update({gv:'',gv_id:null}).eq('id',l.id);
+      if(error){showErr('Lỗi gỡ phân công lớp '+l.lop+': '+error.message);return;}
+      l.gv=''; l.gvId=null;
+    }
     const {error}=await SB.from('giao_vien').delete().eq('id',g.id);
     if(error){showErr('Lỗi xóa: '+error.message);return;}
     const i=GV.findIndex(x=>x.id===g.id); if(i>=0)GV.splice(i,1);
-    closeModal(); if(VIEW==='gv')renderGV();
+    closeModal(); if(VIEW==='gv')renderGV(); else if(VIEW==='lop')renderLop();
   };
 }
 /* ＋ Thêm giáo viên mới (bảng giao_vien sống) */
@@ -2823,16 +3045,16 @@ function renderDiemDanh(){
     h+=`<div class="ddsum">
       <div class="p co"><b>${cnt.co}</b><span>có mặt</span></div>
       <div class="p muon"><b>${cnt.muon}</b><span>muộn</span></div>
-      <div class="p vang"><b>${cnt.phep+cnt.vang}</b><span>vắng</span></div>
+      <div class="p phep"><b>${cnt.phep}</b><span>phép</span></div>
+      <div class="p vang"><b>${cnt.vang}</b><span>vắng</span></div>
       <div class="p done"><b>${marked}/${ds.length}</b><span>đã điểm</span></div>
     </div>
     <div class="ddgrid">
-      <div class="ddrow ddh"><div class="idx">TT</div><div class="nm">HỌC VIÊN</div><span class="hh">ĐIỂM DANH</span></div>
       <div class="ddrow ddh"><div class="idx">TT</div><div class="nm">HỌC SINH</div><span class="hh">ĐIỂM DANH</span></div>`;
     ds.forEach((v,i)=>{
       h+=`<div class="ddrow"><div class="idx">${i+1}</div>
         <div class="nm"><b>${esc(v.ten)}</b>${v.ns?`<small>${esc(v.ns)}</small>`:''}</div>
-        <div class="attseg ddSeg" data-hv="${v.id}">${[['co','Có'],['muon','Muộn'],['vang','Vắng']].map(([k,t])=>`<button data-v="${k}" class="${state[v.id]===k?'on':''}" ${dis}>${t}</button>`).join('')}</div>
+        <div class="attseg ddSeg" data-hv="${v.id}">${[['co','Có'],['muon','Muộn'],['phep','Phép'],['vang','Vắng']].map(([k,t])=>`<button data-v="${k}" class="${state[v.id]===k?'on':''}" ${dis}>${t}</button>`).join('')}</div>
       </div>`;
     });
     h+=`</div>`;
