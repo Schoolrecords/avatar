@@ -1755,6 +1755,10 @@ function renderHocVien(){
   const tongHP=list.reduce((s,h)=>s+(h.hocPhi||0),0);
   const daThu=list.filter(h=>h.daDong).reduce((s,h)=>s+(h.hocPhi||0),0);
   const nDa=list.filter(h=>h.daDong).length, nChua=list.length-nDa;
+  // Học sinh mẫu cũ (cờ mau) còn sót trong DB — cho phép dọn hàng loạt theo phạm vi cơ sở đang xem
+  let mauList=inHV();
+  if(isAdmin && hvCs!=='all') mauList=mauList.filter(h=>h.coSoId===Number(hvCs));
+  mauList=mauList.filter(h=>h.mau);
 
   const csSel=isAdmin?`<select class="fsel" id="hvCsSel"><option value="all">Tất cả cơ sở</option>${COSO.map(c=>`<option value="${c.id}" ${hvCs===String(c.id)?'selected':''}>${esc(c.ten)}</option>`).join('')}</select>`:'';
   const lopPool=inLOP().filter(l=>(isAdmin&&hvCs!=='all')?l.coSoId===Number(hvCs):true).filter(l=>hvOfLop(l.id).length)
@@ -1766,7 +1770,7 @@ function renderHocVien(){
     <div class="search" style="flex:1;min-width:200px">${svg(IC.search,1.9)}<input id="hvq" placeholder="Tìm tên học sinh, phụ huynh, SĐT…" value="${esc(hvSearch)}" style="border:0;outline:0;background:none;flex:1;font-weight:600;font-size:.9rem"/></div>
     ${csSel}${lopSel}${paidSel}
   </div>
-  <div class="panel"><div class="phead"><h3>Hồ sơ học sinh</h3><span class="sub">${list.length} học sinh</span></div>
+  <div class="panel"><div class="phead"><div style="display:flex;align-items:baseline;gap:8px"><h3>Hồ sơ học sinh</h3><span class="sub">${list.length} học sinh</span></div>${mauList.length?`<button class="btn btn-sm btn-light" id="hvClean" style="color:var(--rose);white-space:nowrap">🧹 Dọn ${mauList.length} HS mẫu</button>`:''}</div>
     <div class="pbody">
       <div class="ddsum">
         <div class="p done"><b>${list.length}</b><span>học sinh</span></div>
@@ -1795,7 +1799,26 @@ function renderHocVien(){
   const ls=$('#hvLopSel'); if(ls)ls.onchange=e=>{hvLop=e.target.value;renderHocVien();};
   const ps=$('#hvPaidSel'); if(ps)ps.onchange=e=>{hvPaid=e.target.value;renderHocVien();};
   const tg=$('#toGhi2'); if(tg)tg.onclick=()=>go('ghidanh');
+  const cl=$('#hvClean'); if(cl)cl.onclick=()=>cleanMauHV(mauList);
   $$('#view [data-edit]').forEach(b=>b.onclick=()=>{const hv=OPS.hv.find(x=>x.id===Number(b.dataset.edit));if(hv)openHvEdit(hv);});
+}
+
+/* Dọn học sinh mẫu cũ (mau=true) hàng loạt — xóa theo lô, RLS tự chặn ngoài quyền */
+async function cleanMauHV(mauList){
+  if(!mauList||!mauList.length)return;
+  const n=mauList.length;
+  if(!await avaConfirm(`Xóa vĩnh viễn ${n} học sinh mẫu (dữ liệu cũ, chưa có học phí) trong phạm vi đang xem? Thao tác này không thể hoàn tác.`,{danger:true,okText:'Xóa '+n+' em'}))return;
+  const ids=mauList.map(h=>h.id);
+  const done=new Set(); let fail=0, msg='';
+  for(let i=0;i<ids.length;i+=100){
+    const chunk=ids.slice(i,i+100);
+    const {error}=await SB.from('hoc_vien').delete().in('id',chunk);
+    if(error){fail+=chunk.length;msg=error.message;} else chunk.forEach(id=>done.add(id));
+  }
+  if(done.size) OPS.hv=OPS.hv.filter(x=>!done.has(x.id));
+  renderHocVien();
+  if(fail) avaAlert(`Đã dọn ${done.size} em. Còn ${fail} em không xóa được${msg?': '+msg:''}.`);
+  else avaAlert(`Đã dọn xong ${done.size} học sinh mẫu.`);
 }
 
 /* Modal xem & sửa hồ sơ 1 học sinh (đồng bộ Supabase) */
