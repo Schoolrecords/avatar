@@ -36,6 +36,13 @@ Deno.serve(async (req) => {
     const { data: prof } = await admin.from("profiles").select("role").eq("id", uid).maybeSingle();
     if (!prof || prof.role !== "admin") return json(403, { error: "Chỉ quản trị mới được thao tác tài khoản." });
 
+    // Chỉ cho phép thao tác lên tài khoản GIÁO VIÊN (không đụng tới admin/owner qua id thủ công).
+    const assertTeacher = async (id: string) => {
+      if (!id) return false;
+      const { data } = await admin.from("profiles").select("role").eq("id", id).maybeSingle();
+      return data?.role === "teacher";
+    };
+
     const body = await req.json().catch(() => ({} as any));
     const action = body.action;
 
@@ -71,6 +78,7 @@ Deno.serve(async (req) => {
     if (action === "resetpw") {
       const id = body.id; const password = String(body.password || "");
       if (!id || password.length < 6) return json(400, { error: "Thiếu tài khoản hoặc mật khẩu quá ngắn (≥ 6 ký tự)." });
+      if (!(await assertTeacher(id))) return json(403, { error: "Chỉ được thao tác trên tài khoản giáo viên." });
       const { error } = await admin.auth.admin.updateUserById(id, { password });
       if (error) return json(400, { error: error.message });
       return json(200, { data: { ok: true } });
@@ -78,6 +86,7 @@ Deno.serve(async (req) => {
 
     if (action === "ban") {
       const id = body.id; const banned = !!body.banned;
+      if (!(await assertTeacher(id))) return json(403, { error: "Chỉ được thao tác trên tài khoản giáo viên." });
       const { error } = await admin.auth.admin.updateUserById(id, { ban_duration: banned ? "876000h" : "none" });
       if (error) return json(400, { error: error.message });
       return json(200, { data: { ok: true } });
@@ -85,6 +94,7 @@ Deno.serve(async (req) => {
 
     if (action === "delete") {
       const id = body.id;
+      if (!(await assertTeacher(id))) return json(403, { error: "Chỉ được thao tác trên tài khoản giáo viên." });
       await admin.from("profiles").delete().eq("id", id);
       const { error } = await admin.auth.admin.deleteUser(id);
       if (error) return json(400, { error: error.message });
