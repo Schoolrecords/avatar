@@ -493,6 +493,31 @@ td.chi{color:var(--rose);font-weight:800}
 .actitem .rt{color:var(--brand);font-weight:700}
 .actcard-empty{padding:22px 12px;text-align:center;color:var(--faint);font-size:.82rem}
 .actmore{padding:9px 2px 3px;font-size:.76rem;color:var(--brand);font-weight:800}
+/* ===== Trang Hướng dẫn ===== */
+.guide-hero{position:relative;overflow:hidden;background:var(--dots),linear-gradient(120deg,#1c3c6e,#0b1d3d);background-size:20px 20px,auto;color:#fff;border-radius:16px;padding:22px 22px;margin-bottom:14px;box-shadow:0 16px 34px -22px rgba(11,29,61,.85)}
+.guide-hero .ghb{display:inline-block;background:rgba(255,255,255,.15);color:#f0c552;font-weight:800;font-size:.72rem;padding:3px 12px;border-radius:99px;letter-spacing:.06em;margin-bottom:10px}
+.guide-hero h2{margin:0 0 7px;font-size:1.32rem;color:#fff;line-height:1.2}
+.guide-hero p{margin:0;color:#dce6f6;font-size:.9rem;line-height:1.55;max-width:660px}
+.feat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(238px,1fr));gap:12px}
+.feat{background:#fff;border:1px solid var(--line);border-radius:14px;padding:15px 16px;box-shadow:var(--shadow-sm)}
+.feat .fi{width:42px;height:42px;border-radius:12px;display:grid;place-items:center;font-size:1.25rem;background:var(--brand-soft);margin-bottom:10px}
+.feat b{display:block;font-size:.94rem;margin-bottom:3px;color:var(--ink)}
+.feat span{font-size:.82rem;color:var(--muted);line-height:1.5}
+.role2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.rolecard{border-radius:15px;padding:17px 18px;color:#fff}
+.rolecard.gd{background:linear-gradient(135deg,#4785db,#1e4f9e)}
+.rolecard.lt{background:linear-gradient(135deg,#37b083,#1c7a54)}
+.rolecard h4{margin:0 0 9px;font-size:1.04rem;display:flex;align-items:center;gap:7px}
+.rolecard ul{margin:0;padding-left:19px}
+.rolecard li{margin-bottom:5px;font-size:.85rem;line-height:1.45}
+.step{display:flex;gap:12px;padding:12px 2px;border-bottom:1px solid #f1f4f8}
+.step:last-child{border-bottom:0}
+.step .sn{width:29px;height:29px;border-radius:9px;background:var(--brand);color:#fff;font-weight:800;display:grid;place-items:center;flex:none;font-size:.86rem}
+.step .sc b{display:block;font-size:.9rem;color:var(--ink);margin-bottom:1px}
+.step .sc span{font-size:.83rem;color:var(--muted);line-height:1.48}
+.tiprow{display:flex;gap:9px;padding:8px 0;font-size:.86rem;line-height:1.5;border-bottom:1px solid #f5f7fa}
+.tiprow:last-child{border-bottom:0}
+@media(max-width:760px){.role2{grid-template-columns:1fr}}
 
 .empty{text-align:center;padding:40px 20px;color:var(--muted)}
 .empty svg{width:44px;height:44px;stroke:var(--faint);margin:0 auto 12px}
@@ -1081,7 +1106,8 @@ const IC={
   ghidanh:'<circle cx="9" cy="8" r="3.4"/><path d="M3 20c0-3.3 2.7-5.2 6-5.2"/><path d="M17 11v6M14 14h6"/>',
   diemdanh:'<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M9 3.5h6v3H9z"/><path d="M8.3 12.5l2 2 4-4"/>',
   hocvien:'<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.6" cy="10" r="2.2"/><path d="M5.4 16c0-1.7 1.4-2.7 3.2-2.7s3.2 1 3.2 2.7"/><path d="M14.5 9h4M14.5 12h4M14.5 15h2.6"/>',
-  search:'<circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/>'
+  search:'<circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/>',
+  huongdan:'<path d="M4 4.5A1.5 1.5 0 0 1 5.5 3H18a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H6a2 2 0 0 1-2-2z"/><path d="M8 7.5h7M8 11h7M8 14.5h4"/>'
 };
 const svg=(p,sw=1.9)=>`<svg viewBox="0 0 24 24" fill="none" stroke-width="${sw}">${p}</svg>`;
 
@@ -1095,6 +1121,7 @@ const NAV=[
   {k:'ghidanh',t:'Ghi danh',i:IC.ghidanh},
   {k:'diemdanh',t:'Điểm danh',i:IC.diemdanh},
   {k:'thu',t:'Khoản thu',i:IC.thu},
+  {k:'huongdan',t:'Hướng dẫn',i:IC.huongdan},
 ];
 const visibleNav=()=>NAV.filter(n=>!n.adminOnly||USER.role==='admin');
 function botNav(){
@@ -1153,7 +1180,7 @@ function startApp(){
 /* ===== REALTIME: tự cập nhật khi bất kỳ cơ sở nào lưu thay đổi ===== */
 let rtChannel=null;
 function renderCurrent(){
-  ({dashboard:renderDash,gv:renderGV,coso:renderCoso,lop:renderLop,hocvien:renderHocVien,ghidanh:renderGhiDanh,diemdanh:renderDiemDanh,thu:renderThu}[VIEW]||renderDash)();
+  ({dashboard:renderDash,gv:renderGV,coso:renderCoso,lop:renderLop,hocvien:renderHocVien,ghidanh:renderGhiDanh,diemdanh:renderDiemDanh,thu:renderThu,huongdan:renderHuongDan}[VIEW]||renderDash)();
   renderNavCounts(); renderBell();
 }
 function subscribeRealtime(){
@@ -1326,7 +1353,7 @@ function closeSide(){$('#side').classList.remove('open');$('#scrim').classList.r
 $('#burger').onclick=openSide; $('#scrim').onclick=closeSide;
 
 /* ============ ROUTER ============ */
-const TITLES={dashboard:['Bảng điều hành','Toàn cảnh điều hành'],gv:['Giáo viên','Danh sách & hồ sơ giáo viên'],coso:['Cơ sở','Mạng lưới các trung tâm'],lop:['Lớp học','Lớp học & sĩ số'],hocvien:['Học sinh','Hồ sơ học sinh toàn hệ thống'],ghidanh:['Ghi danh','Đăng ký học sinh vào lớp'],diemdanh:['Điểm danh','Điểm danh học sinh & chấm công GV'],thu:['Sổ quỹ thu – chi','Kế toán thu chi & tồn quỹ']};
+const TITLES={dashboard:['Bảng điều hành','Toàn cảnh điều hành'],gv:['Giáo viên','Danh sách & hồ sơ giáo viên'],coso:['Cơ sở','Mạng lưới các trung tâm'],lop:['Lớp học','Lớp học & sĩ số'],hocvien:['Học sinh','Hồ sơ học sinh toàn hệ thống'],ghidanh:['Ghi danh','Đăng ký học sinh vào lớp'],diemdanh:['Điểm danh','Điểm danh học sinh & chấm công GV'],thu:['Sổ quỹ thu – chi','Kế toán thu chi & tồn quỹ'],huongdan:['Hướng dẫn sử dụng','Tính năng & cách dùng hệ thống']};
 function go(k){
   if(k==='coso'&&USER.role!=='admin')k='dashboard';
   if(k==='coso')csDetailId=null;
@@ -1335,8 +1362,94 @@ function go(k){
   $('#pgTitle').textContent=TITLES[k][0];
   $('#pgSub').textContent=TITLES[k][1]+' · '+scopeTxt;
   syncNav(); renderNavCounts();
-  ({dashboard:renderDash,gv:renderGV,coso:renderCoso,lop:renderLop,hocvien:renderHocVien,ghidanh:renderGhiDanh,diemdanh:renderDiemDanh,thu:renderThu}[k])();
+  ({dashboard:renderDash,gv:renderGV,coso:renderCoso,lop:renderLop,hocvien:renderHocVien,ghidanh:renderGhiDanh,diemdanh:renderDiemDanh,thu:renderThu,huongdan:renderHuongDan}[k])();
   window.scrollTo(0,0);
+}
+
+/* ============ HƯỚNG DẪN SỬ DỤNG ============ */
+function renderHuongDan(){
+  const feats=[
+    ['🏫','Quản trị chuỗi tập trung','Theo dõi toàn bộ cơ sở trên một màn hình — giáo viên, lớp, học sinh, tài chính đều ở cùng một nơi.'],
+    ['🎓','Hồ sơ học sinh đầy đủ','Lưu thông tin từng em: lớp, phụ huynh, học phí, ngày nhập học, đang học/thôi học. Tìm kiếm & lọc tức thì.'],
+    ['💰','Quản lý học phí thông minh','Đánh dấu đã đóng từng em, tự sinh phiếu thu — biết ngay ai đã đóng, ai còn nợ, thu được bao nhiêu.'],
+    ['📒','Sổ quỹ thu – chi','Ghi phiếu thu/chi theo hạng mục, xem tồn quỹ, xuất Excel & in phiếu chỉ với một cú bấm.'],
+    ['👩‍🏫','Giáo viên & phân công lớp','Hồ sơ giáo viên, ngày hợp đồng, tích chọn lớp phụ trách — nhanh gọn, không nhầm lẫn.'],
+    ['🗓️','Điểm danh & chấm công','Điểm danh học sinh từng buổi; chấm công giáo viên (lên lớp/nghỉ/dạy bù). Chuyên cần tự tính.'],
+    ['📊','Bảng điều hành sống','Dự thu, đã thu, sĩ số, chuyên cần, cảnh báo điều hành — cập nhật theo thời gian thực.'],
+    ['🔔','Thông báo tức thì','Mọi hoạt động (ghi danh, thu học phí…) hiện ngay trên chuông, đồng bộ mọi máy.'],
+    ['⬆️','Nhập Excel hàng loạt','Tải mẫu, điền danh sách, nhập cả cơ sở trong vài giây — cột Lớp chọn sẵn chống sai chính tả.'],
+    ['🔐','Phân quyền an toàn','Giám đốc xem toàn hệ thống; lễ tân chỉ thấy cơ sở mình. Dữ liệu được khóa chặt.'],
+    ['📱','Dùng mọi lúc mọi nơi','Chạy trên máy tính & điện thoại, cài như ứng dụng, giữ đăng nhập bền vững.'],
+    ['🔄','Đồng bộ thời gian thực','Nhiều người cùng làm — một cơ sở cập nhật, mọi máy thấy ngay, không cần tải lại.'],
+  ];
+  const steps=[
+    ['Ghi danh học sinh mới','Vào <b>Ghi danh</b> → chọn lớp → nhập họ tên, ngày sinh, học phí → bấm <b>Thêm</b>. Hoặc bấm <b>Nhập Excel</b> để thêm cả danh sách một lần.'],
+    ['Đánh dấu đã đóng học phí','Vào <b>Học sinh</b> → bấm <b>Hồ sơ</b> em cần → chọn <b>✓ Đã đóng</b> + ngày đóng → <b>Lưu</b>. Phiếu thu tự tạo trong Sổ quỹ.'],
+    ['Nhập danh sách từ Excel','Vào <b>Ghi danh</b> → <b>Tải mẫu Excel (cả cơ sở)</b> → điền, chọn Lớp trong ô danh sách → <b>Nhập Excel</b> → xem trước → xác nhận.'],
+    ['Điểm danh & chấm công','Vào <b>Điểm danh</b> → chọn ngày & lớp → tích trạng thái từng học sinh; kéo xuống mục <b>Chấm công giáo viên</b> để đánh dấu buổi dạy.'],
+    ['Lập phiếu thu – chi & xuất Excel','Vào <b>Khoản thu</b> → thêm phiếu thu/chi theo hạng mục → xem tồn quỹ → bấm <b>Xuất Excel</b> khi cần báo cáo.'],
+    ['Học sinh thôi học','Mở <b>Hồ sơ</b> học sinh → chọn <b>Đã thôi học</b> + ngày + lý do → <b>Lưu</b>. Em đó được giữ hồ sơ nhưng không tính vào dự thu/sĩ số.'],
+    ['Đổi mật khẩu','Bấm <b>Đổi mật khẩu</b> ở góc dưới thanh menu → nhập mật khẩu mới 2 lần → lưu.'],
+  ];
+  const tips=[
+    ['💡','Sau mỗi lần hệ thống cập nhật, hãy tải lại trang (máy tính bấm Ctrl+F5, điện thoại kéo xuống làm mới) để nhận bản mới nhất.'],
+    ['🔔','Thông báo cũ chỉ cần bấm <b>“Đánh dấu đã đọc”</b> một lần là gọn — sau đó chuông chỉ hiện hoạt động mới.'],
+    ['📲','Có thể cài lên màn hình chính điện thoại (chọn “Thêm vào Màn hình chính”) để dùng như một ứng dụng.'],
+    ['🔒','Đăng nhập một lần dùng lâu dài; chỉ nên đăng xuất trên máy dùng chung.'],
+  ];
+  let h=`
+  <div class="guide-hero">
+    <span class="ghb">✦ CHÀO MỪNG</span>
+    <h2>Hệ thống quản trị Trung tâm Anh ngữ AVATAR</h2>
+    <p>Một nơi duy nhất để điều hành cả chuỗi: quản lý giáo viên, lớp học, học sinh, học phí và theo dõi tình hình theo thời gian thực — nhanh gọn, chính xác, dùng được trên mọi thiết bị.</p>
+  </div>
+
+  <div class="panel"><div class="phead"><h3>Tính năng nổi bật</h3><span class="sub">${feats.length} nhóm chức năng</span></div>
+    <div class="pbody"><div class="feat-grid">
+      ${feats.map(f=>`<div class="feat"><div class="fi">${f[0]}</div><b>${f[1]}</b><span>${f[2]}</span></div>`).join('')}
+    </div></div>
+  </div>
+
+  <div class="panel"><div class="phead"><h3>Ai dùng gì?</h3><span class="sub">theo vai trò</span></div>
+    <div class="pbody"><div class="role2">
+      <div class="rolecard gd"><h4>👑 Giám đốc / Quản trị chuỗi</h4>
+        <ul>
+          <li>Xem toàn cảnh 14+ cơ sở trên Bảng điều hành.</li>
+          <li>Theo dõi dự thu – đã thu – còn nợ học phí toàn hệ thống.</li>
+          <li>So sánh, xếp hạng & nhận cảnh báo điều hành từng cơ sở.</li>
+          <li>Quản lý giáo viên, lớp, học sinh của mọi cơ sở.</li>
+          <li>Nhận thông báo hoạt động toàn chuỗi.</li>
+        </ul>
+      </div>
+      <div class="rolecard lt"><h4>🏫 Lễ tân cơ sở</h4>
+        <ul>
+          <li>Ghi danh học sinh, cập nhật hồ sơ của cơ sở mình.</li>
+          <li>Đánh dấu đóng học phí, lập phiếu thu – chi.</li>
+          <li>Điểm danh học sinh & chấm công giáo viên hằng ngày.</li>
+          <li>Nhập danh sách hàng loạt từ Excel.</li>
+          <li>Chỉ thấy dữ liệu cơ sở mình — an toàn, gọn gàng.</li>
+        </ul>
+      </div>
+    </div></div>
+  </div>
+
+  <div class="panel"><div class="phead"><h3>Hướng dẫn nhanh</h3><span class="sub">các thao tác thường dùng</span></div>
+    <div class="pbody">
+      ${steps.map((s,i)=>`<div class="step"><div class="sn">${i+1}</div><div class="sc"><b>${s[0]}</b><span>${s[1]}</span></div></div>`).join('')}
+    </div>
+  </div>
+
+  <div class="panel"><div class="phead"><h3>Mẹo &amp; lưu ý</h3></div>
+    <div class="pbody">
+      ${tips.map(t=>`<div class="tiprow"><span>${t[0]}</span><span>${t[1]}</span></div>`).join('')}
+    </div>
+  </div>
+
+  <div class="panel"><div class="pbody" style="text-align:center;color:var(--muted);font-size:.86rem;line-height:1.6">
+    Cần hỗ trợ thêm? Liên hệ bộ phận kỹ thuật của Trung tâm.<br/>
+    <b style="color:var(--brand)">AVATAR English</b> — Hệ thống quản trị chuỗi · Nghệ An
+  </div></div>`;
+  $('#view').innerHTML=h;
 }
 
 /* ============ DASHBOARD ============ */
