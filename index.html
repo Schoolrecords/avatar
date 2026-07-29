@@ -427,6 +427,14 @@ td.chi{color:var(--rose);font-weight:800}
 .rank .bar{height:6px;border-radius:99px;background:var(--soft);margin-top:5px;overflow:hidden}
 .rank .bar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,var(--brand),var(--emerald))}
 .rank .rv{font-weight:800;font-size:.86rem;color:var(--brand-700);white-space:nowrap}
+/* feed hoạt động gần đây (dashboard) */
+.actfeed{display:flex;flex-direction:column}
+.actrow{display:flex;gap:11px;align-items:flex-start;padding:10px 2px;border-bottom:1px solid var(--line)}
+.actrow:last-child{border-bottom:0}
+.acttx{flex:1;min-width:0}
+.acttx b{display:block;font-size:.9rem;font-weight:700;line-height:1.32}
+.acttx small{display:block;color:var(--muted);font-size:.77rem;margin-top:1px}
+.acttx .rt{color:var(--brand);font-weight:700}
 
 .empty{text-align:center;padding:40px 20px;color:var(--muted)}
 .empty svg{width:44px;height:44px;stroke:var(--faint);margin:0 auto 12px}
@@ -1344,19 +1352,21 @@ function renderDash(){
     </div>
   </div>`;
 
-  // Xếp hạng cơ sở theo dự thu THẬT (chỉ admin toàn hệ thống)
-  if(USER.role==='admin' && scope==='all'){
-    const ranks=cosos.map(c=>({c,du:hpStat([c.id]).du})).sort((a,b)=>b.du-a.du);
-    const maxThu=Math.max(1,...ranks.map(r=>r.du));
-    h+=`<div class="panel"><div class="phead"><h3>Xếp hạng cơ sở theo dự thu</h3><span class="sub">${ranks.length} cơ sở</span></div>
-      <div class="pbody">${ranks.map((r,i)=>`
-        <div class="rank">
-          <div class="no ${i<3?'top':''}">${i+1}</div>
-          <div class="rn"><b>${esc(r.c.ten)}</b><div class="bar"><i style="width:${Math.max(4,r.du/maxThu*100)}%"></i></div></div>
-          <div class="rv">${fmtShort(r.du)}</div>
-        </div>`).join('')}
-      </div></div>`;
-  }
+  // Hoạt động gần đây (toàn chuỗi với admin; cơ sở mình với lễ tân — theo dữ liệu RLS)
+  const acts=[];
+  (OPS.hv||[]).forEach(x=>{ if(x.mau||!x.createdAt||!ids.includes(x.coSoId))return;
+    acts.push({ts:x.createdAt,ic:'🧑‍🎓',cls:'n-hs',title:'Học sinh mới: '+x.ten,sub:[lopName(x.lopId),csName(x.coSoId)].filter(Boolean).join(' · ')}); });
+  (OPS.gd||[]).forEach(x=>{ if(!x.createdAt||!ids.includes(x.coSoId))return; const co=csName(x.coSoId);
+    if(x.loai==='thu') acts.push({ts:x.createdAt,ic:'💰',cls:'n-thu',title:'Thu '+fmtVND(x.soTien),sub:[x.hangMuc||'Khoản thu',co].filter(Boolean).join(' · ')});
+    else acts.push({ts:x.createdAt,ic:'🧾',cls:'n-chi',title:'Chi '+fmtVND(x.soTien),sub:[x.hangMuc||'Khoản chi',co].filter(Boolean).join(' · ')}); });
+  acts.sort((a,b)=>Date.parse(b.ts)-Date.parse(a.ts));
+  const acts8=acts.slice(0,8);
+  h+=`<div class="panel"><div class="phead"><h3>Hoạt động gần đây</h3><span class="sub">${USER.role==='admin'?(scope==='all'?'toàn chuỗi':csName(Number(scope))):'cơ sở của bạn'}</span></div>
+    <div class="pbody">${acts8.length?`<div class="actfeed">${acts8.map(a=>`
+      <div class="actrow"><div class="bell-ic ${a.cls}">${a.ic}</div>
+        <div class="acttx"><b>${esc(a.title)}</b><small>${esc(a.sub||'')}${a.sub?' · ':''}<span class="rt">${relTime(a.ts)}</span></small></div>
+      </div>`).join('')}</div>`:'<div class="empty">Chưa có hoạt động nào. Khi ghi danh học sinh hoặc thu–chi, sẽ hiện ở đây.</div>'}
+    </div></div>`;
   $('#view').innerHTML=h;
 }
 function ring(pct,sub){pct=Math.max(0,Math.min(100,pct));return `<div class="ringbox" style="--p:${pct.toFixed(1)}"><div class="rc"></div><div class="rin"><b>${Math.round(pct)}%</b><span>${sub||''}</span></div></div>`;}
