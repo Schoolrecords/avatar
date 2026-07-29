@@ -1142,33 +1142,32 @@ function renderBell(){
   }
   notifLastCount=NOTIF.length;
   const panel=$('#bellPanel');
-  if(panel && !panel.hidden) fillBellList(seen);
+  if(panel && !panel.hidden){ fillBellList(seen); const rb=$('#bellRead'); if(rb)rb.disabled=!unread; }
 }
+/* Chỉ hiện tin CHƯA đọc (ts > mốc đã đọc). Đánh dấu đã đọc = danh sách trống. */
 function fillBellList(seen){
   const box=$('#bellList'); if(!box)return;
-  if(!NOTIF.length){ box.innerHTML=`<div class="bell-empty">🔔 Chưa có hoạt động nào.<br/>Khi các cơ sở ghi danh học sinh hoặc thu–chi, thông báo sẽ hiện ở đây.</div>`; return; }
-  box.innerHTML=NOTIF.map(n=>{
-    const un=Date.parse(n.ts)>seen;
-    return `<div class="bell-item${un?' unread':''}"><div class="bell-ic ${n.cls}">${n.ic}</div>
-      <div class="bell-tx"><b>${esc(n.title)}</b><small>${esc(n.sub||'')}${n.sub?' · ':''}<span class="rt">${relTime(n.ts)}</span></small></div></div>`;
-  }).join('');
+  const items=NOTIF.filter(n=>Date.parse(n.ts)>seen);
+  if(!items.length){ box.innerHTML=`<div class="bell-empty">✅ Không có thông báo mới.<br/>Khi các cơ sở ghi danh học sinh hoặc thu–chi, thông báo sẽ hiện ở đây.</div>`; return; }
+  box.innerHTML=items.map(n=>
+    `<div class="bell-item unread"><div class="bell-ic ${n.cls}">${n.ic}</div>
+      <div class="bell-tx"><b>${esc(n.title)}</b><small>${esc(n.sub||'')}${n.sub?' · ':''}<span class="rt">${relTime(n.ts)}</span></small></div></div>`
+  ).join('');
 }
 function markNotifRead(){
   const newest=NOTIF.length?Date.parse(NOTIF[0].ts):Date.now();
-  setNotifSeen(newest);
+  setNotifSeen(newest);                   // dời mốc đã đọc lên tin mới nhất
   const badge=$('#bellBadge'); if(badge)badge.hidden=true;
   const rb=$('#bellRead'); if(rb)rb.disabled=true;
-  fillBellList(getNotifSeen());
+  fillBellList(getNotifSeen());           // → danh sách trống
 }
 function openBellPanel(){
   const panel=$('#bellPanel'); if(!panel)return;
-  const prevSeen=getNotifSeen();         // giữ mốc cũ để tô đậm cái chưa đọc
   panel.hidden=false;
-  fillBellList(prevSeen);
-  const newest=NOTIF.length?Date.parse(NOTIF[0].ts):Date.now();
-  const rb=$('#bellRead'); if(rb)rb.disabled=!(newest>prevSeen);
-  setNotifSeen(newest);                   // mở là coi như đã đọc → xóa badge
-  const badge=$('#bellBadge'); if(badge)badge.hidden=true;
+  const seen=getNotifSeen();
+  fillBellList(seen);                     // hiện các tin chưa đọc; KHÔNG tự đánh dấu — để anh bấm "Đánh dấu đã đọc"
+  const unread=NOTIF.filter(n=>Date.parse(n.ts)>seen).length;
+  const rb=$('#bellRead'); if(rb)rb.disabled=!unread;
 }
 function closeBellPanel(){ const p=$('#bellPanel'); if(p)p.hidden=true; }
 let bellInited=false;
