@@ -492,6 +492,10 @@ td.chi{color:var(--rose);font-weight:800}
 .actitem b{font-size:.86rem;font-weight:700;line-height:1.32;color:var(--ink)}
 .actitem small{font-size:.75rem;color:var(--muted);margin-top:1px}
 .actitem .rt{color:var(--brand);font-weight:700}
+.cctag{font-weight:800;font-size:.78rem}
+.cctag.cc-day{color:#0f9d58}
+.cctag.cc-nghi{color:#d93838}
+.cctag.cc-bu{color:#e08a1e}
 .actcard-empty{padding:22px 12px;text-align:center;color:var(--faint);font-size:.82rem}
 .actmore{padding:9px 2px 3px;font-size:.76rem;color:var(--brand);font-weight:800}
 /* ===== Trang Hướng dẫn ===== */
@@ -1557,7 +1561,7 @@ function renderDash(){
   const ccAll=[];
   for(const k in (OPS.ccGV||{})){ const p=k.split('|'); const lop=LOP.find(l=>l.id===Number(p[1])); if(!lop||!ids.includes(lop.coSoId))continue; ccAll.push({lop,ngay:p[2],st:OPS.ccGV[k]}); }
   ccAll.sort((a,b)=> a.ngay<b.ngay?1:a.ngay>b.ngay?-1:0);
-  const ccItems=ccAll.slice(0,CAP).map(x=>({main:(x.lop.gv||'—')+' · '+x.lop.lop,sub:[CC_TXT[x.st]||x.st,isAdm?csName(x.lop.coSoId):''].filter(Boolean).join(' · '),rt:isoVN(x.ngay)}));
+  const ccItems=ccAll.slice(0,CAP).map(x=>({main:(x.lop.gv||'—')+' · '+x.lop.lop,tag:{text:CC_TXT[x.st]||x.st,cls:'cc-'+x.st},sub:isAdm?csName(x.lop.coSoId):'',rt:isoVN(x.ngay)}));
   // 4) Chi tiêu gần đây
   const chiAll=(OPS.gd||[]).filter(x=>x.loai==='chi'&&x.createdAt&&ids.includes(x.coSoId)).sort((a,b)=>Date.parse(b.createdAt)-Date.parse(a.createdAt));
   const chiItems=chiAll.slice(0,CAP).map(x=>isAdm
@@ -1581,7 +1585,7 @@ function ring(pct,sub){pct=Math.max(0,Math.min(100,pct));return `<div class="rin
 /* Thẻ 1 nhóm hoạt động: icon + tiêu đề + badge tổng, tối đa `cap` dòng, còn lại "… và N nữa" */
 function actCatCard(ic,cls,title,items,total,cap,hcls){
   const body = items.length
-    ? items.map(it=>`<div class="actitem"><b>${esc(it.main)}</b><small>${it.sub?esc(it.sub)+' · ':''}<span class="rt">${esc(it.rt||'')}</span></small></div>`).join('')
+    ? items.map(it=>`<div class="actitem"><b>${esc(it.main)}</b><small>${it.tag?`<span class="cctag ${it.tag.cls}">${esc(it.tag.text)}</span> · `:''}${it.sub?esc(it.sub)+' · ':''}<span class="rt">${esc(it.rt||'')}</span></small></div>`).join('')
       + (total>cap?`<div class="actmore">… và ${total-cap} mục nữa</div>`:'')
     : `<div class="actcard-empty">Chưa có cập nhật</div>`;
   return `<div class="actcard"><div class="actcard-h ${hcls||''}"><span class="kdeco"></span><div class="ci">${ic}</div><b>${title}</b><span class="cnt">${total}</span></div><div class="actcard-b">${body}</div></div>`;
