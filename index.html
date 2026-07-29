@@ -834,8 +834,20 @@ async function makeTemplate({sheet,columns,example,filename,title,guide}){
   const hr=ws.getRow(2); hr.height=24;
   columns.forEach((c,i)=>{const cell=hr.getCell(i+1); cell.value=c.h; cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:XL_NAVY}};
     cell.font={bold:true,color:{argb:'FFFFFFFF'},size:12,name:'Calibri'}; cell.alignment={vertical:'middle',horizontal:'center',wrapText:true}; cell.border=xlBorder('FF2A5490');});
-  // Danh sách xổ xuống (data validation) cho cột có thuộc tính dv → chỉ chọn, không gõ sai
-  const dvOf=c=>c.dv?{type:'list',allowBlank:true,showErrorMessage:true,errorStyle:'stop',error:'Vui lòng chọn một giá trị trong danh sách.',formulae:['"'+c.dv.join(',')+'"']}:null;
+  // Danh mục cho cột có danh sách ĐỘNG (dvList, vd tên lớp) → dropdown tham chiếu, không giới hạn độ dài
+  const dmRef={};
+  const listCols=columns.filter(c=>c.dvList&&c.dvList.length);
+  if(listCols.length){
+    const dm=wb.addWorksheet('DanhMuc'); dm.state='veryHidden';
+    listCols.forEach((c,ci)=>{ const col=ci+1;
+      c.dvList.forEach((v,ri)=>{ dm.getCell(ri+1,col).value=v; });
+      const L=dm.getColumn(col).letter; dmRef[c.k]=`DanhMuc!$${L}$1:$${L}$${c.dvList.length}`;
+    });
+  }
+  // Danh sách xổ xuống (data validation): dvList (động, tham chiếu) hoặc dv (tĩnh) → chỉ chọn, không gõ sai
+  const dvOf=c=> (c.dvList&&dmRef[c.k]) ? {type:'list',allowBlank:true,showErrorMessage:true,errorStyle:'stop',error:'Vui lòng chọn một giá trị trong danh sách.',formulae:[dmRef[c.k]]}
+    : c.dv ? {type:'list',allowBlank:true,showErrorMessage:true,errorStyle:'stop',error:'Vui lòng chọn một giá trị trong danh sách.',formulae:['"'+c.dv.join(',')+'"']}
+    : null;
   // Dòng 3: ví dụ (chữ xám nghiêng)
   const ex=ws.getRow(3); columns.forEach((c,i)=>{const cell=ex.getCell(i+1); cell.value=example[c.k]!=null?example[c.k]:''; cell.font={italic:true,color:{argb:'FF9AA6BC'},size:11}; cell.border=xlBorder(); cell.alignment={vertical:'middle'}; const dv=dvOf(c); if(dv)cell.dataValidation=dv;});
   // 20 dòng trống kẻ viền sẵn để điền (cột TT tự đánh số cho dễ nhìn)
@@ -852,7 +864,10 @@ function xlCellStr(v){if(v==null)return'';if(v instanceof Date){const d=v;return
 async function readSheet(file){
   await ensureExcelJS();
   const wb=new ExcelJS.Workbook(); await wb.xlsx.load(await file.arrayBuffer());
-  let ws=wb.worksheets[0]; wb.worksheets.forEach(w=>{if((w.rowCount||0)>((ws&&ws.rowCount)||0))ws=w;});
+  // chỉ xét sheet hiển thị (bỏ qua sheet danh mục ẩn "DanhMuc"), chọn sheet nhiều dòng nhất
+  const vis=wb.worksheets.filter(w=>w.state!=='hidden'&&w.state!=='veryHidden');
+  const pool=vis.length?vis:wb.worksheets;
+  let ws=pool[0]; pool.forEach(w=>{if((w.rowCount||0)>((ws&&ws.rowCount)||0))ws=w;});
   if(!ws)return [];
   // tìm dòng tiêu đề: dòng đầu tiên có >=2 ô chữ
   let hRow=1; for(let r=1;r<=Math.min(5,ws.rowCount);r++){let n=0;ws.getRow(r).eachCell(c=>{if(xlCellStr(c.value).trim())n++;});if(n>=2){hRow=r;break;}}
@@ -875,8 +890,8 @@ async function importRows(table,dbRows,fromDb,targetArr){
   return inserted;
 }
 /* Cửa sổ xem trước trước khi nạp */
-function previewImport(label,recs,badLines,onConfirm){
-  const list=recs.slice(0,60).map((r,i)=>`<div class="ddrow"><div class="idx">${i+1}</div><div class="nm"><b>${esc(r.ten)}</b><small>${esc([r.ns,r.sdt,r.hocPhi?fmtVND(r.hocPhi):(r.mon==='TA'?'Tiếng Anh':r.mon==='VH'?'Văn hóa':'')].filter(Boolean).join(' · ')||'—')}</small></div></div>`).join('');
+function previewImport(label,recs,badLines,onConfirm,badText){
+  const list=recs.slice(0,60).map((r,i)=>`<div class="ddrow"><div class="idx">${i+1}</div><div class="nm"><b>${esc(r.ten)}</b><small>${esc([r.lopId?lopName(r.lopId):'',r.ns,r.sdt,r.hocPhi?fmtVND(r.hocPhi):(r.mon==='TA'?'Tiếng Anh':r.mon==='VH'?'Văn hóa':'')].filter(Boolean).join(' · ')||'—')}</small></div></div>`).join('');
   $('#mcard').innerHTML=`
     <div class="mhead" style="background:var(--dots),linear-gradient(150deg,#10264c,#2f6fd0);background-size:18px 18px,auto">
       <div class="mava">${svg('<path d="M4 4h16v16H4z"/><path d="M4 9h16M9 9v11"/>')}</div>
@@ -888,35 +903,44 @@ function previewImport(label,recs,badLines,onConfirm){
         <div class="p co"><b>${recs.length}</b><span>dòng hợp lệ</span></div>
         <div class="p muon"><b>${badLines.length}</b><span>dòng bỏ qua</span></div>
       </div>
-      ${badLines.length?`<p class="muted" style="font-size:.8rem;margin:2px 2px 8px">Bỏ qua ${badLines.length} dòng thiếu họ tên (dòng ${badLines.slice(0,20).join(', ')}${badLines.length>20?'…':''}).</p>`:''}
+      ${badLines.length?`<p class="muted" style="font-size:.8rem;margin:2px 2px 8px">${badText?esc(badText):`Bỏ qua ${badLines.length} dòng thiếu họ tên (dòng ${badLines.slice(0,20).join(', ')}${badLines.length>20?'…':''}).`}</p>`:''}
       ${recs.length?`<div class="ddgrid" style="max-height:44vh;overflow:auto">${list}${recs.length>60?`<div class="muted" style="padding:8px 2px">… và ${recs.length-60} dòng nữa</div>`:''}</div>`:'<div class="empty">Không có dòng hợp lệ nào trong file.</div>'}
       <div style="display:flex;gap:8px;margin-top:12px"><button class="btn btn-light" style="flex:1" onclick="closeModal()">Hủy</button><button class="btn btn-primary" style="flex:2" id="imp_ok" ${recs.length?'':'disabled'}>✓ Nhập ${recs.length} ${esc(label)}</button></div>
     </div>`;
   $('#modal').classList.add('on');
   const ok=$('#imp_ok'); if(ok&&recs.length)ok.onclick=async()=>{ok.disabled=true;ok.textContent='Đang nhập…';await onConfirm();};
 }
-const HS_COLS=[{h:'TT',k:'tt',w:6},{h:'Họ và tên',k:'ten',w:26},{h:'Ngày sinh',k:'ns',w:14},{h:'Phụ huynh',k:'ph',w:22},{h:'Điện thoại',k:'sdt',w:16},{h:'Thời gian nhập học',k:'nhaphoc',w:18},{h:'Trạng thái',k:'trangthai',w:15,dv:['Đang học','Hết khóa','Thôi học']},{h:'Học phí (đ/tháng)',k:'hp',w:18}];
 const GV_COLS=[{h:'Họ và tên',k:'ten',w:26},{h:'Ngày sinh',k:'ns',w:14},{h:'Môn (VH/TA)',k:'mon',w:14},{h:'Trình độ',k:'td',w:16},{h:'Điện thoại',k:'sdt',w:16},{h:'Địa chỉ',k:'dc',w:32}];
 function pickFile(cb){const inp=document.createElement('input');inp.type='file';inp.accept='.xlsx,.xls';inp.onchange=()=>{if(inp.files&&inp.files[0])cb(inp.files[0]);};inp.click();}
 async function hsDownloadTemplate(lop){
-  await makeTemplate({sheet:'DanhSach',columns:HS_COLS,
-    example:{tt:1,ten:'Nguyễn Văn An',ns:'01/09/2015',ph:'Nguyễn Văn Ba',sdt:'0901234567',nhaphoc:isoVN(todayISO()),trangthai:'Đang học',hp:600000},
-    filename:'Mau-hoc-sinh-'+((lop&&lop.lop)||'lop').replace(/[\\/:*?"<>|\s]+/g,'-')+'.xlsx',
-    title:'DANH SÁCH HỌC SINH'+(lop?' — '+lop.lop:''),
-    guide:['• Điền mỗi học sinh 1 dòng, ngay dưới hàng tiêu đề màu xanh.','• Cột "TT" chỉ để đánh số cho dễ nhìn — có thể để nguyên, không ảnh hưởng khi nhập.','• "Họ và tên" là bắt buộc; dòng để trống tên sẽ bị bỏ qua.','• Ngày sinh & Thời gian nhập học ghi dạng ngày/tháng/năm (VD: 01/09/2015). Để trống Thời gian nhập học thì hệ thống lấy ngày nhập file.','• Cột "Trạng thái" bấm vào ô sẽ hiện danh sách chọn: Đang học / Hết khóa / Thôi học (để trống coi như Đang học). Không gõ tay để tránh sai.','• Học phí ghi số, không dấu chấm (VD: 600000).','• Dòng chữ xám nghiêng là ví dụ — có thể xóa hoặc ghi đè.','• Lưu file rồi vào web, chọn đúng lớp và bấm "Nhập Excel".']});
+  const coSoId=lop.coSoId;
+  const lops=LOP.filter(l=>l.coSoId===coSoId).slice().sort((a,b)=>String(a.lop).localeCompare(String(b.lop),'vi'));
+  const lopNames=lops.map(l=>l.lop);
+  const cols=[{h:'TT',k:'tt',w:6},{h:'Họ và tên',k:'ten',w:24},{h:'Lớp',k:'lop',w:16,dvList:lopNames},{h:'Ngày sinh',k:'ns',w:13},{h:'Phụ huynh',k:'ph',w:20},{h:'Điện thoại',k:'sdt',w:15},{h:'Thời gian nhập học',k:'nhaphoc',w:17},{h:'Trạng thái',k:'trangthai',w:14,dv:['Đang học','Hết khóa','Thôi học']},{h:'Học phí (đ/tháng)',k:'hp',w:17}];
+  await makeTemplate({sheet:'DanhSach',columns:cols,
+    example:{tt:1,ten:'Nguyễn Văn An',lop:lopNames[0]||'',ns:'01/09/2015',ph:'Nguyễn Văn Ba',sdt:'0901234567',nhaphoc:isoVN(todayISO()),trangthai:'Đang học',hp:600000},
+    filename:'Mau-hoc-sinh-'+csName(coSoId).replace(/[\\/:*?"<>|\s]+/g,'-')+'.xlsx',
+    title:'DANH SÁCH HỌC SINH — '+csName(coSoId),
+    guide:['• Mẫu này dùng cho CẢ CƠ SỞ — nhập nhiều lớp trong một file.','• Điền mỗi học sinh 1 dòng, ngay dưới hàng tiêu đề màu xanh.','• Cột "TT" chỉ để đánh số cho dễ nhìn — không ảnh hưởng khi nhập.','• "Họ và tên" là bắt buộc; dòng để trống tên sẽ bị bỏ qua.','• Cột "Lớp": bấm vào ô sẽ hiện danh sách lớp của cơ sở — CHỌN lớp, KHÔNG gõ tay để tránh sai. Để trống thì hệ thống xếp vào lớp đang chọn trên web.','• Ngày sinh & Thời gian nhập học ghi dạng ngày/tháng/năm (VD: 01/09/2015). Để trống Thời gian nhập học thì lấy ngày nhập file.','• Cột "Trạng thái" chọn: Đang học / Hết khóa / Thôi học (để trống coi như Đang học).','• Học phí ghi số, không dấu chấm (VD: 600000).','• Dòng chữ xám nghiêng là ví dụ — có thể xóa hoặc ghi đè.','• Lưu file rồi vào web bấm "Nhập Excel".']});
 }
 function hsImportExcel(lop){
+  const coSoId=lop.coSoId;
+  const lopByName={}; LOP.filter(l=>l.coSoId===coSoId).forEach(l=>{lopByName[fold(String(l.lop)).toLowerCase().trim()]=l;});
   pickFile(async file=>{
     let rows; try{rows=await readSheet(file);}catch(e){avaAlert('Không đọc được file. Hãy dùng file .xlsx theo mẫu tải về.');return;}
-    const recs=[],bad=[];
+    const recs=[],bad=[],badLop=[];
     rows.forEach((r,i)=>{const ten=String(xlPick(r,['ho va ten','ho ten','ten'])).trim(); if(!ten){bad.push(i+2);return;}
+      const lopCell=String(xlPick(r,['lop hoc','lop'])).trim();
+      let lp=lop;                                 // trống → lớp đang chọn trên web
+      if(lopCell){ lp=lopByName[fold(lopCell).toLowerCase().trim()]; if(!lp){badLop.push(i+2);return;} }
       const nh=vnToIso(String(xlPick(r,['thoi gian nhap','ngay nhap'])).trim());
       const tt=fold(String(xlPick(r,['trang thai']))).toLowerCase().trim();
       let thoi=false, lyDo='';                    // trống hoặc "đang học" => đang học
       if(tt.includes('het khoa')){thoi=true;lyDo='Hết khóa';}
       else if(tt.includes('thoi hoc')||tt==='thoi'){thoi=true;lyDo='Nghỉ hẳn';}
-      recs.push({ten,ns:String(xlPick(r,['ngay sinh','sinh'])).trim(),ph:String(xlPick(r,['phu huynh','huynh','cha me'])).trim(),sdt:String(xlPick(r,['dien thoai','sdt','so dt','phone'])).trim(),hocPhi:Number(String(xlPick(r,['hoc phi','phi'])).replace(/\D/g,''))||0,daDong:false,lopId:lop.id,coSoId:lop.coSoId,mau:false,ngayNhapHoc:nh||todayISO(),ngayThoiHoc:thoi?todayISO():null,lyDo});});
-    previewImport('học sinh vào lớp '+lop.lop,recs,bad,async()=>{
+      recs.push({ten,ns:String(xlPick(r,['ngay sinh','sinh'])).trim(),ph:String(xlPick(r,['phu huynh','huynh','cha me'])).trim(),sdt:String(xlPick(r,['dien thoai','sdt','so dt','phone'])).trim(),hocPhi:Number(String(xlPick(r,['hoc phi','phi'])).replace(/\D/g,''))||0,daDong:false,lopId:lp.id,coSoId:lp.coSoId,mau:false,ngayNhapHoc:nh||todayISO(),ngayThoiHoc:thoi?todayISO():null,lyDo});});
+    const badText=(bad.length||badLop.length)?('Bỏ qua '+(bad.length+badLop.length)+' dòng'+(bad.length?': '+bad.length+' thiếu họ tên':'')+(badLop.length?((bad.length?'; ':': ')+badLop.length+' sai/không khớp tên lớp (dòng '+badLop.slice(0,15).join(', ')+(badLop.length>15?'…':'')+')'):'')+'.'):'';
+    previewImport('học sinh vào '+csName(coSoId),recs,bad.concat(badLop),async()=>{
       const ins=await importRows('hoc_vien',recs.map(hvToDb),hvFromDb,OPS.hv);
       if(ins){
         // Gán ngày nhập học / thôi học theo lô (gộp các dòng cùng giá trị) — bỏ qua êm nếu chưa chạy SQL
@@ -928,7 +952,7 @@ function hsImportExcel(lop){
         for(const k in groups){const {patch,ids}=groups[k]; const {error}=await SB.from('hoc_vien').update(patch).in('id',ids); if(!error)touched=true;}
         if(touched) await loadCloud();
         closeModal();renderGhiDanh();
-      }});
+      }},badText);
   });
 }
 async function gvDownloadTemplate(){
@@ -2148,7 +2172,7 @@ function renderGhiDanh(){
   const lop=LOP.find(l=>l.id===ghiLopId), ds=hvOfLop(ghiLopId).filter(hvActive);
   const conThieu=Math.max(0,(lop.siso||0)-ds.length);
   let h=`<div class="toolbar"><select class="fsel" id="ghiLop" style="flex:1;min-width:180px;max-width:100%">${lopPickHTML(ghiLopId)}</select>
-    <button class="btn btn-sm btn-ghost" id="hsTpl" style="white-space:nowrap">⬇ Tải mẫu Excel</button>
+    <button class="btn btn-sm btn-ghost" id="hsTpl" style="white-space:nowrap">⬇ Tải mẫu Excel (cả cơ sở)</button>
     <button class="btn btn-sm btn-primary" id="hsImp" style="white-space:nowrap">⬆ Nhập Excel</button></div>
   <div class="grid2">
     <div class="panel"><div class="phead"><h3>Ghi danh học sinh mới</h3></div>
