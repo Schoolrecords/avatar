@@ -966,12 +966,14 @@ async function readSheet(file){
   const pool=vis.length?vis:wb.worksheets;
   let ws=pool[0]; pool.forEach(w=>{if((w.rowCount||0)>((ws&&ws.rowCount)||0))ws=w;});
   if(!ws)return [];
-  // tìm dòng tiêu đề: dòng đầu tiên có >=2 ô chữ
-  let hRow=1; for(let r=1;r<=Math.min(5,ws.rowCount);r++){let n=0;ws.getRow(r).eachCell(c=>{if(xlCellStr(c.value).trim())n++;});if(n>=2){hRow=r;break;}}
+  // tìm dòng tiêu đề: dòng đầu tiên có >=2 ô chữ KHÁC NHAU
+  // (dòng tiêu đề gộp ô như "DANH SÁCH HỌC SINH" trải cùng 1 giá trị ra nhiều cột → phải loại)
+  let hRow=1; for(let r=1;r<=Math.min(6,ws.rowCount);r++){const set=new Set();ws.getRow(r).eachCell(c=>{const v=xlCellStr(c.value).trim();if(v)set.add(v.toLowerCase());});if(set.size>=2){hRow=r;break;}}
   const headers=[]; ws.getRow(hRow).eachCell((c,col)=>{headers[col]=fold(xlCellStr(c.value)).toLowerCase().trim();});
   const rows=[];
   for(let r=hRow+1;r<=ws.rowCount;r++){const row=ws.getRow(r);const obj={};let any=false;
-    for(let col=1;col<headers.length;col++){const h=headers[col];if(!h)continue;const val=xlCellStr(row.getCell(col).value).trim();obj[h]=val;if(val)any=true;}
+    // cột "TT" chỉ là số thứ tự tự đánh sẵn — không tính là dữ liệu (tránh dòng trống có sẵn số bị coi là "thiếu họ tên")
+    for(let col=1;col<headers.length;col++){const h=headers[col];if(!h)continue;const val=xlCellStr(row.getCell(col).value).trim();obj[h]=val;if(val&&h!=='tt')any=true;}
     if(any)rows.push(obj);}
   return rows;
 }
