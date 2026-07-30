@@ -793,25 +793,36 @@ td.chi{color:var(--rose);font-weight:800}
   .botnav{display:flex;position:fixed;bottom:0;left:0;right:0;z-index:50;background:#fff;
     border-top:1px solid var(--line);padding:6px 5px calc(6px + env(safe-area-inset-bottom));
     justify-content:space-around;box-shadow:0 -12px 34px -18px rgba(9,42,38,.55)}
-  .botnav button{display:grid;justify-items:center;gap:3px;color:#7d879c;font-size:.66rem;font-weight:800;
-    padding:6px 4px 5px;border-radius:14px;flex:1;min-width:0;transition:.16s}
+  /* Mỗi nút một màu pastel riêng, HIỆN SẴN ở mọi nút (không chờ bấm mới thấy).
+     --c = màu chữ/icon · --cs = nền chip icon · --cb = nền nút khi đang mở (rất nhạt). */
+  .botnav button{display:grid;justify-items:center;gap:3px;font-size:.66rem;font-weight:700;
+    padding:6px 4px 5px;border-radius:14px;flex:1;min-width:0;transition:.16s;
+    --c:#6b7690;--cs:#eef1f6;--cb:#f7f8fb;color:#7a8496}
+  .botnav button.c-navy  {--c:#3f62b3;--cs:#e9eefb;--cb:#f5f8fd}
+  .botnav button.c-green {--c:#2f9e63;--cs:#e7f5ed;--cb:#f4faf7}
+  .botnav button.c-sky   {--c:#2d86b8;--cs:#e6f2f9;--cb:#f4f9fc}
+  .botnav button.c-amber {--c:#c3891f;--cs:#fbf1de;--cb:#fdf8f0}
+  .botnav button.c-violet{--c:#7c5cd6;--cs:#efeafc;--cb:#f8f6fd}
+  .botnav button.c-rose  {--c:#d4626b;--cs:#fbeaec;--cb:#fdf5f6}
+  .botnav button.c-slate {--c:#6b7690;--cs:#eef1f6;--cb:#f7f8fb}
   .botnav button span:last-child{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
-  .botnav button .bi{position:relative;display:grid;place-items:center;width:34px;height:28px;border-radius:10px;transition:.16s}
-  .botnav button svg{width:24px;height:24px;stroke:currentColor}
-  .botnav button:active{transform:scale(.94)}
-  .botnav button.on{color:#fff;background:var(--brand-700);box-shadow:0 6px 16px -8px var(--brand-700)}
-  .botnav button.on svg{stroke:#fff}
-  .botnav button.on .bi{background:rgba(255,255,255,.16)}
+  .botnav button .bi{position:relative;display:grid;place-items:center;width:36px;height:29px;border-radius:11px;
+    background:var(--cs);transition:.16s}
+  .botnav button svg{width:23px;height:23px;stroke:var(--c);opacity:.82;transition:.16s}
+  .botnav button:active{transform:scale(.95)}
+  /* Đang mở: đậm màu của chính nút đó, không dùng khối navy đặc */
+  .botnav button.on{color:var(--c);font-weight:800;background:var(--cb)}
+  .botnav button.on svg{opacity:1}
+  .botnav button.on .bi{box-shadow:0 0 0 2px #fff,0 0 0 3.5px var(--c)}
   /* chấm số tin chưa đọc / việc cần xử lý */
-  .botnav .bdot{position:absolute;top:-3px;right:-6px;min-width:17px;height:17px;padding:0 4px;border-radius:99px;
+  .botnav .bdot{position:absolute;top:-4px;right:-7px;min-width:17px;height:17px;padding:0 4px;border-radius:99px;
     background:var(--rose);color:#fff;font-style:normal;font-size:.6rem;font-weight:900;line-height:17px;text-align:center;
     box-shadow:0 0 0 2px #fff}
-  .botnav button.on .bdot{box-shadow:0 0 0 2px var(--brand-700)}
 }
 @media(max-width:400px){
   .botnav button{font-size:.6rem;padding:6px 2px 5px}
-  .botnav button svg{width:22px;height:22px}
-  .botnav button .bi{width:30px}
+  .botnav button svg{width:21px;height:21px}
+  .botnav button .bi{width:32px;height:27px}
 }
 @media(max-width:480px){
   .kpis{grid-template-columns:1fr 1fr;gap:10px}
@@ -1806,6 +1817,10 @@ const visibleNav=()=> USER.role==='teacher'
    họ chỉ xem lịch mình dạy → gọi "Lịch dạy" cho đúng việc của họ. */
 const NAV_TEN_GV={lichhoc:'Lịch dạy'};
 const navTen=n=>(USER.role==='teacher'&&NAV_TEN_GV[n.k])||n.t;
+/* Màu pastel của từng nút ở thanh dưới (điện thoại). Đã chọn sao cho trong mỗi
+   vai trò, 5 nút không có hai nút nào trùng màu — nhìn là phân biệt được ngay. */
+const BN_MAU={dashboard:'c-navy',diemdanh:'c-green',lichhoc:'c-sky',thongbao:'c-amber',
+  ghidanh:'c-violet',duyet:'c-amber',thu:'c-rose',coso:'c-sky',huongdan:'c-slate'};
 function botNav(){
   // Giáo viên dùng app hằng ngày để ĐIỂM DANH và ĐỌC THÔNG BÁO → cả hai phải nằm ở thanh dưới
   const pick = USER.role==='teacher' ? ['diemdanh','lichhoc','thongbao','ghidanh','huongdan']
@@ -2047,7 +2062,7 @@ function renderNav(){
   $('#nav').innerHTML=vis.map(n=>`<button data-k="${n.k}" class="${n.k===VIEW?'on':''}">${svg(n.i)}<span>${navTen(n)}</span>${n.cnt?`<span class="cnt">${n.cnt()}</span>`:''}</button>`).join('');
   $$('#nav button').forEach(b=>b.onclick=()=>{go(b.dataset.k);closeSide();});
   $('#botnav').innerHTML=botNav().map(n=>{const c=n.cnt?n.cnt():'';
-    return `<button data-k="${n.k}" class="${n.k===VIEW?'on':''}"><span class="bi">${svg(n.i,1.9)}${c?`<i class="bdot">${c}</i>`:''}</span><span>${navTen(n)}</span></button>`;}).join('');
+    return `<button data-k="${n.k}" class="${BN_MAU[n.k]||'c-slate'}${n.k===VIEW?' on':''}"><span class="bi">${svg(n.i,1.9)}${c?`<i class="bdot">${c}</i>`:''}</span><span>${navTen(n)}</span></button>`;}).join('');
   $$('#botnav button').forEach(b=>b.onclick=()=>go(b.dataset.k));
 }
 function syncNav(){
@@ -2556,7 +2571,7 @@ const HD_FAQ=[
 ];
 const HD_TIPS=[
   ['📲','Cài lên màn hình chính điện thoại (chọn “Thêm vào Màn hình chính”) để dùng như một ứng dụng riêng, mở nhanh hơn.'],
-  ['👇','Trên điện thoại, <b>thanh nút dưới cùng</b> là lối đi nhanh tới các việc làm hằng ngày. Nút <b>đang mở</b> có nền xanh navy; nút nào có <b>chấm đỏ kèm số</b> là đang có việc chờ mình (tin chưa đọc, ca chờ đối soát). Các mục còn lại nằm trong menu ☰ góc trái.'],
+  ['👇','Trên điện thoại, <b>thanh nút dưới cùng</b> là lối đi nhanh tới các việc làm hằng ngày. <b>Mỗi nút một màu riêng</b> để quen mắt là bấm đúng ngay; nút <b>đang mở</b> đậm màu hơn và có viền quanh biểu tượng. Nút nào có <b>chấm đỏ kèm số</b> là đang có việc chờ mình (tin chưa đọc, ca chờ đối soát). Các mục còn lại nằm trong menu ☰ góc trái.'],
   ['💡','Sau khi hệ thống được cập nhật, hãy tải lại trang (máy tính bấm Ctrl+F5, điện thoại kéo xuống làm mới) để nhận bản mới nhất.'],
   ['🔔','Chuông ở góc trên báo học sinh mới ghi danh và các khoản thu – chi mới. Bấm <b>“Đánh dấu đã đọc”</b> một lần cho gọn.'],
   ['🖶','Trang Hướng dẫn này bấm <b>In / lưu PDF</b> được — in ra phát cho lễ tân và giáo viên rất tiện.'],
