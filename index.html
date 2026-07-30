@@ -1118,6 +1118,27 @@ const HM_THU=['Học phí','Ghi danh/Nhập học','Bán tài liệu','Thu khác
 const HM_CHI=['Lương giáo viên','Thuê mặt bằng','Điện nước','Vật tư/Văn phòng phẩm','Marketing','Chi khác'];
 const isoVN=s=>{if(!s)return'';const p=String(s).split('-');return `${p[2]}/${p[1]}/${p[0]}`;};
 const vnToIso=s=>{const m=/^(\d{2})\/(\d{2})\/(\d{4})$/.exec(String(s||'').trim());return m?`${m[3]}-${m[2]}-${m[1]}`:'';};
+/* Đọc ngày từ ô Excel hoặc ô nhập tay ở NHIỀU dạng → ISO yyyy-mm-dd. Trả '' nếu không đọc được.
+   Nhận: Date, số serial Excel (45900), 1/9/2026, 01/09/2026, 01-09-2026, 01.09.2026, 2026-09-01, 1/9/26 */
+function anyToIso(v){
+  if(v==null)return'';
+  const two=n=>String(n).padStart(2,'0');
+  if(v instanceof Date&&!isNaN(v))return `${v.getFullYear()}-${two(v.getMonth()+1)}-${two(v.getDate())}`;
+  let s=String(v).trim(); if(!s)return'';
+  if(/^\d{5}(\.\d+)?$/.test(s)){                       // Excel lưu ngày dạng số → quy đổi (mốc 30/12/1899)
+    const d=new Date(Date.UTC(1899,11,30)+Math.floor(+s)*86400000);
+    return `${d.getUTCFullYear()}-${two(d.getUTCMonth()+1)}-${two(d.getUTCDate())}`;}
+  s=s.split(/[ T]/)[0].replace(/[.\-]/g,'/');
+  let m=/^(\d{4})\/(\d{1,2})\/(\d{1,2})$/.exec(s);      // yyyy/mm/dd
+  if(m)return `${m[1]}-${two(+m[2])}-${two(+m[3])}`;
+  m=/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/.exec(s);        // d/m/yyyy · d/m/yy
+  if(!m)return'';
+  let d=+m[1],mo=+m[2],y=+m[3]; if(y<100)y+=2000;
+  if(d<1||d>31||mo<1||mo>12||y<1900||y>2200)return'';
+  return `${y}-${two(mo)}-${two(d)}`;
+}
+/* Khóa so tên để phát hiện trùng: bỏ dấu, gộp khoảng trắng, chữ thường */
+const nameKey=s=>fold(String(s||'')).toLowerCase().replace(/\s+/g,' ').trim();
 let ktThang='all', ktLoai='all';
 function ensureXLSX(){return new Promise((res,rej)=>{if(window.XLSX)return res();const s=document.createElement('script');s.src='xlsx.full.min.js';s.onload=()=>res();s.onerror=()=>rej(new Error('load'));document.head.appendChild(s);});}
 
@@ -1182,6 +1203,7 @@ async function readSheet(file){
     // cột "TT" chỉ là số thứ tự tự đánh sẵn — không tính là dữ liệu (tránh dòng trống có sẵn số bị coi là "thiếu họ tên")
     for(let col=1;col<headers.length;col++){const h=headers[col];if(!h)continue;const val=xlCellStr(row.getCell(col).value).trim();obj[h]=val;if(val&&h!=='tt')any=true;}
     if(any)rows.push(obj);}
+  rows.firstRow=hRow+1;          // dòng Excel thật của phần tử [0] → báo lỗi đúng số dòng
   return rows;
 }
 const xlPick=(o,keys)=>{for(const k in o){if(keys.some(x=>k.includes(x)))return o[k];}return '';};
@@ -1196,7 +1218,7 @@ async function importRows(table,dbRows,fromDb,targetArr){
   return inserted;
 }
 /* Cửa sổ xem trước trước khi nạp */
-function previewImport(label,recs,badLines,onConfirm,badText){
+function previewImport(label,recs,badLines,onConfirm,badText,extraHTML,afterRender){
   const list=recs.slice(0,60).map((r,i)=>`<div class="ddrow"><div class="idx">${i+1}</div><div class="nm"><b>${esc(r.ten)}</b><small>${esc([r.lopId?lopName(r.lopId):'',r.ns,r.sdt,r.hocPhi?fmtVND(r.hocPhi):(r.mon==='TA'?'Tiếng Anh':r.mon==='VH'?'Văn hóa':'')].filter(Boolean).join(' · ')||'—')}</small></div></div>`).join('');
   $('#mcard').innerHTML=`
     <div class="mhead" style="background:var(--dots),linear-gradient(150deg,#10264c,#2f6fd0);background-size:18px 18px,auto">
@@ -1210,11 +1232,15 @@ function previewImport(label,recs,badLines,onConfirm,badText){
         <div class="p muon"><b>${badLines.length}</b><span>dòng bỏ qua</span></div>
       </div>
       ${badLines.length?`<p class="muted" style="font-size:.8rem;margin:2px 2px 8px">${badText?esc(badText):`Bỏ qua ${badLines.length} dòng thiếu họ tên (dòng ${badLines.slice(0,20).join(', ')}${badLines.length>20?'…':''}).`}</p>`:''}
-      ${recs.length?`<div class="ddgrid" style="max-height:44vh;overflow:auto">${list}${recs.length>60?`<div class="muted" style="padding:8px 2px">… và ${recs.length-60} dòng nữa</div>`:''}</div>`:'<div class="empty">Không có dòng hợp lệ nào trong file.</div>'}
+      ${recs.length?`<div class="ddgrid" style="max-height:38vh;overflow:auto">${list}${recs.length>60?`<div class="muted" style="padding:8px 2px">… và ${recs.length-60} dòng nữa</div>`:''}</div>`:'<div class="empty">Không có dòng mới nào để nhập.</div>'}
+      ${extraHTML||''}
       <div style="display:flex;gap:8px;margin-top:12px"><button class="btn btn-light" style="flex:1" onclick="closeModal()">Hủy</button><button class="btn btn-primary" style="flex:2" id="imp_ok" ${recs.length?'':'disabled'}>✓ Nhập ${recs.length} ${esc(label)}</button></div>
     </div>`;
   $('#modal').classList.add('on');
-  const ok=$('#imp_ok'); if(ok&&recs.length)ok.onclick=async()=>{ok.disabled=true;ok.textContent='Đang nhập…';await onConfirm();};
+  const ok=$('#imp_ok');
+  if(ok)ok.onclick=async()=>{const old=ok.textContent;ok.disabled=true;ok.textContent='Đang nhập…';
+    const r=await onConfirm(); if(r===false){ok.disabled=false;ok.textContent=old;}};   // onConfirm trả false → cho bấm lại
+  if(typeof afterRender==='function')afterRender();
 }
 const GV_COLS=[{h:'Họ và tên',k:'ten',w:26},{h:'Ngày sinh',k:'ns',w:14},{h:'Môn (VH/TA)',k:'mon',w:14},{h:'Trình độ',k:'td',w:16},{h:'Điện thoại',k:'sdt',w:16},{h:'Địa chỉ',k:'dc',w:32}];
 function pickFile(cb){const inp=document.createElement('input');inp.type='file';inp.accept='.xlsx,.xls';inp.onchange=()=>{if(inp.files&&inp.files[0])cb(inp.files[0]);};inp.click();}
@@ -1227,38 +1253,80 @@ async function hsDownloadTemplate(lop){
     example:{tt:1,ten:'Nguyễn Văn An',lop:lopNames[0]||'',ns:'01/09/2015',ph:'Nguyễn Văn Ba',sdt:'0901234567',nhaphoc:isoVN(todayISO()),trangthai:'Đang học',hp:600000},
     filename:'Mau-hoc-sinh-'+csName(coSoId).replace(/[\\/:*?"<>|\s]+/g,'-')+'.xlsx',
     title:'DANH SÁCH HỌC SINH — '+csName(coSoId),
-    guide:['• Mẫu này dùng cho CẢ CƠ SỞ — nhập nhiều lớp trong một file.','• Điền mỗi học sinh 1 dòng, ngay dưới hàng tiêu đề màu xanh.','• Cột "TT" chỉ để đánh số cho dễ nhìn — không ảnh hưởng khi nhập.','• "Họ và tên" là bắt buộc; dòng để trống tên sẽ bị bỏ qua.','• Cột "Lớp": bấm vào ô sẽ hiện danh sách lớp của cơ sở — CHỌN lớp, KHÔNG gõ tay để tránh sai. Để trống thì hệ thống xếp vào lớp đang chọn trên web.','• Ngày sinh & Thời gian nhập học ghi dạng ngày/tháng/năm (VD: 01/09/2015). Để trống Thời gian nhập học thì lấy ngày nhập file.','• Cột "Trạng thái" chọn: Đang học / Hết khóa / Thôi học (để trống coi như Đang học).','• Học phí ghi cho CẢ KHÓA, dạng số không dấu chấm (VD: 600000).','• Lưu file rồi vào web bấm "Nhập Excel".']});
+    guide:['• Mẫu này dùng cho CẢ CƠ SỞ — nhập nhiều lớp trong một file.','• Điền mỗi học sinh 1 dòng, ngay dưới hàng tiêu đề màu xanh.','• Cột "TT" chỉ để đánh số cho dễ nhìn — không ảnh hưởng khi nhập.','• "Họ và tên" là bắt buộc; dòng để trống tên sẽ bị bỏ qua.','• Cột "Lớp": bấm vào ô sẽ hiện danh sách lớp của cơ sở — CHỌN lớp, KHÔNG gõ tay để tránh sai. Để trống thì hệ thống xếp vào lớp đang chọn trên web.','• Ngày sinh & Thời gian nhập học ghi dạng ngày/tháng/năm (VD: 01/09/2015). Chấp nhận cả 1/9/2015, 01-09-2015, 01.09.2015 hoặc ô đã định dạng Ngày trong Excel.','• QUAN TRỌNG — "Thời gian nhập học" là ngày các em ĐĂNG KÝ THẬT, không phải ngày up file. Lớp đăng ký từ tháng trước thì ghi đúng ngày tháng trước. Nếu để trống, khi nhập file web sẽ hỏi một ngày chung để áp cho các dòng trống — sửa lại đúng ngày rồi mới bấm Nhập.','• Cột "Trạng thái" chọn: Đang học / Hết khóa / Thôi học (để trống coi như Đang học).','• Học phí ghi cho CẢ KHÓA, dạng số không dấu chấm (VD: 600000).','• Học sinh đã có trên hệ thống (trùng họ tên trong cùng cơ sở) sẽ bị CHẶN, không bị nhập 2 lần — nên up lại file cũ cũng không sợ nhân đôi danh sách.','• Lưu file rồi vào web bấm "Nhập Excel".']});
 }
 function hsImportExcel(lop){
   const coSoId=lop.coSoId;
   const lopByName={}; LOP.filter(l=>l.coSoId===coSoId).forEach(l=>{lopByName[fold(String(l.lop)).toLowerCase().trim()]=l;});
+  // Học sinh ĐÃ CÓ trong cơ sở, gom theo tên → dùng để chặn nhập trùng
+  const daCo={}; OPS.hv.filter(h=>h.coSoId===coSoId).forEach(h=>{const k=nameKey(h.ten);(daCo[k]=daCo[k]||[]).push(h);});
   pickFile(async file=>{
     let rows; try{rows=await readSheet(file);}catch(e){avaAlert('Không đọc được file. Hãy dùng file .xlsx theo mẫu tải về.');return;}
-    const recs=[],bad=[],badLop=[];
-    rows.forEach((r,i)=>{const ten=String(xlPick(r,['ho va ten','ho ten','ten'])).trim(); if(!ten){bad.push(i+2);return;}
+    const r0=rows.firstRow||2;
+    const recs=[],bad=[],badLop=[],dups=[],inFile={};
+    rows.forEach((r,i)=>{const dong=r0+i;
+      const ten=String(xlPick(r,['ho va ten','ho ten','ten'])).trim(); if(!ten){bad.push(dong);return;}
       const lopCell=String(xlPick(r,['lop hoc','lop'])).trim();
       let lp=lop;                                 // trống → lớp đang chọn trên web
-      if(lopCell){ lp=lopByName[fold(lopCell).toLowerCase().trim()]; if(!lp){badLop.push(i+2);return;} }
-      const nh=vnToIso(String(xlPick(r,['thoi gian nhap','ngay nhap'])).trim());
+      if(lopCell){ lp=lopByName[fold(lopCell).toLowerCase().trim()]; if(!lp){badLop.push(dong);return;} }
+      const nh=anyToIso(xlPick(r,['thoi gian nhap','ngay nhap','nhap hoc','dang ky']));
+      const ns=String(xlPick(r,['ngay sinh','sinh'])).trim(), nsIso=anyToIso(ns);
       const tt=fold(String(xlPick(r,['trang thai']))).toLowerCase().trim();
       let thoi=false, lyDo='';                    // trống hoặc "đang học" => đang học
       if(tt.includes('het khoa')){thoi=true;lyDo='Hết khóa';}
       else if(tt.includes('thoi hoc')||tt==='thoi'){thoi=true;lyDo='Nghỉ hẳn';}
-      recs.push({ten,ns:String(xlPick(r,['ngay sinh','sinh'])).trim(),ph:String(xlPick(r,['phu huynh','huynh','cha me'])).trim(),sdt:String(xlPick(r,['dien thoai','sdt','so dt','phone'])).trim(),hocPhi:Number(String(xlPick(r,['hoc phi','phi'])).replace(/\D/g,''))||0,daDong:false,lopId:lp.id,coSoId:lp.coSoId,mau:false,ngayNhapHoc:nh||todayISO(),ngayThoiHoc:thoi?todayISO():null,lyDo});});
+      const rec={ten,ns,ph:String(xlPick(r,['phu huynh','huynh','cha me'])).trim(),sdt:String(xlPick(r,['dien thoai','sdt','so dt','phone'])).trim(),hocPhi:Number(String(xlPick(r,['hoc phi','phi'])).replace(/\D/g,''))||0,daDong:false,lopId:lp.id,coSoId:lp.coSoId,mau:false,ngayNhapHoc:nh,ngayThoiHoc:thoi?todayISO():null,lyDo};
+      // Chặn trùng: cùng tên trong cùng cơ sở, và ngày sinh không mâu thuẫn (một bên trống cũng coi là trùng)
+      const k=nameKey(ten);
+      const khop=o=>{const a=anyToIso(o.ns); return !a||!nsIso||a===nsIso;};
+      const cu=(daCo[k]||[]).find(khop);
+      if(cu){dups.push({dong,ten,rec,note:'đã có ở lớp '+lopName(cu.lopId)});return;}
+      const tf=(inFile[k]||[]).find(khop);
+      if(tf){dups.push({dong,ten,rec,note:'lặp lại trong file'});return;}
+      (inFile[k]=inFile[k]||[]).push(rec);
+      recs.push(rec);});
     const badText=(bad.length||badLop.length)?('Bỏ qua '+(bad.length+badLop.length)+' dòng'+(bad.length?': '+bad.length+' thiếu họ tên':'')+(badLop.length?((bad.length?'; ':': ')+badLop.length+' sai/không khớp tên lớp (dòng '+badLop.slice(0,15).join(', ')+(badLop.length>15?'…':'')+')'):'')+'.'):'';
+    const extra=`
+      <div class="form2" style="margin-top:12px">
+        <div class="fld full">
+          <label>Thời gian nhập học cho dòng để trống</label>
+          <input id="imp_nhaphoc" placeholder="dd/mm/yyyy" value="${isoVN(todayISO())}"/>
+        </div>
+      </div>
+      <p class="muted" style="font-size:.75rem;line-height:1.5;margin:6px 2px 0">Lớp đã đăng ký từ trước thì sửa lại đúng ngày (VD: 30/06/2026). Dòng nào trong file đã ghi ngày thì <b>giữ nguyên ngày trong file</b>.</p>
+      ${dups.length?`<div style="margin-top:12px;padding:11px 12px;border:1.5px solid #f2c14e;background:#fff9e8;border-radius:12px">
+        <b style="font-size:.85rem;color:#8a5a00">⚠ ${dups.length} dòng bị chặn vì trùng học sinh đã có</b>
+        <div class="muted" style="font-size:.76rem;line-height:1.6;margin-top:5px">${esc(dups.slice(0,15).map(d=>'dòng '+d.dong+': '+d.ten+' — '+d.note).join('; '))}${dups.length>15?' …':''}</div>
+        <label style="display:flex;gap:8px;align-items:flex-start;margin-top:9px;font-size:.79rem;cursor:pointer"><input type="checkbox" id="imp_dup" style="margin-top:2px"/><span>Tôi đã kiểm tra, đây là các em <b>khác nhau</b> (trùng tên) — vẫn nhập ${dups.length} dòng này</span></label>
+      </div>`:''}`;
     previewImport('học sinh vào '+csName(coSoId),recs,bad.concat(badLop),async()=>{
-      const ins=await importRows('hoc_vien',recs.map(hvToDb),hvFromDb,OPS.hv);
-      if(ins){
-        // Gán ngày nhập học / thôi học theo lô (gộp các dòng cùng giá trị) — bỏ qua êm nếu chưa chạy SQL
-        const groups={};
-        ins.forEach((db,i)=>{const r=recs[i]; if(!r)return;
-          const key=(r.ngayNhapHoc||'')+'|'+(r.ngayThoiHoc||'')+'|'+(r.lyDo||'');
-          (groups[key]=groups[key]||{patch:{ngay_nhap_hoc:r.ngayNhapHoc||null,ngay_thoi_hoc:r.ngayThoiHoc||null,ly_do_thoi_hoc:r.lyDo||null},ids:[]}).ids.push(db.id);});
-        let touched=false;
-        for(const k in groups){const {patch,ids}=groups[k]; const {error}=await SB.from('hoc_vien').update(patch).in('id',ids); if(!error)touched=true;}
-        if(touched) await loadCloud();
-        closeModal();renderGhiDanh();
-      }},badText);
+      const nhInp=$('#imp_nhaphoc'), nhTxt=(nhInp?nhInp.value:'').trim();
+      if(nhTxt&&!vnToIso(nhTxt)){avaAlert('"Thời gian nhập học cho dòng để trống" chưa đúng dạng ngày/tháng/năm (VD: 30/06/2026).');return false;}
+      const nhMac=vnToIso(nhTxt)||todayISO();
+      const dupOK=$('#imp_dup')&&$('#imp_dup').checked;
+      const list=dupOK?recs.concat(dups.map(d=>d.rec)):recs;
+      if(!list.length){avaAlert('Không có dòng nào để nhập.');return false;}
+      list.forEach(r=>{if(!r.ngayNhapHoc)r.ngayNhapHoc=nhMac;});
+      const ins=await importRows('hoc_vien',list.map(hvToDb),hvFromDb,OPS.hv);
+      if(!ins)return false;
+      // Gán ngày nhập học / thôi học theo lô (gộp các dòng cùng giá trị) — bỏ qua êm nếu chưa chạy SQL
+      const groups={};
+      ins.forEach((db,i)=>{const r=list[i]; if(!r)return;
+        const key=(r.ngayNhapHoc||'')+'|'+(r.ngayThoiHoc||'')+'|'+(r.lyDo||'');
+        (groups[key]=groups[key]||{patch:{ngay_nhap_hoc:r.ngayNhapHoc||null,ngay_thoi_hoc:r.ngayThoiHoc||null,ly_do_thoi_hoc:r.lyDo||null},ids:[]}).ids.push(db.id);});
+      let touched=false;
+      for(const k in groups){const {patch,ids}=groups[k]; const {error}=await SB.from('hoc_vien').update(patch).in('id',ids); if(!error)touched=true;}
+      if(touched) await loadCloud();
+      closeModal();renderGhiDanh();
+      avaAlert('Đã nhập '+list.length+' học sinh vào '+csName(coSoId)+'.'+(dups.length&&!dupOK?' Bỏ qua '+dups.length+' dòng trùng.':''),{title:'Nhập danh sách xong'});
+    },badText,extra,()=>{
+      attachDateFormat($('#imp_nhaphoc'));
+      const cb=$('#imp_dup'), okB=$('#imp_ok');
+      const upd=()=>{const n=recs.length+((cb&&cb.checked)?dups.length:0);
+        okB.textContent='✓ Nhập '+n+' học sinh'; okB.disabled=(n===0);};
+      if(cb)cb.onchange=upd;
+      upd();
+    });
   });
 }
 async function gvDownloadTemplate(){
@@ -1273,11 +1341,16 @@ function gvImportExcel(){
   else coSoId=USER.coSoId;
   pickFile(async file=>{
     let rows; try{rows=await readSheet(file);}catch(e){avaAlert('Không đọc được file. Hãy dùng file .xlsx theo mẫu tải về.');return;}
-    const recs=[],bad=[];
-    rows.forEach((r,i)=>{const ten=String(xlPick(r,['ho va ten','ho ten','ten'])).trim(); if(!ten){bad.push(i+2);return;}
+    const r0=rows.firstRow||2;
+    const daCo=new Set(GV.filter(g=>g.coSoId===coSoId).map(g=>nameKey(g.ten)));   // GV đã có trong cơ sở
+    const recs=[],bad=[],dup=[];
+    rows.forEach((r,i)=>{const dong=r0+i;
+      const ten=String(xlPick(r,['ho va ten','ho ten','ten'])).trim(); if(!ten){bad.push(dong);return;}
+      const k=nameKey(ten); if(daCo.has(k)){dup.push(dong+': '+ten);return;} daCo.add(k);
       const mraw=fold(String(xlPick(r,['mon']))).toLowerCase();
       recs.push({ten,ns:String(xlPick(r,['ngay sinh','sinh'])).trim(),mon:(mraw.includes('ta')||mraw.includes('anh'))?'TA':'VH',td:String(xlPick(r,['trinh do','bang cap'])).trim(),sdt:String(xlPick(r,['dien thoai','sdt','so dt','phone'])).trim(),dc:String(xlPick(r,['dia chi','address'])).trim(),coSoId});});
-    previewImport('giáo viên — '+csName(coSoId),recs,bad,async()=>{const okAll=await importRows('giao_vien',recs.map(gvToDb),gvFromDb,GV);if(okAll){closeModal();renderGV();}});
+    const badText=(bad.length||dup.length)?('Bỏ qua '+(bad.length+dup.length)+' dòng'+(bad.length?': '+bad.length+' thiếu họ tên':'')+(dup.length?((bad.length?'; ':': ')+dup.length+' giáo viên đã có trên hệ thống (dòng '+dup.slice(0,10).join('; ')+(dup.length>10?'…':'')+')'):'')+'.'):'';
+    previewImport('giáo viên — '+csName(coSoId),recs,bad.concat(dup.map(()=>0)),async()=>{const okAll=await importRows('giao_vien',recs.map(gvToDb),gvFromDb,GV);if(!okAll)return false;closeModal();renderGV();},badText);
   });
 }
 const hvOfLop=id=>OPS.hv.filter(h=>h.lopId===id);
@@ -1287,6 +1360,7 @@ const lopName=id=>{const l=LOP.find(x=>x.id===id);return l?l.lop:'—';};
 function todayISO(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
 const CC_LABEL={day:'Lên lớp',nghi:'Nghỉ',bu:'Dạy bù'};
 let ddDate=todayISO(), ddLopId=null, ghiLopId=null;
+let gdNhapHoc='';   // ngày nhập học đang dùng ở form ghi danh — giữ lại giữa các lần thêm để nhập cả lớp cũ cho nhanh
 function lopPickHTML(selId){
   return inLOP().filter(l=>l.siso>0||hvOfLop(l.id).length).slice().sort((a,b)=>a.coSoId-b.coSoId)
     .map(l=>`<option value="${l.id}" ${l.id===selId?'selected':''}>${USER.role==='admin'?csAbbr(l.coSoId)+' · ':''}${esc(l.lop)} — ${esc(l.gv||'?')}</option>`).join('');
@@ -3525,6 +3599,7 @@ function renderGhiDanh(){
       <div class="pbody"><div class="form2">
         <div class="fld full"><label>Họ và tên</label><input id="gd_ten" placeholder="VD: Nguyễn Văn An"/></div>
         <div class="fld"><label>Ngày sinh</label><input id="gd_ns" placeholder="dd/mm/yyyy"/></div>
+        <div class="fld"><label>Thời gian nhập học</label><input id="gd_nhaphoc" placeholder="dd/mm/yyyy" value="${isoVN(gdNhapHoc||todayISO())}"/></div>
         ${isTe?'':`<div class="fld"><label>Học phí (đ/khóa)</label><input id="gd_hp" inputmode="numeric" placeholder="VD: 600.000"/></div>`}
         <div class="fld"><label>Phụ huynh</label><input id="gd_ph" placeholder="Tên phụ huynh"/></div>
         <div class="fld"><label>Điện thoại</label><input id="gd_sdt" inputmode="tel" placeholder="SĐT liên hệ"/></div>
@@ -3558,17 +3633,23 @@ function renderGhiDanh(){
   $('#ghiLop').onchange=e=>{ghiLopId=Number(e.target.value);renderGhiDanh();};
   const tplB=$('#hsTpl'); if(tplB)tplB.onclick=()=>hsDownloadTemplate(lop);
   const impB=$('#hsImp'); if(impB)impB.onclick=()=>hsImportExcel(lop);
-  const hpEl=$('#gd_hp'); if(hpEl)attachMoneyFormat(hpEl); attachDateFormat($('#gd_ns'));
+  const hpEl=$('#gd_hp'); if(hpEl)attachMoneyFormat(hpEl); attachDateFormat($('#gd_ns')); attachDateFormat($('#gd_nhaphoc'));
   $('#gd_add').onclick=async()=>{
     const ten=$('#gd_ten').value.trim(); if(!ten){$('#gd_ten').focus();return;}
     if(!isValidDob($('#gd_ns').value)){avaAlert('Ngày sinh chưa đúng dạng ngày/tháng/năm (VD: 01/09/2015).');$('#gd_ns').focus();return;}
+    const nhTxt=$('#gd_nhaphoc').value.trim();
+    if(nhTxt&&!vnToIso(nhTxt)){avaAlert('Thời gian nhập học chưa đúng dạng ngày/tháng/năm (VD: 30/06/2026).');$('#gd_nhaphoc').focus();return;}
+    const nhIso=vnToIso(nhTxt)||todayISO(); gdNhapHoc=nhIso;   // giữ lại cho em tiếp theo
+    const ns=$('#gd_ns').value.trim(), nsIso=vnToIso(ns);
+    // Chặn trùng: cùng tên trong cùng cơ sở, ngày sinh không mâu thuẫn
+    const cu=OPS.hv.find(h=>h.coSoId===lop.coSoId&&nameKey(h.ten)===nameKey(ten)&&(()=>{const a=vnToIso(h.ns);return !a||!nsIso||a===nsIso;})());
+    if(cu&&!await avaConfirm('Học sinh "'+ten+'" đã có ở lớp '+lopName(cu.lopId)+' ('+csName(lop.coSoId)+').\nVẫn ghi danh thêm một em nữa cùng tên?',{okText:'Vẫn ghi danh'}))return;
     const _hpEl=$('#gd_hp');
-    const rec={ten,ns:$('#gd_ns').value.trim(),ph:$('#gd_ph').value.trim(),sdt:$('#gd_sdt').value.trim(),hocPhi:_hpEl?Number(_hpEl.value.replace(/\D/g,''))||0:0,lopId:ghiLopId,coSoId:lop.coSoId,mau:false};
+    const rec={ten,ns,ph:$('#gd_ph').value.trim(),sdt:$('#gd_sdt').value.trim(),hocPhi:_hpEl?Number(_hpEl.value.replace(/\D/g,''))||0:0,lopId:ghiLopId,coSoId:lop.coSoId,mau:false};
     const {data,error}=await SB.from('hoc_vien').insert(hvToDb(rec)).select().single();
     if(error){avaAlert('Lỗi ghi danh: '+error.message);return;}
-    const today=todayISO();
-    await SB.from('hoc_vien').update({ngay_nhap_hoc:today}).eq('id',data.id);   // ngày nhập học = hôm nay; bỏ qua êm nếu chưa chạy SQL
-    const obj=hvFromDb(data); obj.ngayNhapHoc=obj.ngayNhapHoc||today;
+    await SB.from('hoc_vien').update({ngay_nhap_hoc:nhIso}).eq('id',data.id);   // bỏ qua êm nếu chưa chạy SQL
+    const obj=hvFromDb(data); obj.ngayNhapHoc=obj.ngayNhapHoc||nhIso;
     OPS.hv.push(obj);renderGhiDanh();
   };
   $$('#view [data-del]').forEach(b=>b.onclick=async()=>{const id=Number(b.dataset.del);const {error}=await SB.from('hoc_vien').delete().eq('id',id);if(error){avaAlert('Lỗi xóa: '+error.message);return;}OPS.hv=OPS.hv.filter(x=>x.id!==id);renderGhiDanh();});
