@@ -2187,7 +2187,8 @@ const HD_HOWTO={
 /* Cách hệ thống tính các con số — để mọi người đọc số liệu giống nhau */
 const HD_NUMBERS=[
   ['Học sinh đang học','Là những em <b>chưa có ngày thôi học</b>. Em đã thôi học vẫn giữ hồ sơ nhưng không tính vào sĩ số, dự thu. Đếm theo <b>đầu người</b>: em học 2 lớp vẫn là <b>1 học sinh</b>, nhưng tính đủ <b>2 sĩ số lớp</b> và <b>2 khoản học phí</b>.'],
-  ['Học sinh học nhiều lớp','Ghi danh em đó vào từng lớp như bình thường — mỗi lớp một lượt, có học phí và ngày nhập học riêng. Trang Học sinh gắn nhãn tím <b>“Học N lớp”</b>. Hệ thống chỉ báo <b>trùng</b> khi cùng tên + cùng ngày sinh + <b>cùng một lớp</b>.'],
+  ['Học sinh học nhiều lớp','Ghi danh em đó vào từng lớp như bình thường — mỗi lớp một lượt, có học phí và ngày nhập học riêng. Gõ họ tên ở trang <b>Ghi danh</b> thì hệ thống tự nhận ra em đã học lớp khác và <b>điền sẵn</b> ngày sinh, phụ huynh, điện thoại. Trang Học sinh gắn nhãn tím <b>“Học N lớp”</b>. Hệ thống chỉ báo <b>trùng</b> khi cùng tên + cùng ngày sinh + <b>cùng một lớp</b>.'],
+  ['Sửa hồ sơ em học nhiều lớp','Trong <b>Hồ sơ</b>: sửa <b>họ tên · ngày sinh · phụ huynh · điện thoại</b> thì hệ thống <b>tự áp cho mọi lớp</b> em đó học (chỉ cần sửa một lần). Còn <b>học phí · lớp · ngày nhập học</b> chỉ áp cho đúng lớp đang mở. Khi cho <b>thôi học</b>, có ô tích <b>“Cho thôi học cả N lớp”</b>; khi <b>Xóa</b>, hệ thống hỏi rõ xóa khỏi một lớp hay tất cả.'],
   ['Dự thu học phí','Tổng <b>học phí cả khóa</b> của các học sinh đang học trong phạm vi đang xem.'],
   ['Đã thu học phí','Tổng <b>số tiền đã đóng</b> của các em — cộng từ <b>các đợt đóng</b> (mỗi đợt là một phiếu thu trong sổ quỹ), tối đa bằng học phí cả khóa của em đó.'],
   ['Số hiệu phiếu','Dạng <b>PT-02-2607-001</b>: PT = phiếu thu / PC = phiếu chi · <b>02</b> mã cơ sở · <b>2607</b> tháng 7 năm 2026 · <b>001</b> số thứ tự. Mỗi cơ sở một dãy riêng, đếm lại từ 001 mỗi tháng.'],
@@ -3678,6 +3679,14 @@ async function cleanMauHV(mauList){
 /* Modal xem & sửa hồ sơ 1 học sinh (đồng bộ Supabase) */
 function openHvEdit(h){
   const lopsCs=LOP.filter(l=>l.coSoId===h.coSoId).slice().sort((a,b)=>String(a.lop).localeCompare(String(b.lop),'vi'));
+  // Các lượt ghi danh KHÁC của cùng một em (em học nhiều lớp). Tính TRƯỚC khi sửa,
+  // vì đổi họ tên / ngày sinh sẽ làm khóa nhận diện đổi theo.
+  const anhEm=OPS.hv.filter(x=>x.id!==h.id&&hsKey(x)===hsKey(h));
+  const anhEmSong=anhEm.filter(hvActive);
+  const noteNhieuLop=anhEm.length?`<div class="fld full g-note" style="margin:0">
+      <span>👥</span><div>Em này có <b>${anhEm.length+1} lượt ghi danh</b>: ${esc([h,...anhEm].map(x=>lopName(x.lopId)).join(', '))}.<br/>
+      Sửa <b>họ tên · ngày sinh · phụ huynh · điện thoại</b> sẽ áp cho <b>cả ${anhEm.length+1} lớp</b>.
+      Còn <b>học phí · lớp · ngày nhập học</b> chỉ áp cho lớp <b>${esc(lopName(h.lopId))}</b> đang mở.</div></div>`:'';
   $('#mcard').innerHTML=`
    <div class="mhead" style="background:var(--dots),linear-gradient(150deg,#10264c,#2f6fd0);background-size:18px 18px,auto">
      <div class="mava" style="background:${avaColor(h.ten)}">${initials(h.ten)}</div>
@@ -3685,6 +3694,7 @@ function openHvEdit(h){
      <button class="mclose" onclick="closeModal()">${svg('<path d="M6 6l12 12M18 6L6 18"/>')}</button>
    </div>
    <div class="mbody"><div class="form2">
+     ${noteNhieuLop}
      <div class="fld full"><label>Họ và tên</label><input id="hv_ten" value="${esc(h.ten)}"/></div>
      <div class="fld"><label>Ngày sinh</label><input id="hv_ns" value="${esc(h.ns)}" placeholder="dd/mm/yyyy"/></div>
      <div class="fld"><label>Học phí (đ/khóa)</label><input id="hv_hp" inputmode="numeric" value="${h.hocPhi||''}" placeholder="VD: 600.000"/></div>
@@ -3704,6 +3714,10 @@ function openHvEdit(h){
          <div class="fld" style="flex:1;min-width:150px;margin:0"><label>Ngày thôi học</label><input id="hv_thoihoc" placeholder="dd/mm/yyyy" value="${h.ngayThoiHoc?isoVN(h.ngayThoiHoc):''}"/></div>
          <div class="fld" style="flex:1;min-width:150px;margin:0"><label>Lý do thôi học</label><select id="hv_lydo">${LY_DO_THOI.map(x=>`<option ${h.lyDo===x?'selected':''}>${x}</option>`).join('')}</select></div>
        </div>
+       ${anhEmSong.length?`<label style="display:flex;gap:8px;align-items:flex-start;margin-top:9px;font-size:.82rem;font-weight:600;cursor:pointer">
+         <input type="checkbox" id="hv_thoiall" style="margin-top:2px;width:17px;height:17px;accent-color:var(--brand)"/>
+         <span>Cho thôi học <b>cả ${anhEmSong.length+1} lớp</b> em đang học (${esc([h,...anhEmSong].map(x=>lopName(x.lopId)).join(', '))}).
+         <br/><span class="muted" style="font-weight:600">Không tích thì chỉ thôi lớp ${esc(lopName(h.lopId))}, các lớp còn lại vẫn học bình thường.</span></span></label>`:''}
      </div>
      <div id="hvErr" style="display:none;color:#c0392b;font-size:.85rem;font-weight:600"></div>
      <div class="fld full" style="display:flex;gap:9px"><button class="btn btn-primary" id="hv_save" style="flex:1">✓ Lưu hồ sơ</button><button class="btn btn-light" id="hv_del" style="color:var(--rose)">Xóa</button></div>
@@ -3744,12 +3758,33 @@ function openHvEdit(h){
       lyDo = $('#hv_lydo').value || 'Khác';
     }
     const lopId=Number($('#hv_lop').value);
+    // Chuyển sang lớp mà em ĐANG học rồi → sẽ thành 2 lượt ghi danh y hệt trong một lớp
+    if(lopId!==h.lopId && anhEm.some(x=>x.lopId===lopId)){
+      err('Em này đã có trong lớp '+lopName(lopId)+' rồi. Chọn lớp khác, hoặc đóng hồ sơ này lại nếu muốn gộp.');
+      return;
+    }
     const daDong=sd>0;
     const patch={ten,ns:$('#hv_ns').value.trim(),ph:$('#hv_ph').value.trim(),sdt:$('#hv_sdt').value.trim(),hocPhi:hp,soTienDong:sd,daDong,ngayDong:ndIso,ngayNhapHoc:nhIso,ngayThoiHoc:thIso,lyDo:lyDo||'',lopId};
     const btn=$('#hv_save'); btn.disabled=true; btn.textContent='Đang lưu…'; err('');
     const {error}=await SB.from('hoc_vien').update({ten:patch.ten,ns:patch.ns,ph:patch.ph,sdt:patch.sdt,hoc_phi:hp,da_dong:daDong,lop_id:lopId,mau:false}).eq('id',h.id);
     btn.disabled=false; btn.textContent='✓ Lưu hồ sơ';
     if(error){err('Lỗi lưu: '+error.message);return;}
+    // ---- Em học nhiều lớp: áp thông tin NHÂN THÂN sang các lớp còn lại ----
+    if(anhEm.length){
+      const ids=anhEm.map(x=>x.id);
+      const prof={ten:patch.ten,ns:patch.ns,ph:patch.ph,sdt:patch.sdt};
+      const r3=await SB.from('hoc_vien').update(prof).in('id',ids);
+      if(r3.error){ err('Đã lưu lớp này, nhưng chưa cập nhật được hồ sơ ở '+ids.length+' lớp còn lại: '+r3.error.message); return; }
+      anhEm.forEach(x=>Object.assign(x,prof));
+      // Cho thôi học cả các lớp còn lại (nếu lễ tân tích ô)
+      const thoiAll=thoi && $('#hv_thoiall') && $('#hv_thoiall').checked;
+      if(thoiAll){
+        const idSong=anhEmSong.map(x=>x.id);
+        const r4=await SB.from('hoc_vien').update({ngay_thoi_hoc:thIso,ly_do_thoi_hoc:lyDo}).in('id',idSong);
+        if(r4.error){ err('Đã lưu lớp này, nhưng chưa cho thôi học được các lớp còn lại: '+r4.error.message); return; }
+        anhEmSong.forEach(x=>Object.assign(x,{ngayThoiHoc:thIso,lyDo:lyDo||''}));
+      }
+    }
     // Các cột thêm sau này — nếu thiếu cột thì báo rõ để anh chạy SQL, không im lặng bỏ qua
     const r2=await SB.from('hoc_vien').update({ngay_dong:ndIso,ngay_nhap_hoc:nhIso,ngay_thoi_hoc:thIso,ly_do_thoi_hoc:lyDo,so_tien_dong:sd}).eq('id',h.id);
     if(r2.error){
@@ -3762,16 +3797,22 @@ function openHvEdit(h){
     closeModal(); renderHocVien();
   };
   $('#hv_del').onclick=async()=>{
-    const ps=hpPhieuCua(h.id);
-    const msg='Xóa hồ sơ học sinh "'+h.ten+'"?'
-      + (ps.length?('\n\n'+ps.length+' phiếu thu học phí của em (tổng '+fmtVND(hpDaDong(h.id))+') sẽ bị xóa khỏi sổ quỹ.'):'')
+    // Em học nhiều lớp: nói rõ đang xóa khỏi MỘT lớp, rồi hỏi thêm có xóa khỏi tất cả không
+    let xoa=[h];
+    const msg=(anhEm.length?'Xóa em "'+h.ten+'" khỏi lớp '+lopName(h.lopId)+'?':'Xóa hồ sơ học sinh "'+h.ten+'"?')
+      + (hpPhieuCua(h.id).length?('\n\n'+hpPhieuCua(h.id).length+' phiếu thu học phí của lớp này (tổng '+fmtVND(hpDaDong(h.id))+') sẽ bị xóa khỏi sổ quỹ.'):'')
+      + (anhEm.length?('\n\nEm vẫn còn '+anhEm.length+' lớp khác: '+anhEm.map(x=>lopName(x.lopId)).join(', ')):'')
       + '\n\nThao tác này không thể hoàn tác.';
     if(!await avaConfirm(msg,{danger:true,okText:'Xóa'}))return;
+    if(anhEm.length && await avaConfirm('Xóa luôn em khỏi cả '+anhEm.length+' lớp còn lại ('+anhEm.map(x=>lopName(x.lopId)).join(', ')+')?\n\nBấm Hủy nếu chỉ muốn xóa khỏi lớp '+lopName(h.lopId)+'.',
+        {danger:true,okText:'Xóa khỏi tất cả',cancelText:'Chỉ lớp này'})) xoa=[h,...anhEm];
+    const ps=xoa.flatMap(x=>hpPhieuCua(x.id));
     for(const p of ps){ if(daChotKy(p.coSoId,p.ngay)){ err('Không xóa được: phiếu thu học phí '+soPhieu(p)+' thuộc kỳ sổ quỹ đã chốt. Hãy nhờ Quản trị mở khóa kỳ đó trước.'); return; } }
-    const {error}=await SB.from('hoc_vien').delete().eq('id',h.id);
+    const hvIds=xoa.map(x=>x.id);
+    const {error}=await SB.from('hoc_vien').delete().in('id',hvIds);
     if(error){err('Lỗi xóa: '+error.message);return;}
-    OPS.hv=OPS.hv.filter(x=>x.id!==h.id);
-    if(ps.length){                                   // xóa các phiếu thu học phí của em này
+    OPS.hv=OPS.hv.filter(x=>!hvIds.includes(x.id));
+    if(ps.length){                                   // xóa các phiếu thu học phí kèm theo
       const ids=ps.map(p=>p.id);
       await SB.from('so_quy').delete().in('id',ids);
       OPS.gd=OPS.gd.filter(g=>!ids.includes(g.id));
@@ -3895,6 +3936,21 @@ function renderGhiDanh(){
   const tplB=$('#hsTpl'); if(tplB)tplB.onclick=()=>hsDownloadTemplate(lop);
   const impB=$('#hsImp'); if(impB)impB.onclick=()=>hsImportExcel(lop);
   const hpEl=$('#gd_hp'); if(hpEl)attachMoneyFormat(hpEl); attachDateFormat($('#gd_ns')); attachDateFormat($('#gd_nhaphoc'));
+  // Gõ xong họ tên: nếu em này ĐÃ học lớp khác trong cơ sở thì tự điền lại hồ sơ cũ.
+  // Vừa đỡ gõ, vừa để ngày sinh khớp nhau — có khớp thì hệ thống mới nhận ra là MỘT em.
+  $('#gd_ten').onblur=()=>{
+    const ten=$('#gd_ten').value.trim(); if(!ten)return;
+    const cu=OPS.hv.filter(x=>x.coSoId===lop.coSoId&&x.lopId!==lop.id&&nameKey(x.ten)===nameKey(ten));
+    if(!cu.length)return;
+    const e=cu[cu.length-1];                       // bản ghi danh gần nhất của em đó
+    let dien=[];
+    if(!$('#gd_ns').value.trim() && e.ns){$('#gd_ns').value=e.ns;dien.push('ngày sinh');}
+    if(!$('#gd_ph').value.trim() && e.ph){$('#gd_ph').value=e.ph;dien.push('phụ huynh');}
+    if(!$('#gd_sdt').value.trim() && e.sdt){$('#gd_sdt').value=e.sdt;dien.push('điện thoại');}
+    const cu2=$('#gd_goi'); if(cu2)cu2.remove();
+    $('#gd_ten').insertAdjacentHTML('afterend',`<div id="gd_goi" class="muted" style="font-size:.76rem;font-weight:600;margin-top:5px;color:var(--violet)">
+      👥 Em này đang học ${cu.length} lớp khác: ${esc(cu.map(x=>lopName(x.lopId)).join(', '))}${dien.length?' · đã tự điền '+dien.join(', '):''}</div>`);
+  };
   $('#gd_add').onclick=async()=>{
     const ten=$('#gd_ten').value.trim(); if(!ten){$('#gd_ten').focus();return;}
     if(!isValidDob($('#gd_ns').value)){avaAlert('Ngày sinh chưa đúng dạng ngày/tháng/năm (VD: 01/09/2015).');$('#gd_ns').focus();return;}
