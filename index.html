@@ -1995,41 +1995,46 @@ function relTime(iso){
   const d=new Date(t);
   return ('0'+d.getDate()).slice(-2)+'/'+('0'+(d.getMonth()+1)).slice(-2)+'/'+d.getFullYear();
 }
-/* Gom sự kiện: học sinh mới ghi danh, phiếu thu mới, phiếu chi mới */
+/* Gom sự kiện cho chuông: học sinh mới ghi danh, phiếu thu, phiếu chi, ca cần xử lý.
+   CHỈ dành cho Quản trị (toàn chuỗi) và Lễ tân (ĐÚNG cơ sở mình) — giáo viên không có chuông. */
 function buildNotifs(){
+  if(!coChuong())return [];
   const out=[];
-  (OPS.hv||[]).forEach(h=>{ if(h.mau||!h.createdAt)return;
+  // Phạm vi tin: Quản trị theo ô Phạm vi đang chọn; Lễ tân LUÔN chỉ cơ sở mình.
+  // Lọc lại ở đây thay vì chỉ tin vào RLS — hai lớp bảo vệ, tránh lọt tin cơ sở khác.
+  const ids = USER.role==='owner' ? [USER.coSoId] : scopeIds();
+  const trongPhamVi = id => id!=null && ids.includes(id);
+  (OPS.hv||[]).forEach(h=>{ if(h.mau||!h.createdAt||!trongPhamVi(h.coSoId))return;
     out.push({ts:h.createdAt, ic:'🧑‍🎓', cls:'n-hs', title:'Học sinh mới: '+h.ten,
       sub:[lopName(h.lopId),csName(h.coSoId)].filter(Boolean).join(' · ')}); });
-  (OPS.gd||[]).forEach(g=>{ if(!g.createdAt)return;
+  (OPS.gd||[]).forEach(g=>{ if(!g.createdAt||!trongPhamVi(g.coSoId))return;
     const co=csName(g.coSoId);
     if(g.loai==='thu') out.push({ts:g.createdAt, ic:'💰', cls:'n-thu', title:'Thu '+fmtVND(g.soTien),
       sub:[g.hangMuc||'Khoản thu',co].filter(Boolean).join(' · ')});
     else out.push({ts:g.createdAt, ic:'🧾', cls:'n-chi', title:'Chi '+fmtVND(g.soTien),
       sub:[g.hangMuc||'Khoản chi',co].filter(Boolean).join(' · ')}); });
-  // Thông báo của trung tâm — luôn để ý nhất, ai cũng nhận
+  // Thông báo của trung tâm: tin gửi riêng cơ sở mình, và tin gửi toàn chuỗi
   tbCuaToi().forEach(t=>{ if(!t.createdAt)return;
+    if(t.coSoId!=null && !trongPhamVi(t.coSoId))return;
     out.push({ts:t.createdAt, ic:TB_IC[t.mucDo], cls:t.mucDo==='thuong'?'n-hs':'n-cc',
       title:t.tieuDe, sub:[TB_MUC[t.mucDo],t.coSoId==null?'Toàn chuỗi':csName(t.coSoId)].join(' · '), view:'thongbao'}); });
-  // Ca dạy CẦN MÌNH XỬ LÝ — báo theo vai trò, mỗi ca 1 dòng nên không nhiễu.
+  // Ca dạy CẦN MÌNH XỬ LÝ — mỗi ca 1 dòng nên không nhiễu.
   // (Cố ý KHÔNG báo từng lượt điểm danh học sinh: mỗi em mỗi buổi một dòng thì loạn chuông.)
-  const ids=scopeIds();
   for(const k in (OPS.duyet||{})){
     const c=OPS.duyet[k], p=k.split('|');
-    const lop=LOP.find(l=>l.id===Number(p[0])); if(!lop||!ids.includes(lop.coSoId))continue;
+    const lop=LOP.find(l=>l.id===Number(p[0])); if(!lop||!trongPhamVi(lop.coSoId))continue;
     const noi=[lop.lop,isoVN(p[1]),USER.role==='admin'?csName(lop.coSoId):''].filter(Boolean).join(' · ');
     if(USER.role==='owner'&&c.st==='cho_duyet'&&c.gvAt)
       out.push({ts:c.gvAt, ic:'📋', cls:'n-cc', title:'Ca chờ đối soát: '+lop.lop, sub:noi});
     else if(USER.role==='admin'&&c.st==='da_doi_soat'&&c.letanAt)
       out.push({ts:c.letanAt, ic:'📋', cls:'n-cc', title:'Ca chờ chốt số liệu: '+lop.lop, sub:noi});
-    else if(USER.role==='teacher'&&c.st==='da_chot'&&c.adminAt)
-      out.push({ts:c.adminAt, ic:'🔒', cls:'n-cc', title:'Ca đã chốt: '+lop.lop, sub:noi+' · không sửa được nữa'});
   }
   out.sort((a,b)=>Date.parse(b.ts)-Date.parse(a.ts));
   return out.slice(0,50);
 }
 /* Cập nhật badge + (nếu đang mở) nội dung panel — gọi sau mỗi lần dữ liệu đổi */
 function renderBell(){
+  if(!coChuong())return;                    // giáo viên không có chuông
   const badge=$('#bellBadge'); if(!badge)return;
   NOTIF=buildNotifs();
   const seen=getNotifSeen();
@@ -2071,7 +2076,16 @@ function openBellPanel(){
 }
 function closeBellPanel(){ const p=$('#bellPanel'); if(p)p.hidden=true; }
 let bellInited=false;
+/* Giáo viên KHÔNG có chuông: chuông gom việc điều hành & tiền nong (học sinh mới,
+   phiếu thu, phiếu chi, ca chờ đối soát) — không phải việc của giáo viên.
+   Trung tâm đề xuất bỏ hẳn; anh Chung chốt 30/07/2026.
+   Thông báo của trung tâm gửi cho giáo viên vẫn tới qua menu "Thông báo" và
+   băng nổi bật ở đầu trang Điểm danh — đó mới là kênh dành cho họ. */
+const coChuong=()=>USER && USER.role!=='teacher';
 function initBell(){
+  const wrap=$('#bellWrap');
+  if(!coChuong()){ if(wrap)wrap.style.display='none'; return; }
+  if(wrap)wrap.style.display='';
   renderBell();
   if(bellInited)return; bellInited=true;
   const btn=$('#bellBtn');
@@ -2583,6 +2597,7 @@ const HD_HOWTO={
       'Giáo viên chỉ <b>xem</b>, không sửa lịch. Lịch sai thì báo lễ tân cơ sở sửa lại.'
     ]],
     ['📣','Đọc thông báo của trung tâm',[
+      'App của giáo viên <b>không có chuông</b>. Thông báo dành cho giáo viên đi qua menu <b>Thông báo</b> và băng màu ở đầu trang Điểm danh — không lẫn với tin điều hành, tiền nong của trung tâm.',
       'Tin mới hiện thành <b>băng màu ngay đầu trang Điểm danh</b> — bấm vào là mở ra đọc.',
       'Hoặc bấm nút <b>Thông báo</b> ở thanh dưới cùng — có <b>chấm đỏ kèm số</b> là đang có tin chưa đọc.',
       'Màu viền cho biết mức độ: <b>xanh</b> = thông báo thường, <b>vàng</b> = quan trọng, <b>đỏ</b> = khẩn. Tin có 📌 là tin được ghim, luôn nằm trên đầu.',
@@ -2657,7 +2672,7 @@ const HD_TIPS=[
   ['📲','Cài lên màn hình chính điện thoại (chọn “Thêm vào Màn hình chính”) để dùng như một ứng dụng riêng, mở nhanh hơn.'],
   ['👇','Trên điện thoại, <b>thanh nút dưới cùng</b> là lối đi nhanh tới các việc làm hằng ngày. <b>Mỗi nút một màu riêng</b> để quen mắt là bấm đúng ngay; nút <b>đang mở</b> đậm màu hơn và có viền quanh biểu tượng. Nút nào có <b>chấm đỏ kèm số</b> là đang có việc chờ mình (tin chưa đọc, ca chờ đối soát). Các mục còn lại nằm trong menu ☰ góc trái.'],
   ['💡','Sau khi hệ thống được cập nhật, hãy tải lại trang (máy tính bấm Ctrl+F5, điện thoại kéo xuống làm mới) để nhận bản mới nhất.'],
-  ['🔔','Chuông ở góc trên báo học sinh mới ghi danh và các khoản thu – chi mới. Bấm <b>“Đánh dấu đã đọc”</b> một lần cho gọn.'],
+  ['🔔','Chuông ở góc trên (chỉ Quản trị và Lễ tân) báo học sinh mới ghi danh, khoản thu – chi mới và ca cần xử lý. Lễ tân <b>chỉ nhận tin của cơ sở mình</b>. Bấm <b>“Đánh dấu đã đọc”</b> một lần cho gọn. <b>Giáo viên không có chuông</b> — thông báo dành cho giáo viên đi qua menu <b>Thông báo</b>.'],
   ['🖶','Trang Hướng dẫn này bấm <b>In / lưu PDF</b> được — in ra phát cho lễ tân và giáo viên rất tiện.'],
   ['🔒','Mỗi người một tài khoản, không dùng chung. Chỉ đăng xuất khi dùng máy chung — máy riêng cứ để đăng nhập sẵn cho nhanh.']
 ];
