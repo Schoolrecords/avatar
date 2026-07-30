@@ -964,6 +964,8 @@ const lopFromDb=r=>({id:r.id,lop:r.lop,gv:r.gv||'',siso:Number(r.siso)||0,mon:r.
 const lopToDb=o=>({lop:o.lop,gv:o.gv||'',siso:Number(o.siso)||0,mon:o.mon||'VH',coso_id:o.coSoId});
 let gvLive=false;   // true khi đã chạy SQL Giai đoạn 2 (GV/Lớp lấy từ Supabase)
 let caLive=false;   // true khi đã chạy SQL Giai đoạn 6 (khung ca + lịch lớp)
+let ccLive=false;   // true khi đã chạy SQL Giai đoạn 7 (chấm công có cột gv_id — ai thực dạy)
+let csLive=false;   // true khi đã chạy SQL Giai đoạn 7 (danh sách cơ sở lấy từ Supabase)
 /* ===== TẢI DỮ LIỆU LỚN AN TOÀN =====
    Supabase cắt mỗi truy vấn ở ~1000 dòng. Với 341 lớp (vài nghìn học sinh) mà
    không phân trang thì app hiện THIẾU dữ liệu mà KHÔNG báo lỗi. fetchAll() tải
@@ -990,7 +992,7 @@ let ddFromWanted='';               // mốc sớm nhất CẦN tải (nới ra k
 async function loadCloud(){
   const mocMacDinh=isoCongNgay(todayISO(),-DD_SO_NGAY);
   ddFrom=(ddFromWanted && ddFromWanted<mocMacDinh) ? ddFromWanted : mocMacDinh;
-  const [hv,gd,dd,cc,ge,gvR,lopR,dz,cs,caR,liR]=await Promise.all([
+  const [hv,gd,dd,cc,ge,gvR,lopR,dz,cs,caR,liR,csR]=await Promise.all([
     fetchAll(()=>SB.from('hoc_vien').select('*')),
     fetchAll(()=>SB.from('so_quy').select('*')),          // sổ quỹ tải đủ: tồn quỹ tính lũy kế từ đầu
     fetchAll(()=>SB.from('diem_danh_hv').select('*').gte('ngay',ddFrom)),
@@ -1001,9 +1003,18 @@ async function loadCloud(){
     fetchAll(()=>SB.from('duyet_diem_danh').select('*').gte('ngay',ddFrom)),
     fetchAll(()=>SB.from('chot_so_quy').select('*')),
     fetchAll(()=>SB.from('ca_hoc').select('*')),
-    fetchAll(()=>SB.from('lich_lop').select('*'))
+    fetchAll(()=>SB.from('lich_lop').select('*')),
+    fetchAll(()=>SB.from('co_so').select('*'))
   ]);
   if(hv.error||gd.error||dd.error||cc.error) throw (hv.error||gd.error||dd.error||cc.error);
+  // Danh sách cơ sở SỐNG (Giai đoạn 7). Chưa chạy SQL → giữ nguyên danh sách tĩnh trong data.js.
+  csLive = !csR.error && (csR.data||[]).length>0;
+  if(csLive){
+    COSO.length=0;
+    (csR.data||[]).slice().sort((a,b)=>(a.thu_tu??a.id)-(b.thu_tu??b.id))
+      .forEach(r=>COSO.push({id:r.id,ten:r.ten,dc:r.dc||'',build:!!r.build,thuTu:r.thu_tu??r.id}));
+    tinhCsAbbr();                       // tên đổi → viết tắt phải tính lại
+  }
   OPS.hv=(hv.data||[]).map(hvFromDb);
   OPS.gd=(gd.data||[]).map(gdFromDb);
   // Bỏ qua bản ghi điểm danh MỒ CÔI: học sinh đã bị xóa nhưng điểm danh còn sót lại.
@@ -1011,7 +1022,11 @@ async function loadCloud(){
   const hvCon=new Set(OPS.hv.map(h=>h.id));
   OPS.ddHV={}; (dd.data||[]).forEach(r=>{ if(!hvCon.has(r.hv_id))return;
     const k=r.lop_id+'|'+r.ngay;(OPS.ddHV[k]=OPS.ddHV[k]||{})[r.hv_id]=r.trang_thai;});
-  OPS.ccGV={}; (cc.data||[]).forEach(r=>{OPS.ccGV['cc|'+r.lop_id+'|'+r.ngay]=r.trang_thai;});
+  // ccGV = trạng thái buổi dạy; ccGvId = AI THỰC DẠY buổi đó (khác GV phụ trách khi dạy thay).
+  // Tách riêng 2 bản đồ để phần cũ dùng ccGV không phải sửa gì.
+  OPS.ccGV={}; OPS.ccGvId={};
+  (cc.data||[]).forEach(r=>{const k='cc|'+r.lop_id+'|'+r.ngay; OPS.ccGV[k]=r.trang_thai; if(r.gv_id!=null)OPS.ccGvId[k]=r.gv_id;});
+  ccLive = (cc.data||[]).length===0 ? ccLive : ('gv_id' in (cc.data[0]||{}));   // đã chạy SQL Giai đoạn 7 chưa
   // Trạng thái duyệt ca dạy (bỏ qua êm nếu chưa chạy SQL Giai đoạn 4)
   OPS.duyet={}; if(!dz.error)(dz.data||[]).forEach(r=>{OPS.duyet[r.lop_id+'|'+r.ngay]={id:r.id,st:r.trang_thai,gvAt:r.gv_gui_at,letanAt:r.letan_at,adminAt:r.admin_at};});
   // Kỳ sổ quỹ đã chốt (Giai đoạn 5). Chưa chạy SQL → coi như chưa chốt kỳ nào.
@@ -1053,7 +1068,7 @@ async function loadDiemDanhTu(iso){
     const hvCon=new Set(OPS.hv.map(h=>h.id));      // bỏ qua điểm danh của học sinh đã xóa
     (dd.data||[]).forEach(r=>{ if(!hvCon.has(r.hv_id))return;
       const k=r.lop_id+'|'+r.ngay;(OPS.ddHV[k]=OPS.ddHV[k]||{})[r.hv_id]=r.trang_thai;});
-    (cc.data||[]).forEach(r=>{OPS.ccGV['cc|'+r.lop_id+'|'+r.ngay]=r.trang_thai;});
+    (cc.data||[]).forEach(r=>{const k='cc|'+r.lop_id+'|'+r.ngay; OPS.ccGV[k]=r.trang_thai; if(r.gv_id!=null)OPS.ccGvId[k]=r.gv_id;});
     (dz.data||[]).forEach(r=>{OPS.duyet[r.lop_id+'|'+r.ngay]={id:r.id,st:r.trang_thai,gvAt:r.gv_gui_at,letanAt:r.letan_at,adminAt:r.admin_at};});
     ddFrom=iso; ddFromWanted=iso;   // giữ mốc để realtime tải lại không làm mất phần vừa bù
     return true;
@@ -1134,16 +1149,19 @@ const csPastel=id=>{const p=CS_PASTEL[((id%CS_PASTEL.length)+CS_PASTEL.length)%C
 /* ============ DATA ============ */
 const DATA=window.AVATAR_DATA;
 const COSO=DATA.map(c=>({id:c.id,ten:c.ten,build:!!c.trong}));
-/* viết tắt cơ sở, tự tách khi trùng (Diễn Hạnh/Diễn Hồng đều "DH") */
+/* viết tắt cơ sở, tự tách khi trùng (Diễn Hạnh/Diễn Hồng đều "DH").
+   Tính lại mỗi khi danh sách cơ sở đổi (thêm/sửa cơ sở trên app). */
 const fold=s=>String(s).normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/đ/g,'d').replace(/Đ/g,'D');
-const CS_ABBR=(()=>{
+let CS_ABBR={};
+function tinhCsAbbr(){
   const base={},cnt={},map={};
   COSO.forEach(c=>{const w=fold(c.ten).trim().split(/\s+/);const b=((w[w.length-2]?.[0]||'')+(w[w.length-1]?.[0]||'')).toUpperCase();base[c.id]=b;cnt[b]=(cnt[b]||0)+1;});
   COSO.forEach(c=>{const w=fold(c.ten).trim().split(/\s+/);const b=base[c.id];
     if(cnt[b]>1){const last=w[w.length-1];map[c.id]=(w[w.length-2]?.[0]||'').toUpperCase()+last[0].toUpperCase()+(last.slice(1,2)||'').toLowerCase();}
     else map[c.id]=b;});
-  return map;
-})();
+  CS_ABBR=map;
+}
+tinhCsAbbr();
 const csAbbr=id=>CS_ABBR[id]||'?';
 let GV=[],LOP=[];
 DATA.forEach(c=>{(c.gv||[]).forEach(g=>GV.push({...g,coSoId:c.id})); (c.lop||[]).forEach(l=>LOP.push({...l,coSoId:c.id}));});
@@ -1274,7 +1292,7 @@ function duyetPending(){
 
 /* ===== NGHIỆP VỤ: ghi danh & điểm danh — lưu trên Supabase (đồng bộ mọi máy) ===== */
 /* OPS là bộ nhớ đệm trong trình duyệt; nạp bằng loadCloud() sau khi đăng nhập. */
-let OPS={hv:[],ddHV:{},ccGV:{},gd:[],duyet:{},chot:{},ca:{},lich:[]};
+let OPS={hv:[],ddHV:{},ccGV:{},ccGvId:{},gd:[],duyet:{},chot:{},ca:{},lich:[]};
 /* ===== CHỐT SỔ QUỸ THEO THÁNG (Giai đoạn 5) =====
    Kỳ đã chốt = khóa với MỌI vai trò (khác chốt ca dạy: admin vẫn sửa được).
    Muốn sửa phiếu trong kỳ đã chốt thì Quản trị phải Mở khóa kỳ đó trước. */
@@ -1535,6 +1553,31 @@ const inHV=()=>OPS.hv.filter(h=>scopeIds().includes(h.coSoId));
 const lopName=id=>{const l=LOP.find(x=>x.id===id);return l?l.lop:'—';};
 function todayISO(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
 const CC_LABEL={day:'Lên lớp',nghi:'Nghỉ',bu:'Dạy bù'};
+/* ===== AI THỰC DẠY MỘT BUỔI (Giai đoạn 7) =====
+   Trước đây chấm công chỉ lưu (lớp + ngày) nên lương tính theo GV ĐANG phụ trách lớp.
+   Hậu quả: cô B dạy thay thì công vào túi cô A; đổi GV giữa kỳ thì công cả tháng nhảy sang
+   người mới. Nay mỗi buổi lưu thêm gv_id = người THỰC DẠY. */
+const gvTen=id=>{const g=GV.find(x=>x.id===id);return g?g.ten:'';};
+/* GV thực dạy buổi (lop,ngay): ưu tiên gv_id đã chấm; chưa có thì lấy GV phụ trách lớp */
+function gvDayBuoi(lopId,ngay){
+  const id=OPS.ccGvId['cc|'+lopId+'|'+ngay];
+  if(id!=null)return id;
+  const lop=LOP.find(l=>l.id===lopId);
+  return (lop&&lop.gvId!=null)?lop.gvId:null;
+}
+/* Tên GV thực dạy — dùng cho báo cáo & bản in. Không tra được thì trả tên GV phụ trách. */
+function gvTenBuoi(lopId,ngay){
+  const id=gvDayBuoi(lopId,ngay); const t=id!=null?gvTen(id):'';
+  if(t)return t;
+  const lop=LOP.find(l=>l.id===lopId);
+  return (lop&&lop.gv)||'(chưa phân công)';
+}
+/* Có phải buổi DẠY THAY không (người dạy khác người phụ trách lớp) */
+function laDayThay(lopId,ngay){
+  const id=OPS.ccGvId['cc|'+lopId+'|'+ngay]; if(id==null)return false;
+  const lop=LOP.find(l=>l.id===lopId);
+  return !!(lop&&lop.gvId!=null&&lop.gvId!==id);
+}
 let ddDate=todayISO(), ddLopId=null, ghiLopId=null;
 let gdNhapHoc='';   // ngày nhập học đang dùng ở form ghi danh — giữ lại giữa các lần thêm để nhập cả lớp cũ cho nhanh
 /* Lớp được phép điểm danh: có sĩ số, hoặc đã có học sinh, hoặc ĐÃ KHAI LỊCH
@@ -1652,6 +1695,7 @@ function startApp(){
   $('#uName').textContent=USER.role==='admin'?'Quản trị chuỗi':isTe?(USER.hoTen||'Giáo viên'):csName(USER.coSoId);
   $('#uRole').textContent=USER.role==='admin'?'Toàn hệ thống':isTe?('Giáo viên · '+csName(USER.coSoId)):'Lễ tân Cơ Sở';
   $('#uAva').textContent=USER.role==='admin'?'QT':isTe?initials(USER.hoTen||'GV'):initials(csName(USER.coSoId));
+  napGiaCa();                                    // đơn giá một ca dạy đã lưu trên máy này
   buildScope(); renderNav(); go(isTe?'diemdanh':'dashboard');
   subscribeRealtime(); initBell();
 }
@@ -1673,7 +1717,7 @@ function subscribeRealtime(){
     try{ await loadCloud(); if(busy()) renderBell(); else renderCurrent(); }catch(e){}
   },1800); };
   rtChannel=SB.channel('avatar-rt');
-  ['hoc_vien','so_quy','diem_danh_hv','cham_cong_gv','gv_edits','giao_vien','lop_hoc','duyet_diem_danh','chot_so_quy','ca_hoc','lich_lop'].forEach(t=>
+  ['hoc_vien','so_quy','diem_danh_hv','cham_cong_gv','gv_edits','giao_vien','lop_hoc','duyet_diem_danh','chot_so_quy','ca_hoc','lich_lop','co_so'].forEach(t=>
     rtChannel.on('postgres_changes',{event:'*',schema:'public',table:t},bump));
   rtChannel.subscribe();
 }
@@ -1708,6 +1752,20 @@ function buildNotifs(){
       sub:[g.hangMuc||'Khoản thu',co].filter(Boolean).join(' · ')});
     else out.push({ts:g.createdAt, ic:'🧾', cls:'n-chi', title:'Chi '+fmtVND(g.soTien),
       sub:[g.hangMuc||'Khoản chi',co].filter(Boolean).join(' · ')}); });
+  // Ca dạy CẦN MÌNH XỬ LÝ — báo theo vai trò, mỗi ca 1 dòng nên không nhiễu.
+  // (Cố ý KHÔNG báo từng lượt điểm danh học sinh: mỗi em mỗi buổi một dòng thì loạn chuông.)
+  const ids=scopeIds();
+  for(const k in (OPS.duyet||{})){
+    const c=OPS.duyet[k], p=k.split('|');
+    const lop=LOP.find(l=>l.id===Number(p[0])); if(!lop||!ids.includes(lop.coSoId))continue;
+    const noi=[lop.lop,isoVN(p[1]),USER.role==='admin'?csName(lop.coSoId):''].filter(Boolean).join(' · ');
+    if(USER.role==='owner'&&c.st==='cho_duyet'&&c.gvAt)
+      out.push({ts:c.gvAt, ic:'📋', cls:'n-cc', title:'Ca chờ đối soát: '+lop.lop, sub:noi});
+    else if(USER.role==='admin'&&c.st==='da_doi_soat'&&c.letanAt)
+      out.push({ts:c.letanAt, ic:'📋', cls:'n-cc', title:'Ca chờ chốt số liệu: '+lop.lop, sub:noi});
+    else if(USER.role==='teacher'&&c.st==='da_chot'&&c.adminAt)
+      out.push({ts:c.adminAt, ic:'🔒', cls:'n-cc', title:'Ca đã chốt: '+lop.lop, sub:noi+' · không sửa được nữa'});
+  }
   out.sort((a,b)=>Date.parse(b.ts)-Date.parse(a.ts));
   return out.slice(0,50);
 }
@@ -2054,14 +2112,14 @@ const hdNavFor=r=> r==='teacher'?NAV.filter(n=>n.teach):NAV.filter(n=>!n.adminOn
 const HD_MENU_DESC={
   dashboard:'Toàn cảnh: dự thu – đã thu học phí, học sinh đang học, số lớp, chuyên cần 30 ngày, buổi đã điểm danh hôm nay, cảnh báo điều hành và hoạt động gần đây.',
   gv:'Hồ sơ giáo viên: thêm/sửa, ngày hợp đồng, tích chọn <b>lớp phụ trách</b>, tải mẫu &amp; nhập Excel.',
-  coso:'Danh mục cơ sở của chuỗi; bấm vào một cơ sở để xem chi tiết lớp, học sinh, kinh phí học phí.',
+  coso:'Danh mục cơ sở của chuỗi; bấm vào một cơ sở để xem chi tiết lớp, học sinh, kinh phí học phí. Quản trị <b>tự thêm/sửa/xóa cơ sở</b> ngay tại đây.',
   lop:'Danh sách lớp: sĩ số, giáo viên phụ trách, dự thu. Thêm / sửa / xóa lớp.',
   hocvien:'Kho hồ sơ học sinh: tìm kiếm, lọc theo cơ sở – lớp – trạng thái – học phí; bấm <b>Hồ sơ</b> để sửa, ghi nhận đóng tiền, cho thôi học. Em học nhiều lớp có nhãn tím <b>“Học N lớp”</b> và chỉ tính là <b>1 học sinh</b>. Nhập trùng danh sách thì trang này hiện khung vàng <b>“Phát hiện N bản ghi trùng”</b> (chỉ tính trùng khi <b>cùng lớp</b>) — bấm <b>Chọn N bản trùng để xóa</b> là dọn sạch bản dư, giữ bản gốc. Muốn xóa nhiều em bất kỳ: bấm <b>☑ Chọn nhiều</b> → tick từng em → <b>🗑 Xóa</b>.',
   lichhoc:'Khai <b>khung ca</b> của cơ sở (mặc định 5 ca, mỗi ca 2 giờ) và <b>lịch từng lớp</b> (học thứ mấy – ca nào – phòng nào). Có lưới lịch tuần, cảnh báo xếp trùng giáo viên/phòng và nút <b>🖶 In lịch tuần</b> khổ A4. Giáo viên chỉ xem lịch dạy của mình.',
   ghidanh:'Thêm học sinh vào lớp — nhập từng em hoặc nhập Excel cả cơ sở một lần.',
   diemdanh:'Điểm danh học sinh và chấm công giáo viên theo từng buổi; gửi đối soát / chốt ca ngay tại đây. Khai lịch rồi thì đầu trang hiện sẵn <b>các ca trong ngày</b> — bấm một ca là vào thẳng lớp đó. Nút <b>🖶 In danh sách</b> in bảng điểm danh khổ A4 có ô ký.',
   duyet:'Danh sách các ca dạy theo trạng thái: <b>Chờ đối soát → Đã đối soát → Đã chốt</b>, kèm nút xử lý theo vai trò.',
-  baocao:'Chuyên cần học sinh, công giáo viên, tổng hợp theo lớp, chi tiết từng buổi, giáo viên dạy mấy ca/ngày, nhật ký đối soát — xuất Excel 7 sheet khổ A4.',
+  baocao:'Chuyên cần học sinh, <b>công &amp; lương giáo viên theo ca</b> (nhập đơn giá → tự tính tiền, in Bảng thanh toán công giảng dạy A4), tổng hợp theo lớp, chi tiết từng buổi, giáo viên dạy mấy ca/ngày, nhật ký đối soát — xuất Excel 7 sheet khổ A4.',
   thu:'Sổ quỹ thu – chi theo hạng mục: lập / <b>sửa</b> / xóa phiếu, số hiệu phiếu chuẩn, người nộp – nhận tiền, tiền mặt hay chuyển khoản, tồn quỹ, in &amp; tải Word từng phiếu, dự thu học phí theo cơ sở. <b>🖶 In sổ quỹ</b> in ngay khổ A4; <b>⬇ Xuất Excel</b> cho mẫu sổ quỹ có số dư đầu kỳ – cuối kỳ, tồn lũy kế, khối ký + sheet tổng hợp. Quản trị <b>chốt sổ theo tháng</b> để khóa số liệu đã quyết toán.',
   taikhoan:'Tạo / đổi mật khẩu / khóa / xóa tài khoản đăng nhập của giáo viên (tạo lẻ hoặc hàng loạt cả cơ sở).',
   huongdan:'Chính là trang này — có nút in để phát cho nhân viên.'
@@ -2133,6 +2191,21 @@ const HD_HOWTO={
       'Chọn <b>kỳ</b> (tháng) rồi bấm <b>🖶 In sổ quỹ</b> (in ngay trên web) hoặc <b>⬇ Xuất Excel</b> → sổ quỹ khổ A4 có số dư đầu kỳ – cuối kỳ, số tiền bằng chữ và khối ký. Nếu lọc riêng <i>Chỉ Thu</i> hoặc <i>Chỉ Chi</i> thì kết quả là <b>bảng kê phiếu thu/chi</b>.',
       'Ở <b>Bảng điều hành</b>, khung <b>Cảnh báo điều hành</b> tự nhắc cơ sở chưa nhập lớp hoặc thu học phí dưới 72%.'
     ]],
+    ['💰','Bảng lương giáo viên theo ca',[
+      'Vào <b>Báo cáo</b> → chọn khoảng ngày (thường là cả tháng) → kéo tới bảng <b>Công &amp; lương giáo viên theo ca</b>.',
+      'Nhập <b>Đơn giá chung / ca</b> rồi bấm <b>Áp cho tất cả</b>. Ai hưởng mức riêng thì sửa thẳng ở cột <b>Đơn giá/ca</b> của dòng đó.',
+      'Đơn giá được nhớ lại trên máy này cho những lần sau, không phải nhập lại mỗi tháng.',
+      'Cột <b>Ca thực dạy</b> = lên lớp + dạy bù. Cột <b>Dạy thay</b> cho biết trong đó có mấy buổi là dạy thay lớp của người khác.',
+      'Bấm <b>🖶 In bảng lương</b> để in <b>Bảng thanh toán công giảng dạy</b> khổ A4 ngang, có tổng tiền bằng chữ và khối ký. Hoặc <b>⬇ Xuất Excel</b> — bảng lương là một sheet riêng.',
+      '⚠ Số ca lấy từ chấm công thực tế, nên hãy <b>chốt điểm danh xong</b> rồi mới lập bảng lương.'
+    ]],
+    ['🏫','Mở thêm cơ sở mới',[
+      'Vào <b>Cơ sở</b> → <b>＋ Thêm cơ sở</b> → nhập tên, địa chỉ → <b>Thêm cơ sở</b>. Không phải nhờ kỹ thuật sửa code nữa.',
+      'Cơ sở chưa hoạt động thì tích <b>Đang xây dựng</b> — vẫn hiện trong danh sách nhưng không tính vào thống kê toàn chuỗi.',
+      'Sửa tên hoặc địa chỉ: bấm vào thẻ cơ sở → <b>✏️ Sửa cơ sở</b>.',
+      'Chỉ xóa được cơ sở <b>đang trống</b> (không còn lớp, giáo viên, học sinh) — để không mất dữ liệu.',
+      'Cơ sở mới xong nhớ tạo tài khoản lễ tân cho cơ sở đó (hiện phải nhờ kỹ thuật tạo trong Supabase).'
+    ]],
     ['🔒','Chốt sổ quỹ cuối tháng',[
       'Vào <b>Thu – Chi</b> → chọn <b>một cơ sở</b> ở ô Phạm vi và <b>một kỳ</b> (tháng) ở ô lọc.',
       'Đối chiếu tổng thu – tổng chi – tồn quỹ với tiền thực tế, xong bấm <b>🔒 Chốt sổ kỳ này</b>.',
@@ -2184,6 +2257,7 @@ const HD_HOWTO={
       'Tích <b>Có / Muộn / Phép / Vắng</b> (Phép = vắng có xin phép). Mỗi lần tích là lưu ngay; bấm lại đúng nút đang chọn để bỏ điểm danh em đó.',
       'Bấm <b>🖶 In danh sách</b> để in bảng điểm danh khổ A4 của đúng lớp – đúng ca đó, có ô ký của Giáo viên, Lễ tân và Quản trị.',
       'Khung <b>Chấm công giáo viên</b> phía trên: chọn <b>Lên lớp / Nghỉ / Dạy bù</b> cho buổi dạy.',
+      'Có người <b>dạy thay</b>: chọn đúng tên ở ô <b>Giáo viên dạy buổi này</b> — công buổi đó sẽ tính cho người dạy thay, không tính cho giáo viên phụ trách lớp. Dòng đó hiện nhãn tím <b>dạy thay</b>.',
       'Cơ sở <b>có</b> tài khoản giáo viên: giáo viên tự điểm danh rồi gửi lên — lễ tân vào <b>Đối soát</b> bấm <b>✓ Chấp nhận</b>.',
       'Cơ sở <b>chưa có</b> tài khoản giáo viên: lễ tân tự điểm danh rồi bấm <b>✓ Gửi đối soát</b> — ca chuyển thẳng sang <b>Đã đối soát</b> chờ Quản trị chốt.',
       'Ca đã <b>Đã chốt</b> sẽ khóa, muốn sửa phải nhờ Quản trị mở khóa.'
@@ -2243,7 +2317,7 @@ const HD_NUMBERS=[
   ['Còn phải thu','Dự thu trừ Đã thu.'],
   ['Chuyên cần','(Có mặt + Muộn) chia cho tổng lượt đã điểm danh — <b>Phép</b> và <b>Vắng</b> đều không tính là có mặt. Ở <b>Bảng điều hành</b> tính trong <b>30 ngày gần nhất</b>; ở <b>Báo cáo</b> tính đúng khoảng ngày mình chọn.'],
   ['Tồn quỹ','Tổng thu trừ tổng chi của <b>toàn bộ sổ quỹ</b> trong phạm vi — không phụ thuộc bộ lọc tháng/loại đang chọn.'],
-  ['Công giáo viên','Số buổi chấm <b>Lên lớp</b> cộng <b>Dạy bù</b>. Buổi <b>Nghỉ</b> được thống kê riêng, không tính vào công.'],
+  ['Ca thực dạy &amp; lương','Ca thực dạy = số buổi chấm <b>Lên lớp</b> cộng <b>Dạy bù</b>; buổi <b>Nghỉ</b> thống kê riêng, không tính công. Công quy cho <b>người THỰC DẠY</b> buổi đó — buổi có người dạy thay thì công thuộc về người dạy thay, không thuộc về giáo viên phụ trách lớp. Lương = <b>ca thực dạy × đơn giá/ca</b>.'],
   ['Ca đã chốt','Số ca dạy Quản trị đã chốt trong khoảng thời gian của báo cáo — đây là số liệu đã khóa, dùng để đối chiếu lương/học phí.']
 ];
 /* Hỏi đáp – xử lý sự cố (rút từ tình huống thực tế trên hệ thống) */
@@ -2439,9 +2513,10 @@ function renderDash(){
   // 2) Điểm danh giáo viên (chấm công buổi dạy)
   const CC_TXT={day:'Lên lớp',nghi:'Nghỉ',bu:'Dạy bù'};
   const ccAll=[];
-  for(const k in (OPS.ccGV||{})){ const p=k.split('|'); const lop=LOP.find(l=>l.id===Number(p[1])); if(!lop||!ids.includes(lop.coSoId))continue; ccAll.push({lop,ngay:p[2],st:OPS.ccGV[k]}); }
+  for(const k in (OPS.ccGV||{})){ const p=k.split('|'); const lop=LOP.find(l=>l.id===Number(p[1])); if(!lop||!ids.includes(lop.coSoId))continue;
+    ccAll.push({lop,ngay:p[2],st:OPS.ccGV[k],gv:gvTenBuoi(lop.id,p[2]),thay:laDayThay(lop.id,p[2])}); }
   ccAll.sort((a,b)=> a.ngay<b.ngay?1:a.ngay>b.ngay?-1:0);
-  const ccItems=ccAll.map(x=>({main:(x.lop.gv||'—')+' · '+x.lop.lop,tag:{text:CC_TXT[x.st]||x.st,cls:'cc-'+x.st},sub:isAdm?csName(x.lop.coSoId):'',rt:isoVN(x.ngay)}));
+  const ccItems=ccAll.map(x=>({main:x.gv+' · '+x.lop.lop+(x.thay?' (dạy thay)':''),tag:{text:CC_TXT[x.st]||x.st,cls:'cc-'+x.st},sub:isAdm?csName(x.lop.coSoId):'',rt:isoVN(x.ngay)}));
   // 3) Điểm danh học sinh — mỗi buổi 1 dòng, ghi số có mặt/tổng đã điểm theo lớp (VD 34/35)
   const ddAll=[];
   for(const k in (OPS.ddHV||{})){ const p=k.split('|'); const lop=LOP.find(l=>l.id===Number(p[0])); if(!lop||!ids.includes(lop.coSoId))continue; const m=Object.values(OPS.ddHV[k]); if(!m.length)continue; const co=m.filter(s=>s==='co'||s==='muon').length; ddAll.push({lop,ngay:p[1],co,tot:m.length}); }
@@ -2738,7 +2813,9 @@ function renderCoso(){
     <div class="s"><b>${tot.lop}</b><span>Lớp học</span></div>
     <div class="s"><b>${fmtShort(totDu)}</b><span>Dự thu học phí</span></div>
   </div>
-  <div class="toolbar"><div style="margin-left:auto;display:flex;align-items:center;gap:8px">
+  <div class="toolbar">
+    ${csLive?`<button class="btn btn-sm btn-primary" id="csAdd" style="white-space:nowrap">＋ Thêm cơ sở</button>`:''}
+    <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
     <small class="muted" style="font-weight:700">Sắp xếp:</small>
     <select class="fsel" id="cssort">${[['thu','Dự thu cao nhất'],['hs','Học sinh nhiều nhất'],['gv','Giáo viên nhiều nhất'],['ten','Tên A→Z']].map(([k,t])=>`<option value="${k}" ${csSort===k?'selected':''}>${t}</option>`).join('')}</select>
   </div></div>
@@ -2768,12 +2845,73 @@ function renderCoso(){
   h+='</div>';
   $('#view').innerHTML=h;
   $('#cssort').onchange=e=>{csSort=e.target.value;renderCoso();};
+  const ca2=$('#csAdd'); if(ca2)ca2.onclick=()=>openCoSo(null);
   $$('#view .cscard[data-cs]').forEach(el=>el.onclick=()=>{
     csDetailId=Number(el.dataset.cs); renderCoso();
   });
 }
 
 /* ===== Chi tiết 1 trung tâm — tổng quan lớp, học sinh, kinh phí ===== */
+/* Thêm / sửa / xóa một cơ sở (Quản trị). c=null là thêm mới.
+   Mã cơ sở giữ nguyên suốt đời vì học sinh, lớp, sổ quỹ... đều tham chiếu tới nó. */
+function openCoSo(c){
+  if(USER.role!=='admin'){avaAlert('Chỉ Quản trị mới thêm/sửa cơ sở.');return;}
+  const them=!c;
+  const soLop=them?0:LOP.filter(l=>l.coSoId===c.id).length;
+  const soGV=them?0:GV.filter(g=>g.coSoId===c.id).length;
+  const soHS=them?0:OPS.hv.filter(h=>h.coSoId===c.id).length;
+  $('#mcard').innerHTML=`
+    <div class="mhead"><div class="mava">${them?'＋':svg(IC.coso)}</div>
+      <div style="flex:1"><h3>${them?'Thêm cơ sở':esc(c.ten)}</h3>
+        <p>${them?'Cơ sở mới của chuỗi':(soLop+' lớp · '+soGV+' giáo viên · '+soHS+' học sinh')}</p></div>
+      <button class="mclose" onclick="closeModal()">${svg('<path d="M6 6l12 12M18 6L6 18"/>')}</button></div>
+    <div class="mbody"><div class="form2">
+      <div class="fld full"><label>Tên cơ sở *</label><input id="cs_ten" value="${them?'':esc(c.ten)}" placeholder="VD: Diễn Kỷ 2"/></div>
+      <div class="fld full"><label>Địa chỉ</label><input id="cs_dc" value="${them?'':esc(c.dc||'')}" placeholder="Xóm/Thôn, Xã, Tỉnh"/></div>
+      <div class="fld full"><label style="display:flex;gap:8px;align-items:flex-start;cursor:pointer;font-weight:600">
+        <input type="checkbox" id="cs_build" ${(!them&&c.build)?'checked':''} style="margin-top:3px;width:17px;height:17px;accent-color:var(--brand)"/>
+        <span>Đang xây dựng <span class="muted" style="font-weight:600">— chưa hoạt động, không tính vào thống kê toàn chuỗi</span></span></label></div>
+      <div id="cs_err" class="fld full" style="display:none;color:#c0392b;font-size:.84rem;font-weight:600;padding:0"></div>
+      <div class="fld full" style="display:flex;gap:8px">
+        ${them?'':`<button class="btn btn-light" id="cs_del" style="color:var(--rose)">Xóa</button>`}
+        <button class="btn btn-light" style="flex:1" onclick="closeModal()">Hủy</button>
+        <button class="btn btn-primary" style="flex:2" id="cs_save">${them?'＋ Thêm cơ sở':'💾 Lưu'}</button>
+      </div></div></div>`;
+  $('#modal').classList.add('on');
+  const err=m=>{const e=$('#cs_err');e.textContent=m||'';e.style.display=m?'block':'none';};
+  $('#cs_save').onclick=async()=>{
+    const ten=$('#cs_ten').value.trim();
+    if(!ten){err('Vui lòng nhập tên cơ sở.');$('#cs_ten').focus();return;}
+    if(COSO.some(x=>nameKey(x.ten)===nameKey(ten)&&(them||x.id!==c.id))){err('Đã có cơ sở tên này rồi.');return;}
+    const rec={ten,dc:$('#cs_dc').value.trim(),build:$('#cs_build').checked};
+    const btn=$('#cs_save'); btn.disabled=true; btn.textContent='Đang lưu…'; err('');
+    let r;
+    if(them){
+      const id=COSO.length?Math.max(...COSO.map(x=>x.id))+1:0;    // mã mới = mã lớn nhất + 1, không tái dùng mã cũ
+      r=await SB.from('co_so').insert({id,...rec,thu_tu:id});
+      if(!r.error)COSO.push({id,...rec,thuTu:id});
+    }else{
+      r=await SB.from('co_so').update(rec).eq('id',c.id);
+      if(!r.error)Object.assign(c,rec);
+    }
+    btn.disabled=false; btn.textContent=them?'＋ Thêm cơ sở':'💾 Lưu';
+    if(r.error){err('Lỗi lưu: '+r.error.message);return;}
+    tinhCsAbbr(); buildScope(); closeModal(); csDetailId=null; renderCoso(); renderNavCounts();
+  };
+  const bd=$('#cs_del');
+  if(bd)bd.onclick=async()=>{
+    if(soLop||soGV||soHS){
+      err('Cơ sở còn '+[soLop?soLop+' lớp':'',soGV?soGV+' giáo viên':'',soHS?soHS+' học sinh':''].filter(Boolean).join(', ')
+        +'. Hãy chuyển hoặc xóa hết dữ liệu của cơ sở trước khi xóa cơ sở.');
+      return;
+    }
+    if(!await avaConfirm('Xóa cơ sở "'+c.ten+'"?\n\nCơ sở đang trống nên không mất dữ liệu nào.\nThao tác này không thể hoàn tác.',{danger:true,okText:'Xóa'}))return;
+    const {error}=await SB.from('co_so').delete().eq('id',c.id);
+    if(error){err('Lỗi xóa: '+error.message);return;}
+    const i=COSO.findIndex(x=>x.id===c.id); if(i>=0)COSO.splice(i,1);
+    tinhCsAbbr(); buildScope(); closeModal(); csDetailId=null; renderCoso(); renderNavCounts();
+  };
+}
 function renderCosoDetail(id){
   const c=COSO.find(x=>x.id===id);
   if(!c){csDetailId=null;return renderCoso();}
@@ -2786,7 +2924,10 @@ function renderCosoDetail(id){
   const ccR=ccStat([id]);
   const ccTxt=ccR==null?'—':Math.round(ccR*100)+'%';
 
-  let h=`<button class="btn btn-sm btn-ghost cs-back" id="csBack">← Tất cả cơ sở</button>
+  let h=`<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:4px">
+    <button class="btn btn-sm btn-ghost cs-back" id="csBack" style="margin:0">← Tất cả cơ sở</button>
+    ${csLive?`<button class="btn btn-sm btn-light" id="csEdit" style="margin-left:auto">✏️ Sửa cơ sở</button>`:''}
+  </div>
   <div class="csd-hero" style="background:${csPastel(id)};border-left:5px solid ${avaColor(c.ten)}">
     <span class="cs-deco" style="background:${avaColor(c.ten)}"></span>
     <div class="cs-logo" style="padding:13px 24px;font-size:1.05rem">AVATAR</div>
@@ -2821,6 +2962,7 @@ function renderCosoDetail(id){
   h+='</tbody></table></div></div>';
   $('#view').innerHTML=h;
   $('#csBack').onclick=()=>{csDetailId=null;renderCoso();};
+  const ce=$('#csEdit'); if(ce)ce.onclick=()=>openCoSo(c);
 }
 
 /* ============ LỚP HỌC ============ */
@@ -2944,7 +3086,7 @@ function openLopEdit(l){
     const i=LOP.findIndex(x=>x.id===l.id); if(i>=0)LOP.splice(i,1);
     OPS.lich=OPS.lich.filter(x=>x.lopId!==l.id);
     for(const k in OPS.ddHV) if(Number(k.split('|')[0])===l.id) delete OPS.ddHV[k];
-    for(const k in OPS.ccGV) if(Number(k.split('|')[1])===l.id) delete OPS.ccGV[k];
+    for(const k in OPS.ccGV) if(Number(k.split('|')[1])===l.id){ delete OPS.ccGV[k]; delete OPS.ccGvId[k]; }
     for(const k in OPS.duyet) if(Number(k.split('|')[0])===l.id) delete OPS.duyet[k];
     closeModal(); renderLop();
   };
@@ -3172,14 +3314,16 @@ function luongBoxRender(loai,hangMuc,coSoId,onChange){
     const gvId=Number($('#gd_gvSel').value)||0, ky=$('#gd_kyLuong').value;
     if(!gvId){info.innerHTML='';onChange&&onChange(null);return;}
     const gv=GV.find(x=>x.id===gvId);
-    const lopIds=LOP.filter(l=>l.gvId===gvId||(gv&&(l.gv||'').trim()===gv.ten.trim())).map(l=>l.id);
-    let day=0,bu=0,nghi=0;
+    // Đếm theo NGƯỜI THỰC DẠY từng buổi (gv_id), không đếm theo lớp đang phụ trách —
+    // nếu đếm theo lớp thì dạy thay hoặc đổi GV giữa kỳ sẽ tính lương sai người.
+    let day=0,bu=0,nghi=0,thay=0;
     for(const k in OPS.ccGV){ const p=k.split('|'); if(!p[2].startsWith(ky))continue;
-      if(!lopIds.includes(Number(p[1])))continue;
-      const st=OPS.ccGV[k]; if(st==='day')day++; else if(st==='bu')bu++; else if(st==='nghi')nghi++; }
+      const lopId=Number(p[1]); if(gvDayBuoi(lopId,p[2])!==gvId)continue;
+      const st=OPS.ccGV[k]; if(st==='day')day++; else if(st==='bu')bu++; else if(st==='nghi')nghi++;
+      if((st==='day'||st==='bu')&&laDayThay(lopId,p[2]))thay++; }
     const buoi=day+bu;
     info.innerHTML=`<div class="g-note ok" style="margin:0"><span>🧮</span><div>
-      <b>${esc(gv?gv.ten:'')}</b> — tháng ${+ky.split('-')[1]}/${ky.split('-')[0]}: <b>${buoi} buổi dạy</b> (lên lớp ${day}${bu?' + dạy bù '+bu:''}${nghi?', nghỉ '+nghi:''}).
+      <b>${esc(gv?gv.ten:'')}</b> — tháng ${+ky.split('-')[1]}/${ky.split('-')[0]}: <b>${buoi} buổi dạy</b> (lên lớp ${day}${bu?' + dạy bù '+bu:''}${nghi?', nghỉ '+nghi:''}${thay?', trong đó '+thay+' buổi dạy thay':''}).
       <div style="display:flex;gap:8px;align-items:center;margin-top:7px;flex-wrap:wrap">
         <span style="font-size:.82rem">Đơn giá/buổi:</span>
         <input id="gd_donGia" inputmode="numeric" placeholder="VD: 150.000" style="flex:1;min-width:120px;padding:7px 10px;border:1px solid var(--line);border-radius:9px;font-weight:700"/>
@@ -4072,6 +4216,16 @@ function renderDiemDanh(){
   const dis=canEdit?'':'disabled';
   const lich=lichLopNgay(ddLopId,ddDate);        // lớp này hôm đó học ca nào (null = ngoài lịch)
   const dsCa=caNgay(ddDate,scopeIds());          // toàn bộ ca có lịch trong ngày, theo phạm vi
+  // Ai dạy buổi này. GV tự chấm cho mình; lễ tân/quản trị chọn được người dạy thay.
+  const gvDay=(()=>{
+    const id=gvDayBuoi(ddLopId,ddDate);
+    const ten=gvTenBuoi(ddLopId,ddDate), thay=laDayThay(ddLopId,ddDate);
+    const chonDuoc = ccLive && USER.role!=='teacher';
+    const dsGV=GV.filter(g=>g.coSoId===lop.coSoId).slice().sort((a,b)=>String(a.ten).localeCompare(b.ten,'vi'));
+    const opts=`<option value="">— Chưa xác định —</option>`+dsGV.map(g=>
+      `<option value="${g.id}" ${g.id===id?'selected':''}>${esc(g.ten)}${lop.gvId===g.id?' (phụ trách lớp)':''}</option>`).join('');
+    return {id,ten,thay,chonDuoc,opts};
+  })();
 
   let h=`<div class="toolbar">
     <div style="display:grid;gap:6px"><label style="font-size:.68rem;font-weight:800;color:var(--muted);letter-spacing:.04em">NGÀY ĐIỂM DANH</label>
@@ -4083,10 +4237,17 @@ function renderDiemDanh(){
   ${duyetBar(ca,lop,lich)}
   <div class="panel"><div class="phead"><h3>Chấm công giáo viên</h3>${cc?'<span class="savednote">✓ '+CC_LABEL[cc]+'</span>':'<span class="sub">chưa chấm công</span>'}</div>
     <div class="pbody"><div class="ddrow" style="border:0;padding:0">
-      <div class="gvava" style="width:40px;height:40px;background:${avaColor(lop.gv||'?')}">${initials(lop.gv||'?')}</div>
-      <div class="nm"><b>${esc(lop.gv||'—')}</b><small>Lớp ${esc(lop.lop)}${USER.role==='admin'?' · '+esc(csName(lop.coSoId)):''}</small></div>
+      <div class="gvava" style="width:40px;height:40px;background:${avaColor(gvDay.ten||'?')}">${initials(gvDay.ten||'?')}</div>
+      <div class="nm"><b>${esc(gvDay.ten||'—')}</b>${gvDay.thay?'<span class="paidtag" style="background:var(--violet-soft);color:var(--violet);border-color:#d6c8f5">dạy thay</span>':''}
+        <small>Lớp ${esc(lop.lop)}${USER.role==='admin'?' · '+esc(csName(lop.coSoId)):''}</small></div>
       <div class="seg" id="ccSeg">${['day','nghi','bu'].map(v=>`<button data-v="${v}" class="${cc===v?'on-'+v:''}" ${dis}>${CC_LABEL[v]}</button>`).join('')}</div>
-    </div></div>
+    </div>
+    ${gvDay.chonDuoc?`<div style="display:grid;gap:5px;margin-top:12px">
+      <label style="font-size:.68rem;font-weight:800;color:var(--muted);letter-spacing:.04em">GIÁO VIÊN DẠY BUỔI NÀY</label>
+      <select class="fsel" id="ccGvSel" style="max-width:100%" ${dis}>${gvDay.opts}</select>
+      <span class="muted" style="font-size:.74rem;font-weight:600">Mặc định là giáo viên phụ trách lớp. Có người dạy thay thì chọn đúng tên để tính công cho họ.</span>
+    </div>`:''}
+    </div>
   </div>
   <div class="panel"><div class="phead"><h3>Điểm danh học sinh</h3><span class="savednote">✓ tự động lưu</span></div>
     <div class="pbody">`;
@@ -4129,19 +4290,41 @@ function renderDiemDanh(){
     if(r&&r.error){avaAlert('Lỗi: '+r.error);caBtn.disabled=false;return;}
     renderDiemDanh();
   };
+  // Ai được ghi là người dạy: GV tự chấm → chính mình; lễ tân/quản trị → theo ô đã chọn
+  const gvGhi=()=>{
+    if(USER.role==='teacher') return USER.gvId!=null?USER.gvId:null;
+    const sel=$('#ccGvSel');
+    if(sel) return sel.value?Number(sel.value):null;
+    return gvDay.id;
+  };
   $$('#ccSeg button').forEach(b=>b.onclick=async()=>{
     if(!canEdit)return;
     if(cc===b.dataset.v){
       const {error}=await SB.from('cham_cong_gv').delete().eq('lop_id',ddLopId).eq('ngay',ddDate);
       if(error){avaAlert('Lỗi lưu chấm công: '+error.message);return;}
-      delete OPS.ccGV[ccKey];
+      delete OPS.ccGV[ccKey]; delete OPS.ccGvId[ccKey];
     }else{
-      const {error}=await SB.from('cham_cong_gv').upsert({lop_id:ddLopId,ngay:ddDate,coso_id:lop.coSoId,trang_thai:b.dataset.v},{onConflict:'lop_id,ngay'});
+      const gid=gvGhi();
+      const row={lop_id:ddLopId,ngay:ddDate,coso_id:lop.coSoId,trang_thai:b.dataset.v};
+      if(ccLive) row.gv_id=gid;                    // chưa chạy SQL thì bỏ qua êm, không làm hỏng chấm công
+      const {error}=await SB.from('cham_cong_gv').upsert(row,{onConflict:'lop_id,ngay'});
       if(error){avaAlert('Lỗi lưu chấm công: '+error.message);return;}
       OPS.ccGV[ccKey]=b.dataset.v;
+      if(ccLive){ if(gid!=null)OPS.ccGvId[ccKey]=gid; else delete OPS.ccGvId[ccKey]; }
     }
     renderDiemDanh();
   });
+  // Đổi người dạy khi ĐÃ chấm công → cập nhật ngay; chưa chấm thì để dành, bấm Lên lớp mới ghi
+  const ccSel=$('#ccGvSel');
+  if(ccSel) ccSel.onchange=async()=>{
+    if(!canEdit)return;
+    const gid=ccSel.value?Number(ccSel.value):null;
+    if(!cc) return;                    // chưa chấm công: giữ nguyên lựa chọn trên ô, bấm Lên lớp sẽ ghi kèm
+    const {error}=await SB.from('cham_cong_gv').update({gv_id:gid}).eq('lop_id',ddLopId).eq('ngay',ddDate);
+    if(error){avaAlert('Lỗi đổi giáo viên dạy: '+error.message);return;}
+    if(gid!=null)OPS.ccGvId[ccKey]=gid; else delete OPS.ccGvId[ccKey];
+    renderDiemDanh();
+  };
   $$('#view .ddSeg').forEach(seg=>{const id=Number(seg.dataset.hv);
     seg.querySelectorAll('button').forEach(b=>b.onclick=async()=>{
       if(!canEdit)return;
@@ -4458,7 +4641,8 @@ function inDiemDanh(lopId,iso){
       <td class="c">${tick(v.id,'co')}</td><td class="c">${tick(v.id,'muon')}</td>
       <td class="c">${tick(v.id,'phep')}</td><td class="c">${tick(v.id,'vang')}</td><td></td></tr>`).join('');
   const dem={co:0,muon:0,phep:0,vang:0}; ds.forEach(v=>{if(st[v.id])dem[st[v.id]]++;});
-  const meta=[['Cơ sở',csName(lop.coSoId)],['Lớp',lop.lop],['Giáo viên',lop.gv||'—'],
+  const meta=[['Cơ sở',csName(lop.coSoId)],['Lớp',lop.lop],
+    ['Giáo viên',gvTenBuoi(lopId,iso)+(laDayThay(lopId,iso)?' (dạy thay '+(lop.gv||'')+')':'')],
     ['Ngày',THU_DAI[thuOf(iso)]+', '+isoVN(iso)],
     ['Ca',lich?('Ca '+lich.caMa+(caGio(lop.coSoId,lich.caMa)?' ('+caGio(lop.coSoId,lich.caMa)+')':'')):'ngoài lịch'],
     ['Phòng',(lich&&lich.phong)||'—'],
@@ -4522,6 +4706,17 @@ function inLichTuan(coSoId,lops){
 /* ============ BÁO CÁO ĐIỂM DANH (Giai đoạn A — mức ngày, dùng dữ liệu hiện có) ============ */
 const fmtDT=iso=>{ if(!iso)return''; const d=new Date(iso); if(isNaN(d))return''; const p=n=>('0'+n).slice(-2); return `${p(d.getDate())}/${p(d.getMonth()+1)}/${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`; };
 let bcFrom=todayISO().slice(0,7)+'-01', bcTo=todayISO(), bcLop='all';
+/* ===== ĐƠN GIÁ MỘT CA DẠY =====
+   Lưu ngay trên máy (localStorage), không đưa lên CSDL vì đây là con số nội bộ
+   của người lập bảng lương, mỗi cơ sở một khác và hay đổi. */
+let bcGia=0, bcGiaGV={};
+const giaKey=()=>'avatar_gia_ca_'+((USER&&USER.email)||'x');
+function napGiaCa(){
+  try{const v=JSON.parse(localStorage.getItem(giaKey())||'{}');bcGia=Number(v.mac)||0;bcGiaGV=v.gv||{};}
+  catch(e){bcGia=0;bcGiaGV={};}
+}
+const luuGiaCa=()=>{try{localStorage.setItem(giaKey(),JSON.stringify({mac:bcGia,gv:bcGiaGV}));}catch(e){}};
+const giaCua=ten=>Number(bcGiaGV[ten])||bcGia||0;
 const DD_LABEL={co:'Có mặt',muon:'Muộn',phep:'Phép',vang:'Vắng'};
 /* Gom số liệu theo khoảng ngày + phạm vi (cơ sở đang chọn) + lớp (tùy chọn) */
 function bcCollect(){
@@ -4551,9 +4746,13 @@ function bcCollect(){
   // Chấm công GV -> công theo buổi + GV dạy mấy ca/ngày (chỉ ca thực dạy: lên lớp + dạy bù)
   for(const k in OPS.ccGV){ const p=k.split('|'); const ngay=p[2]; if(!inR(ngay))continue;
     const lop=LOP.find(l=>l.id===Number(p[1])); if(!okLop(lop))continue;
-    const nm=lop.gv||'(chưa phân công)'; const gm=gvMap[nm]=gvMap[nm]||{name:nm,day:0,bu:0,nghi:0};
+    // Quy công cho NGƯỜI THỰC DẠY buổi đó, không quy theo GV đang phụ trách lớp
+    const nm=gvTenBuoi(lop.id,ngay); const thay=laDayThay(lop.id,ngay);
+    const gm=gvMap[nm]=gvMap[nm]||{name:nm,day:0,bu:0,nghi:0,thay:0,cs:new Set(),lops:new Set()};
     const st=OPS.ccGV[k]; if(gm[st]!=null)gm[st]++;
-    if(st==='day'||st==='bu'){ const gk=nm+'|'+ngay; const gd=gvDayMap[gk]=gvDayMap[gk]||{gv:nm,ngay,n:0,lops:new Set()}; gd.n++; gd.lops.add(lop.lop); }
+    gm.cs.add(lop.coSoId);
+    if(st==='day'||st==='bu'){ gm.lops.add(lop.lop); if(thay)gm.thay++;
+      const gk=nm+'|'+ngay; const gd=gvDayMap[gk]=gvDayMap[gk]||{gv:nm,ngay,n:0,lops:new Set()}; gd.n++; gd.lops.add(lop.lop); }
   }
   // Nhật ký đối soát/chốt
   for(const k in OPS.duyet){ const [lidS,ngay]=k.split('|'); if(!inR(ngay))continue;
@@ -4563,7 +4762,9 @@ function bcCollect(){
   const hsRows=Object.values(hsMap).map(m=>{const hv=OPS.hv.find(x=>x.id===m.hvId); const tot=m.co+m.muon+m.phep+m.vang;
       return {ten:hv?hv.ten:('HS #'+m.hvId), coSoId:hv?hv.coSoId:null, lop:hv?lopName(hv.lopId):'—', co:m.co,muon:m.muon,phep:m.phep,vang:m.vang, tot, pct:tot?Math.round((m.co+m.muon)/tot*100):0};})
     .sort((a,b)=>a.pct-b.pct||String(a.ten).localeCompare(b.ten,'vi'));
-  const gvRows=Object.values(gvMap).sort((a,b)=>(b.day+b.bu)-(a.day+a.bu)||String(a.name).localeCompare(b.name,'vi'));
+  const gvRows=Object.values(gvMap).map(g=>({...g,ca:g.day+g.bu,
+      csTen:[...g.cs].map(csName).join(', '), soLop:g.lops.size}))
+    .sort((a,b)=>b.ca-a.ca||String(a.name).localeCompare(b.name,'vi'));
   const lopRows=Object.values(lopMap).map(l=>({lop:l.lop.lop,coSoId:l.lop.coSoId,buoi:l.buoi.size,co:l.co,tot:l.tot,pct:l.tot?Math.round(l.co/l.tot*100):0}))
     .sort((a,b)=>a.coSoId-b.coSoId||String(a.lop).localeCompare(b.lop,'vi'));
   const bySort=(a,b)=> a.ngay<b.ngay?1:a.ngay>b.ngay?-1: String(a.lop.lop).localeCompare(b.lop.lop,'vi');
@@ -4618,11 +4819,34 @@ function renderBaoCao(){
     <div class="twrap"><table><thead><tr><th>Học sinh</th>${isAdm?'<th>Cơ sở</th>':''}<th>Lớp</th><th class="tright">Buổi</th><th class="tright">Có mặt</th><th class="tright">Muộn</th><th class="tright">Phép</th><th class="tright">Vắng</th><th class="tright">Chuyên cần</th></tr></thead><tbody>`;
   D.hsRows.slice(0,150).forEach(r=>{h+=`<tr><td><b>${esc(r.ten)}</b></td>${isAdm?`<td>${esc(r.coSoId!=null?csName(r.coSoId):'—')}</td>`:''}<td>${esc(r.lop)}</td><td class="tright num">${r.tot}</td><td class="tright num">${r.co}</td><td class="tright num">${r.muon}</td><td class="tright num">${r.phep}</td><td class="tright num">${r.vang}</td><td class="tright num">${pctCol(r.pct)}</td></tr>`;});
   h+=`</tbody></table></div>${D.hsRows.length>150?`<div class="muted" style="padding:8px 14px;font-size:.8rem">… và ${D.hsRows.length-150} HS nữa — bấm <b>Xuất Excel</b> để xem đầy đủ.</div>`:''}</div>`;
-  // 2) Công giáo viên
-  h+=`<div class="panel"><div class="phead"><h3>Công giáo viên</h3><span class="sub">${D.gvRows.length} GV · theo buổi đã chấm công</span></div>
-    <div class="twrap"><table><thead><tr><th>Giáo viên</th><th class="tright">Lên lớp</th><th class="tright">Dạy bù</th><th class="tright">Nghỉ</th><th class="tright">Tổng buổi dạy</th></tr></thead><tbody>`;
-  if(!D.gvRows.length)h+=`<tr><td colspan="5"><div class="empty">Chưa có chấm công trong khoảng này.</div></td></tr>`;
-  else D.gvRows.forEach(g=>h+=`<tr><td><b>${esc(g.name)}</b></td><td class="tright num">${g.day}</td><td class="tright num">${g.bu}</td><td class="tright num">${g.nghi}</td><td class="tright num"><b>${g.day+g.bu}</b></td></tr>`);
+  // 2) Công & lương giáo viên theo ca
+  const tongCa=D.gvRows.reduce((s,g)=>s+g.ca,0), tongTien=D.gvRows.reduce((s,g)=>s+g.ca*giaCua(g.name),0);
+  h+=`<div class="panel"><div class="phead"><h3>Công &amp; lương giáo viên theo ca</h3>
+      <span class="sub">${D.gvRows.length} GV · ${tongCa} ca thực dạy</span></div>
+    <div class="pbody" style="padding-bottom:0">
+      <div style="display:flex;gap:9px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px">
+        <div style="display:grid;gap:5px"><label style="${lb}">ĐƠN GIÁ CHUNG / CA</label>
+          <input id="bcGiaChung" inputmode="numeric" value="${bcGia||''}" placeholder="VD: 150.000" class="fsel" style="max-width:170px"/></div>
+        <button class="btn btn-sm btn-light" id="bcGiaAp">Áp cho tất cả</button>
+        <div style="flex:1"></div>
+        <button class="btn btn-sm btn-light" id="bcInLuong" ${D.gvRows.length?'':'disabled'}>🖶 In bảng lương</button>
+      </div>
+      <p class="muted" style="font-size:.78rem;line-height:1.5;margin:0 2px 10px">Ca thực dạy = <b>lên lớp + dạy bù</b>, không tính buổi nghỉ. Công quy cho <b>người thực dạy</b> buổi đó, nên buổi dạy thay được tính cho người dạy thay. Sửa được đơn giá riêng từng người ở cột <b>Đơn giá/ca</b>.</p>
+    </div>
+    <div class="twrap"><table><thead><tr><th>Giáo viên</th>${isAdm?'<th>Cơ sở</th>':''}<th class="tright">Lên lớp</th><th class="tright">Dạy bù</th><th class="tright">Nghỉ</th><th class="tright">Dạy thay</th><th class="tright">Ca thực dạy</th><th class="tright">Đơn giá/ca</th><th class="tright">Thành tiền</th></tr></thead><tbody>`;
+  if(!D.gvRows.length)h+=`<tr><td colspan="${isAdm?9:8}"><div class="empty">Chưa có chấm công trong khoảng này.</div></td></tr>`;
+  else{
+    D.gvRows.forEach(g=>{const gia=giaCua(g.name);
+      h+=`<tr><td><b>${esc(g.name)}</b></td>${isAdm?`<td>${esc(g.csTen)}</td>`:''}
+        <td class="tright num">${g.day}</td><td class="tright num">${g.bu}</td><td class="tright num">${g.nghi}</td>
+        <td class="tright num">${g.thay?`<span class="paidtag" style="background:var(--violet-soft);color:var(--violet);border-color:#d6c8f5">${g.thay}</span>`:'—'}</td>
+        <td class="tright num"><b>${g.ca}</b></td>
+        <td class="tright"><input class="bcGia" data-gv="${esc(g.name)}" inputmode="numeric" value="${gia||''}" placeholder="—"
+          style="width:110px;padding:5px 8px;border:1px solid var(--line);border-radius:8px;font-weight:700;text-align:right"/></td>
+        <td class="tright num"><b>${gia?fmtVND(g.ca*gia):'—'}</b></td></tr>`;});
+    h+=`<tr style="background:var(--soft)"><td colspan="${isAdm?6:5}" class="tright"><b>TỔNG CỘNG</b></td>
+      <td class="tright num"><b>${tongCa}</b></td><td></td><td class="tright num"><b>${tongTien?fmtVND(tongTien):'—'}</b></td></tr>`;
+  }
   h+=`</tbody></table></div></div>`;
   // 3) Tổng hợp theo lớp
   h+=`<div class="panel"><div class="phead"><h3>Tổng hợp theo lớp</h3><span class="sub">${D.lopRows.length} lớp</span></div>
@@ -4654,6 +4878,62 @@ function bcBind(){
   const t=$('#bcTo'); if(t)t.onchange=e=>{bcTo=e.target.value;renderBaoCao();};
   const l=$('#bcLop'); if(l)l.onchange=e=>{bcLop=e.target.value;renderBaoCao();};
   const x=$('#bcXls'); if(x)x.onclick=()=>bcExport();
+  // Đơn giá một ca dạy
+  const gc=$('#bcGiaChung');
+  if(gc){ attachMoneyFormat(gc);
+    gc.onchange=()=>{bcGia=Number(String(gc.value).replace(/\D/g,''))||0;luuGiaCa();renderBaoCao();}; }
+  const ga=$('#bcGiaAp');
+  if(ga)ga.onclick=()=>{
+    const v=Number(String($('#bcGiaChung').value).replace(/\D/g,''))||0;
+    bcGia=v; bcGiaGV={};            // bỏ hết đơn giá riêng, dùng chung một mức
+    luuGiaCa(); renderBaoCao();
+  };
+  $$('#view .bcGia').forEach(el=>{ attachMoneyFormat(el);
+    el.onchange=()=>{ const ten=el.dataset.gv, v=Number(String(el.value).replace(/\D/g,''))||0;
+      if(v)bcGiaGV[ten]=v; else delete bcGiaGV[ten];
+      luuGiaCa(); renderBaoCao(); }; });
+  const il=$('#bcInLuong'); if(il)il.onclick=()=>inBangLuong();
+}
+/* ===== IN BẢNG LƯƠNG THEO CA (A4 ngang) ===== */
+function inBangLuong(){
+  const isAdm=USER.role==='admin', D=bcCollect(), now=new Date();
+  const phamvi=isAdm?(scope==='all'?'Toàn hệ thống':csName(Number(scope))):csName(USER.coSoId);
+  const rows=D.gvRows;
+  const tongCa=rows.reduce((s,g)=>s+g.ca,0), tongTien=rows.reduce((s,g)=>s+g.ca*giaCua(g.name),0);
+  const cot=[['STT',5],['HỌ VÀ TÊN GIÁO VIÊN',24],['CƠ SỞ',16],['LÊN LỚP',8],['DẠY BÙ',8],['DẠY THAY',8],['CA THỰC DẠY',10],['ĐƠN GIÁ/CA',10],['THÀNH TIỀN',11]];
+  const tongW=cot.reduce((s,c)=>s+c[1],0);
+  const body=rows.map((g,i)=>{const gia=giaCua(g.name);
+    return `<tr><td class="c">${i+1}</td><td>${esc(g.name)}</td><td>${esc(g.csTen)}</td>
+      <td class="c">${g.day}</td><td class="c">${g.bu}</td><td class="c">${g.thay||''}</td>
+      <td class="c"><b>${g.ca}</b></td><td class="r">${gia?Math.round(gia).toLocaleString('vi-VN'):''}</td>
+      <td class="r">${gia?Math.round(g.ca*gia).toLocaleString('vi-VN'):''}</td></tr>`;}).join('');
+  $('#voucher').innerHTML=`<div class="vbar">
+      <button class="btn btn-sm btn-light" id="blPrint">🖶 In / lưu PDF</button>
+      <button class="btn btn-sm btn-light" id="blClose">Đóng</button></div>
+    <div class="vpaper sqpaper">
+      <div class="vtop"><div><b>TRUNG TÂM ANH NGỮ AVATAR</b><br/><span>Cơ sở: ${esc(phamvi)}</span></div></div>
+      <div class="vtitle">BẢNG THANH TOÁN CÔNG GIẢNG DẠY</div>
+      <div class="vdate">Kỳ: ${isoVN(bcFrom)} – ${isoVN(bcTo)} · Phạm vi: ${esc(phamvi)}</div>
+      <div style="text-align:right;font-style:italic;font-size:12px;margin-bottom:4px">Đơn vị tính: đồng</div>
+      <table class="sqtbl">
+        <colgroup>${cot.map(c=>`<col style="width:${(c[1]*100/tongW).toFixed(2)}%"/>`).join('')}</colgroup>
+        <thead><tr>${cot.map(c=>`<th>${c[0]}</th>`).join('')}</tr></thead>
+        <tbody>${body||`<tr><td colspan="${cot.length}" style="text-align:center;font-style:italic;padding:14px">Chưa có buổi dạy nào được chấm công trong kỳ.</td></tr>`}
+          <tr class="sum"><td colspan="6" class="r">TỔNG CỘNG</td><td class="c">${tongCa}</td><td></td>
+            <td class="r"><b>${Math.round(tongTien).toLocaleString('vi-VN')}</b></td></tr>
+        </tbody></table>
+      <div style="font-style:italic;font-size:12.5px;margin-top:6px">Tổng số tiền bằng chữ: ${docSoVN(tongTien)}</div>
+      <div style="font-size:12px;margin-top:4px">Ca thực dạy = lên lớp + dạy bù (không tính buổi nghỉ). Buổi dạy thay được tính công cho người thực dạy.</div>
+      <div style="text-align:right;font-style:italic;font-size:12.5px;margin-top:10px">Nghệ An, ngày ${now.getDate()} tháng ${now.getMonth()+1} năm ${now.getFullYear()}</div>
+      <div class="vsign" style="margin-top:6px">
+        <div><b>Người lập biểu</b><small>(Ký, họ tên)</small><div style="height:48px"></div></div>
+        <div><b>Kế toán</b><small>(Ký, họ tên)</small><div style="height:48px"></div></div>
+        <div><b>Giám đốc</b><small>(Ký, họ tên)</small><div style="height:48px"></div></div>
+      </div>
+    </div>`;
+  $('#voucher').classList.add('on'); $('#voucher').classList.add('sq');
+  $('#blClose').onclick=()=>{$('#voucher').classList.remove('on');$('#voucher').classList.remove('sq');};
+  $('#blPrint').onclick=()=>window.print();
 }
 /* Một sheet báo cáo ĐẸP + mi trang A4: tiêu đề nền navy, phụ đề, header tô màu,
    kẻ viền, zebra, cố định + lặp tiêu đề mỗi trang in, autofilter, footer số trang.
@@ -4705,10 +4985,14 @@ async function bcExport(){
   await bcSheetPro(wb,'Chuyen can HS','BÁO CÁO CHUYÊN CẦN HỌC SINH',sub,
     [{h:'STT',k:'stt',w:5,a:'center'},{h:'Học sinh',k:'ten',w:26},{h:'Cơ sở',k:'cs',w:16},{h:'Lớp',k:'lop',w:16},{h:'Số buổi',k:'tot',w:9,num:1},{h:'Có mặt',k:'co',w:9,num:1},{h:'Muộn',k:'muon',w:8,num:1},{h:'Phép',k:'phep',w:8,num:1},{h:'Vắng',k:'vang',w:8,num:1},{h:'Chuyên cần',k:'pct',w:12,pct:1}],
     D.hsRows.map((r,i)=>({stt:i+1,ten:r.ten,cs:cs(r),lop:r.lop,tot:r.tot,co:r.co,muon:r.muon,phep:r.phep,vang:r.vang,pct:r.pct})));
-  // 2) Công giáo viên
-  await bcSheetPro(wb,'Cong GV','BÁO CÁO CÔNG GIÁO VIÊN',sub,
-    [{h:'STT',k:'stt',w:5,a:'center'},{h:'Giáo viên',k:'gv',w:28},{h:'Lên lớp',k:'day',w:11,num:1},{h:'Dạy bù',k:'bu',w:11,num:1},{h:'Nghỉ',k:'nghi',w:9,num:1},{h:'Tổng buổi dạy',k:'tong',w:15,num:1}],
-    D.gvRows.map((g,i)=>({stt:i+1,gv:g.name,day:g.day,bu:g.bu,nghi:g.nghi,tong:g.day+g.bu})),'portrait');
+  // 2) Công & lương giáo viên theo ca
+  await bcSheetPro(wb,'Cong va luong GV','BẢNG THANH TOÁN CÔNG GIẢNG DẠY',sub,
+    [{h:'STT',k:'stt',w:5,a:'center'},{h:'Giáo viên',k:'gv',w:26},{h:'Cơ sở',k:'cs',w:20},
+     {h:'Lên lớp',k:'day',w:10,num:1},{h:'Dạy bù',k:'bu',w:10,num:1},{h:'Nghỉ',k:'nghi',w:9,num:1},
+     {h:'Dạy thay',k:'thay',w:10,num:1},{h:'Ca thực dạy',k:'ca',w:12,num:1},
+     {h:'Đơn giá/ca',k:'gia',w:14,num:1},{h:'Thành tiền',k:'tien',w:16,num:1}],
+    D.gvRows.map((g,i)=>{const gia=giaCua(g.name);
+      return {stt:i+1,gv:g.name,cs:g.csTen,day:g.day,bu:g.bu,nghi:g.nghi,thay:g.thay,ca:g.ca,gia,tien:g.ca*gia};}));
   // 3) Tổng hợp theo lớp
   await bcSheetPro(wb,'Tong hop lop','TỔNG HỢP ĐIỂM DANH THEO LỚP',sub,
     [{h:'STT',k:'stt',w:5,a:'center'},{h:'Lớp',k:'lop',w:20},{h:'Cơ sở',k:'cs',w:16},{h:'Số buổi',k:'buoi',w:10,num:1},{h:'Lượt có mặt',k:'co',w:13,num:1},{h:'Tổng lượt',k:'tot',w:12,num:1},{h:'Chuyên cần',k:'pct',w:12,pct:1}],
