@@ -460,6 +460,15 @@ tbody tr:hover{background:var(--soft)}
 .cagio-in span{font-size:.7rem;color:var(--muted)}
 .lgrid td:has(input:checked){background:var(--brand-soft)}
 .lgrid input{width:17px;height:17px;accent-color:var(--brand);cursor:pointer}
+/* danh sách "Các buổi đã chọn" — mỗi buổi một giáo viên + một phòng riêng */
+.buoiList{display:grid;gap:7px;margin-top:6px;max-height:34vh;overflow:auto;padding-right:2px}
+.buoiRow{display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:var(--soft);border:1px solid var(--line);border-radius:11px;padding:8px 10px}
+.buoiKhi{flex:none;min-width:112px}
+.buoiKhi b{display:block;font-size:.83rem;font-weight:800}
+.buoiKhi small{display:block;font-size:.7rem;color:var(--muted);font-weight:600}
+.buoiRow .buoiGv{flex:2;min-width:150px;padding:7px 10px;border:1px solid var(--line);border-radius:9px;font-family:inherit;font-size:.83rem;font-weight:700;background:#fff}
+.buoiRow .buoiPh{flex:1;min-width:96px;padding:7px 10px;border:1px solid var(--line);border-radius:9px;font-family:inherit;font-size:.83rem;font-weight:700}
+@media(max-width:520px){.buoiKhi{min-width:100%}.buoiRow .buoiGv,.buoiRow .buoiPh{min-width:0}}
 /* thời khóa biểu cả tuần của cơ sở */
 .tkb{width:100%;border-collapse:collapse;font-size:.76rem}
 .tkb th,.tkb td{border:1px solid var(--line);padding:5px 6px;vertical-align:top}
@@ -1045,6 +1054,7 @@ let caLive=false;   // true khi đã chạy SQL Giai đoạn 6 (khung ca + lịc
 let ccLive=false;   // true khi đã chạy SQL Giai đoạn 7 (chấm công có cột gv_id — ai thực dạy)
 let csLive=false;   // true khi đã chạy SQL Giai đoạn 7 (danh sách cơ sở lấy từ Supabase)
 let tbLive=false;   // true khi đã chạy SQL Giai đoạn 8 (bảng thông báo)
+let lichGvLive=true; // false khi CSDL chưa có cột lich_lop.gv_id (Giai đoạn 9)
 /* ===== TẢI DỮ LIỆU LỚN AN TOÀN =====
    Supabase cắt mỗi truy vấn ở ~1000 dòng. Với 341 lớp (vài nghìn học sinh) mà
    không phân trang thì app hiện THIẾU dữ liệu mà KHÔNG báo lỗi. fetchAll() tải
@@ -1115,7 +1125,9 @@ async function loadCloud(){
   caLive = !caR.error && !liR.error;
   OPS.ca={}; if(!caR.error)(caR.data||[]).forEach(r=>{(OPS.ca[r.coso_id]=OPS.ca[r.coso_id]||[]).push({id:r.id,ma:r.ma,ten:r.ten||('Ca '+r.ma),bd:r.gio_bd||'',kt:r.gio_kt||''});});
   for(const k in OPS.ca) OPS.ca[k].sort((a,b)=>a.ma-b.ma);
-  OPS.lich = liR.error ? [] : (liR.data||[]).map(r=>({id:r.id,lopId:r.lop_id,coSoId:r.coso_id,thu:r.thu,caMa:r.ca_ma,phong:r.phong||''}));
+  OPS.lich = liR.error ? [] : (liR.data||[]).map(r=>({id:r.id,lopId:r.lop_id,coSoId:r.coso_id,thu:r.thu,caMa:r.ca_ma,
+    phong:r.phong||'',gvId:(r.gv_id!=null?r.gv_id:null)}));
+  if(!liR.error && (liR.data||[]).length) lichGvLive = ('gv_id' in liR.data[0]);   // đã chạy SQL Giai đoạn 9 chưa
   // Thông báo của trung tâm (Giai đoạn 8). Chưa chạy SQL → tbLive=false, menu Thông báo báo cách bật.
   tbLive = !tbR.error;
   OPS.tb = tbR.error ? [] : (tbR.data||[]).map(r=>({id:r.id,tieuDe:r.tieu_de,noiDung:r.noi_dung||'',mucDo:r.muc_do||'thuong',
@@ -1442,6 +1454,24 @@ function lichTomTat(lopId){
 }
 /* lịch của 1 lớp đúng ngày đó (null = hôm đó lớp không có lịch → coi là dạy ngoài lịch/dạy bù) */
 function lichLopNgay(lopId,iso){ const t=thuOf(iso); return OPS.lich.find(x=>x.lopId===lopId&&x.thu===t)||null; }
+/* ===== MỖI BUỔI MỘT GIÁO VIÊN (Giai đoạn 9) =====
+   Một lớp có thể học 2 buổi với 2 giáo viên khác nhau. Buổi nào để trống thì
+   coi như do giáo viên PHỤ TRÁCH LỚP dạy. */
+function gvIdBuoi(lich,lop){
+  if(lich&&lich.gvId!=null)return lich.gvId;
+  return (lop&&lop.gvId!=null)?lop.gvId:null;
+}
+function tenGvBuoi(lich,lop){
+  const id=gvIdBuoi(lich,lop); const t=id!=null?gvTen(id):'';
+  return t || (lop&&lop.gv) || '(chưa phân công)';
+}
+/* Các giáo viên dạy lớp này (gộp GV phụ trách + GV của từng buổi) — hiện ở danh sách lớp */
+function gvCuaLop(lopId){
+  const lop=LOP.find(l=>l.id===lopId); if(!lop)return [];
+  const ten=new Set(); if(lop.gv)ten.add(lop.gv);
+  lichOfLop(lopId).forEach(x=>{ if(x.gvId!=null){const t=gvTen(x.gvId); if(t)ten.add(t);} });
+  return [...ten];
+}
 /* danh sách CA có lịch trong ngày, thuộc phạm vi đang xem — sắp theo ca rồi tên lớp */
 function caNgay(iso,ids){
   const t=thuOf(iso), out=[];
@@ -1449,7 +1479,7 @@ function caNgay(iso,ids){
     if(x.thu!==t)return;
     const lop=LOP.find(l=>l.id===x.lopId);
     if(!lop||!ids.includes(lop.coSoId))return;
-    out.push({lop,caMa:x.caMa,phong:x.phong,coSoId:lop.coSoId});
+    out.push({lop,caMa:x.caMa,phong:x.phong,coSoId:lop.coSoId,gv:tenGvBuoi(x,lop),gvId:gvIdBuoi(x,lop)});
   });
   return out.sort((a,b)=>a.caMa-b.caMa||String(a.lop.lop).localeCompare(String(b.lop.lop),'vi'));
 }
@@ -1754,9 +1784,9 @@ const gvTen=id=>{const g=GV.find(x=>x.id===id);return g?g.ten:'';};
 /* GV thực dạy buổi (lop,ngay): ưu tiên gv_id đã chấm; chưa có thì lấy GV phụ trách lớp */
 function gvDayBuoi(lopId,ngay){
   const id=OPS.ccGvId['cc|'+lopId+'|'+ngay];
-  if(id!=null)return id;
+  if(id!=null)return id;                                   // đã chấm công: tin người thực dạy
   const lop=LOP.find(l=>l.id===lopId);
-  return (lop&&lop.gvId!=null)?lop.gvId:null;
+  return gvIdBuoi(lichLopNgay(lopId,ngay),lop);            // chưa chấm: theo lịch buổi đó, rồi mới tới GV phụ trách
 }
 /* Tên GV thực dạy — dùng cho báo cáo & bản in. Không tra được thì trả tên GV phụ trách. */
 function gvTenBuoi(lopId,ngay){
@@ -2399,7 +2429,8 @@ const HD_HOWTO={
       'Vào <b>Lịch học</b> → <b>⏱ Khung ca</b>: mỗi cơ sở một khung riêng. Mặc định 5 ca × 2 giờ: <b>07:00–09:00 · 09:15–11:15 · 14:00–16:00 · 17:15–19:15 · 19:30–21:30</b>. Cơ sở mầm non (ca 55 phút) hoặc trường liên kết thì sửa lại giờ, thêm/bớt ca đều được.',
       'Ô giờ gõ kiểu gì cũng được — gõ <b>14</b> ra <b>14:00</b>, gõ <b>700</b> ra <b>07:00</b>, gõ <b>1615</b> ra <b>16:15</b>.',
       'Quản trị muốn <b>cả chuỗi dùng chung một khung giờ</b>: tích ô <b>“Áp khung giờ này cho tất cả cơ sở”</b> rồi Lưu — khỏi phải sửa lại từng cơ sở. Ca riêng của cơ sở khác (mầm non, trường liên kết) vẫn giữ nguyên.',
-      'Khai lịch lớp: bấm dòng lớp ở bảng <b>Lịch từng lớp</b> → tích ô giao giữa <b>ca</b> và <b>thứ</b> → điền <b>Phòng</b> → <b>💾 Lưu lịch</b>.',
+      'Khai lịch lớp: bấm dòng lớp ở bảng <b>Lịch từng lớp</b> → tích ô giao giữa <b>ca</b> và <b>thứ</b> → <b>💾 Lưu lịch</b>.',
+      '<b>Lớp học 2 buổi với 2 giáo viên khác nhau:</b> tích đủ các buổi, rồi ở danh sách <b>“Các buổi đã chọn”</b> bên dưới, mỗi buổi chọn đúng tên giáo viên và phòng riêng. Buổi nào để <b>“GV phụ trách lớp”</b> thì do người phụ trách dạy. Phòng giống nhau cả loạt thì gõ vào ô dưới cùng rồi bấm <b>Áp cho tất cả</b>.',
       '<b>Sửa giờ ngay khi đang khai lịch:</b> trong cửa sổ đó, dưới tên mỗi ca có sẵn 2 ô giờ — sửa thẳng vào đó rồi bấm <b>Lưu lịch</b>, hệ thống lưu cả giờ ca lẫn lịch trong một lần. ⚠ Giờ ca dùng chung cho <b>mọi lớp của cơ sở</b>, không riêng lớp đang mở.',
       'Bảng <b>Lịch tuần</b> phía trên hiện ngay thời khóa biểu cả cơ sở; bấm <b>🖶 In lịch tuần</b> để in khổ A4 nằm ngang.',
       'Nếu xếp <b>một giáo viên hai lớp cùng ca</b> hoặc <b>một phòng hai lớp cùng giờ</b>, hệ thống hiện khung vàng cảnh báo, gom theo từng giáo viên kèm thứ – ca – giờ. <b>Bấm thẳng tên lớp</b> trong khung đó để mở ra sửa lịch. (Đây không phải lỗi “một lớp hai giáo viên” — mỗi lớp vẫn chỉ có một người phụ trách.)',
@@ -2570,7 +2601,7 @@ const HD_NUMBERS=[
   ['Còn phải thu','Dự thu trừ Đã thu.'],
   ['Chuyên cần','(Có mặt + Muộn) chia cho tổng lượt đã điểm danh — <b>Phép</b> và <b>Vắng</b> đều không tính là có mặt. Ở <b>Bảng điều hành</b> tính trong <b>30 ngày gần nhất</b>; ở <b>Báo cáo</b> tính đúng khoảng ngày mình chọn.'],
   ['Tồn quỹ','Tổng thu trừ tổng chi của <b>toàn bộ sổ quỹ</b> trong phạm vi — không phụ thuộc bộ lọc tháng/loại đang chọn.'],
-  ['Ca thực dạy &amp; lương','Ca thực dạy = số buổi chấm <b>Lên lớp</b> cộng <b>Dạy bù</b>; buổi <b>Nghỉ</b> thống kê riêng, không tính công. Công quy cho <b>người THỰC DẠY</b> buổi đó — buổi có người dạy thay thì công thuộc về người dạy thay, không thuộc về giáo viên phụ trách lớp. Lương = <b>ca thực dạy × đơn giá/ca</b>.'],
+  ['Ca thực dạy &amp; lương','Ca thực dạy = số buổi chấm <b>Lên lớp</b> cộng <b>Dạy bù</b>; buổi <b>Nghỉ</b> thống kê riêng, không tính công. Công quy cho <b>người THỰC DẠY</b> buổi đó — lấy theo thứ tự: người đã chấm công → <b>giáo viên khai cho buổi đó trong lịch</b> → giáo viên phụ trách lớp — buổi có người dạy thay thì công thuộc về người dạy thay, không thuộc về giáo viên phụ trách lớp. Lương = <b>ca thực dạy × đơn giá/ca</b>.'],
   ['Ca đã chốt','Số ca dạy Quản trị đã chốt trong khoảng thời gian của báo cáo — đây là số liệu đã khóa, dùng để đối chiếu lương/học phí.']
 ];
 /* Hỏi đáp – xử lý sự cố (rút từ tình huống thực tế trên hệ thống) */
@@ -2583,6 +2614,7 @@ const HD_FAQ=[
   ['Menu Thông báo báo “Chưa bật tính năng”','Quản trị chưa chạy file <b>sql-giai-doan-8-thong-bao.sql</b>. Chạy xong tải lại trang (Ctrl+F5).'],
   ['Giáo viên không thấy thông báo vừa gửi','Kiểm tra lại 2 ô khi soạn tin: <b>Gửi cho</b> phải là <i>Tất cả</i> hoặc <i>Giáo viên</i>; <b>Phạm vi</b> phải là <i>Toàn chuỗi</i> hoặc đúng cơ sở của giáo viên đó. Cũng kiểm tra <b>Hiển thị đến ngày</b> đã qua chưa.'],
   ['Lịch báo khung vàng “xếp trùng”','⚠ Đây <b>KHÔNG</b> phải lỗi “một lớp có hai giáo viên” — mỗi lớp vẫn chỉ có một giáo viên phụ trách. Nghĩa là <b>cùng một giáo viên bị xếp dạy nhiều lớp trong CÙNG MỘT CA</b>, mà một người không thể đứng hai lớp cùng lúc. Khung cảnh báo gom theo từng giáo viên, kèm thứ – ca – giờ; <b>bấm thẳng tên lớp</b> trong đó để mở ra sửa. Hai cách sửa: chuyển lớp sang <b>thứ hoặc ca khác</b>, hoặc vào mục <b>Giáo viên</b> đổi người phụ trách cho một trong các lớp đó. Ô bị trùng cũng được tô đỏ trên bảng lịch tuần.'],
+  ['Một lớp học 2 buổi, mỗi buổi một giáo viên khác nhau thì nhập sao?','Vào <b>Lịch học</b> → bấm vào lớp → tích cả hai buổi trên lưới → ở danh sách <b>“Các buổi đã chọn”</b> bên dưới, mỗi buổi <b>chọn đúng tên giáo viên</b> (và phòng nếu khác nhau) → <b>Lưu lịch</b>. Không cần phân công hai người cùng phụ trách một lớp. Buổi nào để <b>“GV phụ trách lớp”</b> thì do người phụ trách dạy. Giáo viên chỉ dạy vài buổi vẫn <b>vào được lớp đó</b> để điểm danh, và <b>công vẫn tính cho đúng người</b> theo từng buổi.'],
   ['Muốn xem lịch riêng của một giáo viên','Trang <b>Lịch học</b> có ô <b>Tất cả giáo viên</b> — chọn tên một người thì bảng lịch tuần chỉ còn lớp của người đó, nhìn là thấy ngay họ có bị xếp hai lớp cùng ca không. Khung cảnh báo vẫn tính trên cả cơ sở nên không bỏ sót ai.'],
   ['Một em học 2 lớp có bị coi là nhập trùng không?','Không. Trùng chỉ tính khi <b>cùng họ tên + cùng ngày sinh + cùng một lớp</b>. Em học 2 lớp có nhãn tím <b>“Học 2 lớp”</b>, được đếm là <b>1 học sinh</b> nhưng vẫn tính <b>2 sĩ số lớp</b> và <b>2 khoản học phí</b>.'],
   ['Một em bị đếm thành 2 học sinh','Hai lượt ghi danh của em đó ghi <b>khác ngày sinh</b> hoặc <b>khác số điện thoại</b> nên hệ thống tưởng là hai em. Mở <b>Hồ sơ</b> từng lượt, sửa cho hai thông tin đó giống nhau — sửa xong hệ thống tự gộp lại.'],
@@ -4680,7 +4712,7 @@ function caNgayPanel(dsCa){
       :`<span class="castat ca-none">${da?da+'/'+tong+' đã điểm':'chưa điểm danh'}</span>`;
     return `<div class="carow ${x.lop.id===ddLopId?'on':''}" data-ca="${x.lop.id}">
       <div class="cabad">${x.caMa}</div>
-      <div class="cainf"><b>${esc(x.lop.lop)}</b><small>${esc(x.lop.gv||'chưa phân công GV')}${USER.role==='admin'?' · '+esc(csName(x.coSoId)):''} · ${da}/${tong} đã điểm</small></div>
+      <div class="cainf"><b>${esc(x.lop.lop)}</b><small>${esc(x.gv||'chưa phân công GV')}${USER.role==='admin'?' · '+esc(csName(x.coSoId)):''} · ${da}/${tong} đã điểm</small></div>
       <div class="cast">${gio?`<span class="cagio">${esc(gio)}</span>`:''}${x.phong?`<span class="caphong">${esc(x.phong)}</span>`:''}${chip}</div>
     </div>`;}).join('');
   return `<div class="panel"><div class="phead"><h3>${USER.role==='teacher'?'Ca dạy của tôi':'Ca trong ngày'}</h3>
@@ -4787,8 +4819,11 @@ function lichTrung(coSoId){
   OPS.lich.forEach(x=>{
     const lop=LOP.find(l=>l.id===x.lopId); if(!lop||lop.coSoId!==coSoId)return;
     const slot=x.thu+'|'+x.caMa;
-    if(lop.gv){ const k=slot+'|'+nameKey(lop.gv);      // bỏ qua hoa/thường & khoảng trắng thừa
-      const g=oGv[k]=oGv[k]||{thu:x.thu,caMa:x.caMa,ten:lop.gv,lops:[]};
+    // Xét GV THỰC DẠY BUỔI ĐÓ, không xét GV phụ trách lớp — vì một lớp có thể
+    // học 2 buổi với 2 giáo viên khác nhau, hai buổi đó không hề trùng nhau.
+    const gvB=(x.gvId!=null?gvTen(x.gvId):'')||lop.gv||'';
+    if(gvB){ const k=slot+'|'+nameKey(gvB);           // bỏ qua hoa/thường & khoảng trắng thừa
+      const g=oGv[k]=oGv[k]||{thu:x.thu,caMa:x.caMa,ten:gvB,lops:[]};
       if(!g.lops.some(l=>l.id===lop.id))g.lops.push(lop); }
     if(x.phong){ const k=slot+'|'+phongKey(x.phong);   // "Phòng 1" và "phòng 1" là một
       const g=oPh[k]=oPh[k]||{thu:x.thu,caMa:x.caMa,ten:x.phong,lops:[]};
@@ -4871,7 +4906,7 @@ function renderLichHoc(){
   }
   // ----- Thời khóa biểu tuần -----
   const cell={};        // "thu|ca" → mảng lớp
-  lops.forEach(l=>lichOfLop(l.id).forEach(x=>{(cell[x.thu+'|'+x.caMa]=cell[x.thu+'|'+x.caMa]||[]).push({lop:l,phong:x.phong});}));
+  lops.forEach(l=>lichOfLop(l.id).forEach(x=>{(cell[x.thu+'|'+x.caMa]=cell[x.thu+'|'+x.caMa]||[]).push({lop:l,phong:x.phong,gv:tenGvBuoi(x,l)});}));
   const soBuoi=Object.values(cell).reduce((s,a)=>s+a.length,0);
   h+=`<div class="panel"><div class="phead"><h3>${isTe?'Lịch dạy cả tuần':'Lịch tuần · '+esc(csName(coSoId))}</h3>
       <span class="sub">${soBuoi} buổi/tuần · ${cas.length} ca/ngày${isTe?'':' · cột xanh là hôm nay'}</span></div>
@@ -4880,7 +4915,7 @@ function renderLichHoc(){
     h+=`<tr><td class="cah">${esc(c.ten)}<small>${esc(c.bd&&c.kt?c.bd+' – '+c.kt:'chưa đặt giờ')}</small></td>`;
     THU_LIST.forEach(t=>{
       const a=cell[t+'|'+c.ma]||[];
-      h+=`<td class="${t===thuNay?'homnay':''}">${a.map(o=>`<div class="tkitem ${tr.dup.has(o.lop.id)?'dup':''}"><b>${esc(o.lop.lop)}</b><small>${esc(o.lop.gv||'—')}${o.phong?' · '+esc(o.phong):''}</small></div>`).join('')}</td>`;
+      h+=`<td class="${t===thuNay?'homnay':''}">${a.map(o=>`<div class="tkitem ${tr.dup.has(o.lop.id)?'dup':''}"><b>${esc(o.lop.lop)}</b><small>${esc(o.gv||'—')}${o.phong?' · '+esc(o.phong):''}</small></div>`).join('')}</td>`;
     });
     h+=`</tr>`;
   });
@@ -4895,7 +4930,7 @@ function renderLichHoc(){
     const tt=lichTomTat(l.id);
     h+=`<tr ${canSua?`data-lich="${l.id}" style="cursor:pointer"`:''}>
       <td><b>${esc(l.lop)}</b>${l.mon==='TA'?' <span class="badge bg-ta">TA</span>':''}</td>
-      <td>${esc(l.gv||'—')}</td>
+      <td>${(()=>{const gs=gvCuaLop(l.id);return gs.length?gs.map(esc).join('<br/>'):'—';})()}</td>
       <td>${tt?esc(tt):'<span class="muted" style="font-size:.8rem">— chưa khai lịch —</span>'}</td></tr>`;
   });
   h+=`</tbody></table></div></div>`;
@@ -4999,8 +5034,10 @@ function openLopLich(l){
           ${THU_LIST.map(t=>`<td><label><input type="checkbox" data-thu="${t}" data-ca="${c.ma}" ${co(t,c.ma)?'checked':''}/></label></td>`).join('')}</tr>`).join('')}
       </tbody></table></div>
       <div class="g-note" style="margin:10px 0 0"><span>ℹ️</span><div>Giờ của ca dùng chung cho <b>mọi lớp của ${esc(csName(l.coSoId))}</b>. Sửa ở đây là đổi cho cả cơ sở, không riêng lớp ${esc(l.lop)}.</div></div>
-      <div class="fld full" style="margin-top:12px"><label>Phòng học <span class="muted" style="font-weight:600">(áp dụng cho mọi buổi của lớp)</span></label>
-        <input id="ll_phong" value="${esc(phong)}" placeholder="VD: Phòng 3"/></div>
+      <div id="ll_buoi" style="margin-top:14px"></div>
+      <div class="fld full" style="margin-top:10px"><label>Điền nhanh phòng cho mọi buổi</label>
+        <div style="display:flex;gap:8px"><input id="ll_phong" value="${esc(phong)}" placeholder="VD: Phòng 3" style="flex:1"/>
+          <button class="btn btn-light" id="ll_apPhong" style="white-space:nowrap">Áp cho tất cả</button></div></div>
       <div id="ll_err" style="display:none;color:#c0392b;font-size:.84rem;font-weight:600;margin-top:6px"></div>
       <div style="display:flex;gap:8px;margin-top:12px">
         <button class="btn btn-light" style="flex:1" onclick="closeModal()">Hủy</button>
@@ -5008,9 +5045,42 @@ function openLopLich(l){
   $('#modal').classList.add('on');
   const err=m=>{const e=$('#ll_err');e.textContent=m||'';e.style.display=m?'block':'none';};
   $$('#llTbl .llBd, #llTbl .llKt').forEach(attachGioFormat);
-  $('#ll_save').onclick=async()=>{
+
+  // ---- Danh sách "Các buổi đã chọn": mỗi buổi một giáo viên + một phòng riêng ----
+  // Giữ trong biến để tích/bỏ tích không làm mất lựa chọn đã đặt cho buổi khác.
+  const chiTiet={};                              // "thu|ca" -> {gvId, phong}
+  cur.forEach(x=>{chiTiet[x.thu+'|'+x.caMa]={gvId:(x.gvId!=null?String(x.gvId):''),phong:x.phong||''};});
+  const dsGV=GV.filter(g=>g.coSoId===l.coSoId).slice().sort((a,b)=>String(a.ten).localeCompare(String(b.ten),'vi'));
+  const tenPhuTrach=l.gv||'chưa phân công';
+  function veBuoi(){
+    const chon=$$('#llTbl input[type=checkbox]:checked')
+      .map(i=>({thu:Number(i.dataset.thu),caMa:Number(i.dataset.ca)}))
+      .sort((a,b)=>a.thu-b.thu||a.caMa-b.caMa);
+    const box=$('#ll_buoi');
+    if(!chon.length){ box.innerHTML=`<div class="muted" style="font-size:.8rem;padding:4px 2px">Chưa tích buổi nào. Tích ở bảng trên để khai lịch.</div>`; return; }
+    box.innerHTML=`<label style="font-size:.68rem;font-weight:800;color:var(--muted);letter-spacing:.04em">CÁC BUỔI ĐÃ CHỌN (${chon.length})</label>
+      <div class="buoiList">${chon.map(x=>{const k=x.thu+'|'+x.caMa, d=chiTiet[k]||{gvId:'',phong:''}, gio=caGio(l.coSoId,x.caMa);
+        return `<div class="buoiRow">
+          <div class="buoiKhi"><b>${THU_NGAN[x.thu]} · Ca ${x.caMa}</b><small>${esc(gio||'—')}</small></div>
+          <select class="buoiGv" data-k="${k}"><option value="">GV phụ trách lớp — ${esc(tenPhuTrach)}</option>${
+            dsGV.map(g=>`<option value="${g.id}" ${d.gvId===String(g.id)?'selected':''}>${esc(g.ten)}</option>`).join('')}</select>
+          <input class="buoiPh" data-k="${k}" value="${esc(d.phong)}" placeholder="Phòng"/>
+        </div>`;}).join('')}</div>
+      <div class="muted" style="font-size:.76rem;font-weight:600;margin-top:6px">Buổi nào để <b>“GV phụ trách lớp”</b> thì do ${esc(tenPhuTrach)} dạy. Lớp học 2 buổi với 2 giáo viên khác nhau thì chọn đúng tên ở từng buổi.</div>`;
+    $$('#ll_buoi .buoiGv').forEach(s=>s.onchange=()=>{const k=s.dataset.k;(chiTiet[k]=chiTiet[k]||{}).gvId=s.value;});
+    $$('#ll_buoi .buoiPh').forEach(i=>i.onchange=()=>{const k=i.dataset.k;(chiTiet[k]=chiTiet[k]||{}).phong=i.value.trim();});
+  }
+  $$('#llTbl input[type=checkbox]').forEach(c=>c.onchange=veBuoi);
+  veBuoi();
+  $('#ll_apPhong').onclick=()=>{
     const ph=$('#ll_phong').value.trim();
-    const chon=$$('#llTbl input[type=checkbox]:checked').map(i=>({thu:Number(i.dataset.thu),caMa:Number(i.dataset.ca)}));
+    $$('#ll_buoi .buoiPh').forEach(i=>{i.value=ph;(chiTiet[i.dataset.k]=chiTiet[i.dataset.k]||{}).phong=ph;});
+  };
+
+  $('#ll_save').onclick=async()=>{
+    const chon=$$('#llTbl input[type=checkbox]:checked').map(i=>{
+      const thu=Number(i.dataset.thu), caMa=Number(i.dataset.ca), d=chiTiet[thu+'|'+caMa]||{};
+      return {thu,caMa,gvId:d.gvId?Number(d.gvId):null,phong:(d.phong||'').trim()};});
     // Giờ ca đã sửa trong bảng → lưu cho CẢ CƠ SỞ trước, rồi mới lưu lịch lớp
     const gioMoi=cas.map(c=>({ma:c.ma,ten:c.ten,
       bd:($('#llTbl .llBd[data-ma="'+c.ma+'"]')||{}).value?.trim()||'',
@@ -5029,10 +5099,19 @@ function openLopLich(l){
     const {error:e1}=await SB.from('lich_lop').delete().eq('lop_id',l.id);
     if(e1){btn.disabled=false;btn.textContent='💾 Lưu lịch';err('Lỗi xóa lịch cũ: '+e1.message);return;}
     if(chon.length){
-      const {error:e2}=await SB.from('lich_lop').insert(chon.map(x=>({lop_id:l.id,coso_id:l.coSoId,thu:x.thu,ca_ma:x.caMa,phong:ph})));
+      const dong=x=>{const o={lop_id:l.id,coso_id:l.coSoId,thu:x.thu,ca_ma:x.caMa,phong:x.phong};
+        if(lichGvLive)o.gv_id=x.gvId; return o;};
+      let e2=(await SB.from('lich_lop').insert(chon.map(dong))).error;
+      // Chưa chạy SQL Giai đoạn 9 → CSDL chưa có cột gv_id: lưu lại phần còn lại, đừng mất lịch
+      if(e2 && /gv_id|column .* does not exist|schema cache/i.test(e2.message||'')){
+        lichGvLive=false;
+        e2=(await SB.from('lich_lop').insert(chon.map(dong))).error;
+        if(!e2) avaAlert('Đã lưu lịch, nhưng CSDL chưa có chỗ ghi "giáo viên của từng buổi".\nHãy chạy file sql-giai-doan-9-gv-tung-buoi.sql trong Supabase → SQL Editor.');
+      }
       if(e2){btn.disabled=false;btn.textContent='💾 Lưu lịch';err('Lỗi lưu lịch: '+e2.message);return;}
     }
-    OPS.lich=OPS.lich.filter(x=>x.lopId!==l.id).concat(chon.map(x=>({id:0,lopId:l.id,coSoId:l.coSoId,thu:x.thu,caMa:x.caMa,phong:ph})));
+    OPS.lich=OPS.lich.filter(x=>x.lopId!==l.id)
+      .concat(chon.map(x=>({id:0,lopId:l.id,coSoId:l.coSoId,thu:x.thu,caMa:x.caMa,phong:x.phong,gvId:lichGvLive?x.gvId:null})));
     caLive=true; closeModal(); renderLichHoc();
   };
 }
@@ -5215,11 +5294,11 @@ function inDiemDanh(lopId,iso){
 /* ===== IN THỜI KHÓA BIỂU TUẦN CỦA 1 CƠ SỞ (A4 ngang) ===== */
 function inLichTuan(coSoId,lops){
   const cas=caList(coSoId), cell={}, now=new Date();
-  lops.forEach(l=>lichOfLop(l.id).forEach(x=>{(cell[x.thu+'|'+x.caMa]=cell[x.thu+'|'+x.caMa]||[]).push({lop:l,phong:x.phong});}));
+  lops.forEach(l=>lichOfLop(l.id).forEach(x=>{(cell[x.thu+'|'+x.caMa]=cell[x.thu+'|'+x.caMa]||[]).push({lop:l,phong:x.phong,gv:tenGvBuoi(x,l)});}));
   const body=cas.map(c=>`<tr>
       <td class="c"><b>${esc(c.ten)}</b><br/><span style="font-size:10px">${esc(c.bd&&c.kt?c.bd+' – '+c.kt:'')}</span></td>
       ${THU_LIST.map(t=>{const a=cell[t+'|'+c.ma]||[];
-        return `<td>${a.map(o=>`<div><b>${esc(o.lop.lop)}</b>${o.phong?' · '+esc(o.phong):''}<br/><span style="font-size:10px">${esc(o.lop.gv||'—')}</span></div>`).join('<hr style="border:0;border-top:1px dotted #bbb;margin:3px 0">')}</td>`;}).join('')}
+        return `<td>${a.map(o=>`<div><b>${esc(o.lop.lop)}</b>${o.phong?' · '+esc(o.phong):''}<br/><span style="font-size:10px">${esc(o.gv||'—')}</span></div>`).join('<hr style="border:0;border-top:1px dotted #bbb;margin:3px 0">')}</td>`;}).join('')}
     </tr>`).join('');
   $('#voucher').innerHTML=`<div class="vbar">
       <button class="btn btn-sm btn-light" id="tkPrintGo">🖶 In / lưu PDF</button>
