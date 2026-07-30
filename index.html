@@ -1682,7 +1682,7 @@ function pickFile(cb){const inp=document.createElement('input');inp.type='file';
 async function hsDownloadTemplate(lop){
   const coSoId=lop.coSoId;
   const lops=LOP.filter(l=>l.coSoId===coSoId).slice().sort((a,b)=>String(a.lop).localeCompare(String(b.lop),'vi'));
-  const lopNames=lops.map(l=>l.lop);
+  const lopNames=lops.map(lopNhan);        // kèm GV (và mã) để không lẫn các lớp trùng tên
   const cols=[{h:'TT',k:'tt',w:6},{h:'Họ và tên',k:'ten',w:24},{h:'Lớp',k:'lop',w:16,dvList:lopNames},{h:'Ngày sinh',k:'ns',w:13},{h:'Phụ huynh',k:'ph',w:20},{h:'Điện thoại',k:'sdt',w:15},{h:'Thời gian nhập học',k:'nhaphoc',w:17},{h:'Trạng thái',k:'trangthai',w:14,dv:['Đang học','Hết khóa','Thôi học']},{h:'Học phí (đ/khóa)',k:'hp',w:17}];
   await makeTemplate({sheet:'DanhSach',columns:cols,
     example:{tt:1,ten:'Nguyễn Văn An',lop:lopNames[0]||'',ns:'01/09/2015',ph:'Nguyễn Văn Ba',sdt:'0901234567',nhaphoc:isoVN(todayISO()),trangthai:'Đang học',hp:600000},
@@ -1692,19 +1692,20 @@ async function hsDownloadTemplate(lop){
 }
 function hsImportExcel(lop){
   const coSoId=lop.coSoId;
-  const lopByName={}; LOP.filter(l=>l.coSoId===coSoId).forEach(l=>{lopByName[fold(String(l.lop)).toLowerCase().trim()]=l;});
   // Học sinh ĐÃ CÓ trong cơ sở, gom theo TÊN + LỚP → chặn nhập trùng.
   // Gom theo lớp chứ không gom theo tên suông: em học lớp thứ hai phải nhập được bình thường.
   const daCo={}; OPS.hv.filter(h=>h.coSoId===coSoId).forEach(h=>{const k=h.lopId+'|'+nameKey(h.ten);(daCo[k]=daCo[k]||[]).push(h);});
   pickFile(async file=>{
     let rows; try{rows=await readSheet(file);}catch(e){avaAlert('Không đọc được file. Hãy dùng file .xlsx theo mẫu tải về.');return;}
     const r0=rows.firstRow||2;
-    const recs=[],bad=[],badLop=[],dups=[],inFile={};
+    const recs=[],bad=[],badLop=[],dups=[],inFile={},mapMo=[];   // mapMo: tên lớp khớp NHIỀU lớp → không đoán
     rows.forEach((r,i)=>{const dong=r0+i;
       const ten=String(xlPick(r,['ho va ten','ho ten','ten'])).trim(); if(!ten){bad.push(dong);return;}
       const lopCell=String(xlPick(r,['lop hoc','lop'])).trim();
       let lp=lop;                                 // trống → lớp đang chọn trên web
-      if(lopCell){ lp=lopByName[fold(lopCell).toLowerCase().trim()]; if(!lp){badLop.push(dong);return;} }
+      if(lopCell){ const r2=lopTuNhan(lopCell,coSoId);
+        if(r2.nhapNhang){ mapMo.push(dong+': "'+lopCell+'" ('+r2.soLop+' lớp cùng tên)'); return; }   // KHÔNG đoán bừa
+        lp=r2.lop; if(!lp){badLop.push(dong);return;} }
       const nh=anyToIso(xlPick(r,['thoi gian nhap','ngay nhap','nhap hoc','dang ky']));
       const ns=String(xlPick(r,['ngay sinh','sinh'])).trim(), nsIso=anyToIso(ns);
       const tt=fold(String(xlPick(r,['trang thai']))).toLowerCase().trim();
@@ -1722,7 +1723,14 @@ function hsImportExcel(lop){
       if(tf){dups.push({dong,ten,rec,note:'lặp lại trong file (cùng lớp '+lopName(lp.id)+')'});return;}
       (inFile[k]=inFile[k]||[]).push(rec);
       recs.push(rec);});
-    const badText=(bad.length||badLop.length)?('Bỏ qua '+(bad.length+badLop.length)+' dòng'+(bad.length?': '+bad.length+' thiếu họ tên':'')+(badLop.length?((bad.length?'; ':': ')+badLop.length+' sai/không khớp tên lớp (dòng '+badLop.slice(0,15).join(', ')+(badLop.length>15?'…':'')+')'):'')+'.'):'';
+    const boQua=bad.length+badLop.length+mapMo.length;
+    const badText=boQua?('Bỏ qua '+boQua+' dòng'
+      +(bad.length?': '+bad.length+' thiếu họ tên':'')
+      +(badLop.length?((bad.length?'; ':': ')+badLop.length+' sai/không khớp tên lớp (dòng '+badLop.slice(0,15).join(', ')+(badLop.length>15?'…':'')+')'):'')
+      +(mapMo.length?((bad.length||badLop.length?'; ':': ')+mapMo.length+' dòng ghi tên lớp TRÙNG VỚI NHIỀU LỚP nên không biết xếp vào lớp nào — '
+        +mapMo.slice(0,8).join('; ')+(mapMo.length>8?'…':'')
+        +'. Hãy tải lại mẫu Excel mới và chọn lớp trong danh sách xổ xuống (có kèm tên giáo viên)'):'')
+      +'.'):'';
     const extra=`
       <div class="form2" style="margin-top:12px">
         <div class="fld full">
@@ -1823,12 +1831,38 @@ function laDayThay(lopId,ngay){
 }
 let ddDate=todayISO(), ddLopId=null, ghiLopId=null;
 let gdNhapHoc='';   // ngày nhập học đang dùng ở form ghi danh — giữ lại giữa các lần thêm để nhập cả lớp cũ cho nhanh
+/* ===== TÊN LỚP KHÔNG THỂ NHẦM =====
+   Trong CÙNG một cơ sở có nhiều lớp TRÙNG TÊN (Diễn Hồng có 10 lớp cùng tên "L2",
+   khác nhau ở giáo viên và sĩ số). Nếu chỉ dùng tên lớp thì:
+   · ô chọn lớp hiện 10 dòng giống hệt nhau,
+   · nhập Excel sẽ đổ hết học sinh vào MỘT lớp (lớp cuối cùng thắng) mà không báo gì.
+   Nhãn dưới đây kèm giáo viên, và kèm [#mã] khi vẫn còn trùng. */
+function lopNhan(l){
+  if(!l)return '';
+  const cung=LOP.filter(x=>x.coSoId===l.coSoId&&nameKey(x.lop)===nameKey(l.lop));
+  if(cung.length<2) return l.lop;
+  const cungCaGV=cung.filter(x=>nameKey(x.gv||'')===nameKey(l.gv||''));
+  return l.lop+' — '+(l.gv||'chưa phân công')+(cungCaGV.length>1?' [#'+l.id+']':'');
+}
+/* Đọc ngược nhãn về đúng lớp: ưu tiên [#mã], rồi "tên — giáo viên", rồi tên trần */
+function lopTuNhan(txt,coSoId){
+  const s=String(txt||'').trim(); if(!s)return {lop:null,nhapNhang:false};
+  const m=/\[#(\d+)\]/.exec(s);
+  if(m){ const l=LOP.find(x=>x.id===Number(m[1])&&x.coSoId===coSoId); if(l)return {lop:l,nhapNhang:false}; }
+  const dsCs=LOP.filter(x=>x.coSoId===coSoId);
+  const hit=dsCs.filter(x=>nameKey(lopNhan(x))===nameKey(s));
+  if(hit.length===1)return {lop:hit[0],nhapNhang:false};
+  const theoTen=dsCs.filter(x=>nameKey(x.lop)===nameKey(s));
+  if(theoTen.length===1)return {lop:theoTen[0],nhapNhang:false};
+  if(theoTen.length>1) return {lop:null,nhapNhang:true,soLop:theoTen.length};   // trùng tên → KHÔNG đoán bừa
+  return {lop:null,nhapNhang:false};
+}
 /* Lớp được phép điểm danh: có sĩ số, hoặc đã có học sinh, hoặc ĐÃ KHAI LỊCH
    (lớp mới khai lịch mà chưa ghi danh em nào vẫn phải bấm vào được từ danh sách ca). */
 const lopDiemDanhDuoc=l=>l.siso>0||hvOfLop(l.id).length>0||lichOfLop(l.id).length>0;
 function lopPickHTML(selId){
   return inLOP().filter(lopDiemDanhDuoc).slice().sort((a,b)=>csCmp(a.coSoId,b.coSoId))
-    .map(l=>`<option value="${l.id}" ${l.id===selId?'selected':''}>${USER.role==='admin'?csAbbr(l.coSoId)+' · ':''}${esc(l.lop)} — ${esc(l.gv||'?')}</option>`).join('');
+    .map(l=>`<option value="${l.id}" ${l.id===selId?'selected':''}>${USER.role==='admin'?csAbbr(l.coSoId)+' · ':''}${esc(lopNhan(l))}${lopNhan(l)===l.lop?" — "+esc(l.gv||'?'):""}</option>`).join('');
 }
 
 /* ============ STATE ============ */
@@ -2584,6 +2618,7 @@ const HD_HOWTO={
     ['⬆️','Nhập danh sách bằng Excel',[
       'Vào <b>Ghi danh</b> → <b>⬇ Tải mẫu Excel (cả cơ sở)</b> — một file dùng cho mọi lớp của cơ sở.',
       'Điền mỗi em một dòng ngay dưới hàng tiêu đề xanh. Cột <b>Lớp</b> hãy <b>bấm chọn</b> trong danh sách xổ xuống, đừng gõ tay.',
+      '⚠ Nhiều cơ sở có <b>các lớp trùng tên nhau</b> (Diễn Hồng có tới 10 lớp cùng tên “L2”). Vì vậy danh sách xổ xuống ghi kèm <b>tên giáo viên</b>, ví dụ <i>L2 — Nguyễn Thị Vân</i>; lớp nào trùng cả tên lẫn giáo viên thì có thêm mã <i>[#42]</i>. <b>Phải chọn đúng dòng trong danh sách</b> — nếu chỉ gõ trần “L2”, hệ thống sẽ <b>bỏ qua dòng đó và báo lại</b> chứ không xếp bừa vào một lớp nào.',
       'Ngày ghi dạng <b>ngày/tháng/năm</b> (01/09/2015); học phí ghi số không dấu chấm (600000); cột <b>TT</b> chỉ để đánh số.',
       'Em nào <b>học 2 lớp</b> thì ghi <b>2 dòng</b>, mỗi dòng một lớp, <b>cùng họ tên và cùng ngày sinh</b> — hệ thống hiểu là một em học 2 lớp, không báo trùng.',
       'Lưu file → <b>⬆ Nhập Excel</b> → xem trước danh sách → xác nhận. Dòng thiếu họ tên hoặc sai tên lớp sẽ bị bỏ qua và báo rõ số dòng.',
@@ -2668,7 +2703,9 @@ const HD_FAQ=[
   ['Số "học sinh" ít hơn "lượt ghi danh"','Đúng như thiết kế: lượt ghi danh đếm theo lớp, học sinh đếm theo đầu người. Bấm ô tím <b>“N em học ≥2 lớp”</b> để xem danh sách các em học nhiều lớp; bấm lần nữa để bỏ lọc.'],
   ['Không tích được điểm danh, các nút bị mờ','Ca đó đã <b>Đã chốt</b> (khóa). Nhờ Quản trị vào <b>Đối soát</b> bấm <b>🔓 Mở khóa</b>.'],
   ['Xóa lớp không được','Lớp còn học sinh. Vào <b>Học sinh</b> chuyển các em sang lớp khác (hoặc cho thôi học) rồi xóa lớp.'],
-  ['Nhập Excel bị bỏ qua vài dòng','Dòng thiếu <b>họ và tên</b>, hoặc <b>tên lớp không khớp</b> lớp nào của cơ sở. Cửa sổ xem trước có ghi rõ số dòng bị bỏ — sửa file rồi nhập lại.'],
+  ['Nhập Excel bị bỏ qua vài dòng','Dòng thiếu <b>họ và tên</b>, <b>tên lớp không khớp</b> lớp nào của cơ sở, hoặc <b>tên lớp trùng với nhiều lớp</b>. Cửa sổ xem trước ghi rõ số dòng bị bỏ và lý do — sửa file rồi nhập lại.'],
+  ['Nhập Excel báo “tên lớp trùng với nhiều lớp”','Cơ sở đó có mấy lớp cùng tên (VD 10 lớp cùng tên “L2”), hệ thống không đoán bừa. <b>Tải lại mẫu Excel mới</b> rồi chọn lớp trong danh sách xổ xuống — mỗi dòng có kèm tên giáo viên (và mã lớp nếu vẫn trùng) nên chọn là chắc chắn đúng.'],
+  ['Hai giáo viên trùng tên có bị lẫn lương không?','Không. Bảng lương gom theo <b>mã giáo viên</b>, nên hai cô cùng tên ở hai cơ sở khác nhau vẫn là hai dòng riêng, tiền tính riêng. Cột <b>Cơ sở</b> giúp phân biệt khi xem toàn hệ thống.'],
   ['Số liệu trên máy này khác máy kia','Hệ thống tự đồng bộ theo thời gian thực. Nếu đang gõ trong ô nhập, việc vẽ lại tạm hoãn để khỏi mất chữ — bấm <b>↻ Tải lại</b> hoặc chuyển sang mục khác rồi quay lại.'],
   ['Học sinh đã đóng tiền nhưng Sổ quỹ không thấy phiếu','Tiền học phí chỉ vào sổ khi ghi nhận qua khung <b>Các đợt đóng học phí</b> (nút <b>＋ Ghi nhận đóng tiền</b>) trong hồ sơ em đó. Nếu hồ sơ hiện dòng nhắc “chưa có phiếu thu” thì đó là số liệu nhập tay trước đây — hãy ghi nhận lại thành một đợt.'],
   ['Sổ quỹ có phiếu thu học phí nhưng trang Học sinh không thấy em nào đã đóng','Phiếu đó được lập thẳng ở <b>Thu – Chi</b> mà <b>chưa gắn học sinh</b>, nên tiền vào quỹ rồi nhưng hệ thống không biết của em nào. Bảng điều hành sẽ hiện dòng nhắc kèm số tiền. Khắc phục: <b>Thu – Chi</b> → bấm <b>Sửa</b> ở phiếu đó → chọn tên học sinh → Lưu. Lần sau khi lập phiếu, chọn luôn học sinh ở ô <b>“Thu của học sinh nào”</b>.'],
@@ -4165,7 +4202,7 @@ function renderHocVien(){
   const csSel=isAdmin?`<select class="fsel" id="hvCsSel"><option value="all">Tất cả cơ sở</option>${COSO.map(c=>`<option value="${c.id}" ${hvCs===String(c.id)?'selected':''}>${esc(c.ten)}</option>`).join('')}</select>`:'';
   const lopPool=inLOP().filter(l=>(isAdmin&&hvCs!=='all')?l.coSoId===Number(hvCs):true).filter(l=>hvOfLop(l.id).length)
     .slice().sort((a,b)=>csCmp(a.coSoId,b.coSoId));
-  const lopSel=`<select class="fsel" id="hvLopSel"><option value="all">Tất cả lớp</option>${lopPool.map(l=>`<option value="${l.id}" ${hvLop===String(l.id)?'selected':''}>${isAdmin?csAbbr(l.coSoId)+' · ':''}${esc(l.lop)}</option>`).join('')}</select>`;
+  const lopSel=`<select class="fsel" id="hvLopSel"><option value="all">Tất cả lớp</option>${lopPool.map(l=>`<option value="${l.id}" ${hvLop===String(l.id)?'selected':''}>${isAdmin?csAbbr(l.coSoId)+' · ':''}${esc(lopNhan(l))}</option>`).join('')}</select>`;
   const paidSel=`<select class="fsel" id="hvPaidSel">${[['all','Học phí: tất cả'],['yes','Đã đóng'],['no','Chưa đóng']].map(([k,t])=>`<option value="${k}" ${hvPaid===k?'selected':''}>${t}</option>`).join('')}</select>`;
   const sttSel=`<select class="fsel" id="hvSttSel">${[['active','Đang học'+(nActive?' ('+nActive+')':'')],['left','Đã thôi học'+(nLeft?' ('+nLeft+')':'')],['all','Tất cả trạng thái']].map(([k,t])=>`<option value="${k}" ${hvStt===k?'selected':''}>${t}</option>`).join('')}</select>`;
 
@@ -4327,7 +4364,7 @@ function openHvEdit(h){
      <div class="fld full" id="hv_dotBox">${hpDotHTML(h)}</div>
      <div class="fld"><label>Phụ huynh</label><input id="hv_ph" value="${esc(h.ph)}" placeholder="Tên phụ huynh"/></div>
      <div class="fld"><label>Điện thoại</label><input id="hv_sdt" value="${esc(h.sdt)}" inputmode="tel" placeholder="SĐT liên hệ"/></div>
-     <div class="fld full"><label>Lớp đang học</label><select id="hv_lop">${lopsCs.map(l=>`<option value="${l.id}" ${l.id===h.lopId?'selected':''}>${esc(l.lop)} — ${esc(l.gv||'?')}</option>`).join('')}</select></div>
+     <div class="fld full"><label>Lớp đang học</label><select id="hv_lop">${lopsCs.map(l=>`<option value="${l.id}" ${l.id===h.lopId?'selected':''}>${esc(lopNhan(l))}${lopNhan(l)===l.lop?" — "+esc(l.gv||'?'):""}</option>`).join('')}</select></div>
      <div class="fld"><label>Thời gian nhập học</label><input id="hv_nhaphoc" placeholder="dd/mm/yyyy" value="${h.ngayNhapHoc?isoVN(h.ngayNhapHoc):''}"/></div>
      <div class="fld"><label>Trạng thái học</label>
        <div class="hv-stt2" id="hv_stt">
@@ -5397,7 +5434,10 @@ function napGiaCa(){
   catch(e){bcGia=0;bcGiaGV={};}
 }
 const luuGiaCa=()=>{try{localStorage.setItem(giaKey(),JSON.stringify({mac:bcGia,gv:bcGiaGV}));}catch(e){}};
-const giaCua=ten=>Number(bcGiaGV[ten])||bcGia||0;
+/* Đơn giá riêng lưu theo MÃ giáo viên (g.key) — lưu theo tên sẽ áp nhầm sang
+   người khác trùng tên ở cơ sở khác. Vẫn đọc được dữ liệu cũ lưu theo tên. */
+const giaCua=g=>{ if(g&&typeof g==='object') return Number(bcGiaGV[g.key])||Number(bcGiaGV[g.name])||bcGia||0;
+  return Number(bcGiaGV[g])||bcGia||0; };
 const DD_LABEL={co:'Có mặt',muon:'Muộn',phep:'Phép',vang:'Vắng'};
 /* Gom số liệu theo khoảng ngày + phạm vi (cơ sở đang chọn) + lớp (tùy chọn) */
 function bcCollect(){
@@ -5428,12 +5468,16 @@ function bcCollect(){
   for(const k in OPS.ccGV){ const p=k.split('|'); const ngay=p[2]; if(!inR(ngay))continue;
     const lop=LOP.find(l=>l.id===Number(p[1])); if(!okLop(lop))continue;
     // Quy công cho NGƯỜI THỰC DẠY buổi đó, không quy theo GV đang phụ trách lớp
-    const nm=gvTenBuoi(lop.id,ngay); const thay=laDayThay(lop.id,ngay);
-    const gm=gvMap[nm]=gvMap[nm]||{name:nm,day:0,bu:0,nghi:0,thay:0,cs:new Set(),lops:new Set()};
+    const nm=gvTenBuoi(lop.id,ngay), gid=gvDayBuoi(lop.id,ngay), thay=laDayThay(lop.id,ngay);
+    // Gom theo MÃ giáo viên, không theo tên: 12 tên trùng nhau giữa các cơ sở
+    // (Nguyễn Thị Hoa ở Diễn Kỷ và ở Hợp Thành là hai người) — gom theo tên sẽ
+    // cộng công của hai người vào một dòng, bảng lương ra sai tiền.
+    const gkey=(gid!=null)?('#'+gid):('~'+nameKey(nm));
+    const gm=gvMap[gkey]=gvMap[gkey]||{key:gkey,gvId:gid,name:nm,day:0,bu:0,nghi:0,thay:0,cs:new Set(),lops:new Set()};
     const st=OPS.ccGV[k]; if(gm[st]!=null)gm[st]++;
     gm.cs.add(lop.coSoId);
     if(st==='day'||st==='bu'){ gm.lops.add(lop.lop); if(thay)gm.thay++;
-      const gk=nm+'|'+ngay; const gd=gvDayMap[gk]=gvDayMap[gk]||{gv:nm,ngay,n:0,lops:new Set()}; gd.n++; gd.lops.add(lop.lop); }
+      const dk=gkey+'|'+ngay; const gd=gvDayMap[dk]=gvDayMap[dk]||{gv:nm,ngay,n:0,lops:new Set()}; gd.n++; gd.lops.add(lop.lop); }
   }
   // Nhật ký đối soát/chốt
   for(const k in OPS.duyet){ const [lidS,ngay]=k.split('|'); if(!inR(ngay))continue;
@@ -5479,7 +5523,7 @@ function renderBaoCao(){
     <div style="display:grid;gap:6px"><label style="${lb}">TỪ NGÀY</label><input type="date" class="fsel" id="bcFrom" value="${bcFrom}" max="${bcTo}"/></div>
     <div style="display:grid;gap:6px"><label style="${lb}">ĐẾN NGÀY</label><input type="date" class="fsel" id="bcTo" value="${bcTo}"/></div>
     <div style="display:grid;gap:6px;flex:1;min-width:160px"><label style="${lb}">LỚP</label>
-      <select class="fsel" id="bcLop" style="max-width:100%"><option value="all">Tất cả lớp</option>${lopOpts.map(l=>`<option value="${l.id}" ${String(bcLop)===String(l.id)?'selected':''}>${isAdm?csAbbr(l.coSoId)+' · ':''}${esc(l.lop)}</option>`).join('')}</select></div>
+      <select class="fsel" id="bcLop" style="max-width:100%"><option value="all">Tất cả lớp</option>${lopOpts.map(l=>`<option value="${l.id}" ${String(bcLop)===String(l.id)?'selected':''}>${isAdm?csAbbr(l.coSoId)+' · ':''}${esc(lopNhan(l))}</option>`).join('')}</select></div>
     <div style="display:flex;align-items:flex-end"><button class="btn btn-sm btn-xls" id="bcXls" ${anyData?'':'disabled'}>⬇ Xuất Excel</button></div>
   </div>
   <div class="kpis">
@@ -5501,7 +5545,7 @@ function renderBaoCao(){
   D.hsRows.slice(0,150).forEach(r=>{h+=`<tr><td><b>${esc(r.ten)}</b></td>${isAdm?`<td>${esc(r.coSoId!=null?csName(r.coSoId):'—')}</td>`:''}<td>${esc(r.lop)}</td><td class="tright num">${r.tot}</td><td class="tright num">${r.co}</td><td class="tright num">${r.muon}</td><td class="tright num">${r.phep}</td><td class="tright num">${r.vang}</td><td class="tright num">${pctCol(r.pct)}</td></tr>`;});
   h+=`</tbody></table></div>${D.hsRows.length>150?`<div class="muted" style="padding:8px 14px;font-size:.8rem">… và ${D.hsRows.length-150} HS nữa — bấm <b>Xuất Excel</b> để xem đầy đủ.</div>`:''}</div>`;
   // 2) Công & lương giáo viên theo ca
-  const tongCa=D.gvRows.reduce((s,g)=>s+g.ca,0), tongTien=D.gvRows.reduce((s,g)=>s+g.ca*giaCua(g.name),0);
+  const tongCa=D.gvRows.reduce((s,g)=>s+g.ca,0), tongTien=D.gvRows.reduce((s,g)=>s+g.ca*giaCua(g),0);
   h+=`<div class="panel"><div class="phead"><h3>Công &amp; lương giáo viên theo ca</h3>
       <span class="sub">${D.gvRows.length} GV · ${tongCa} ca thực dạy</span></div>
     <div class="pbody" style="padding-bottom:0">
@@ -5517,12 +5561,12 @@ function renderBaoCao(){
     <div class="twrap"><table><thead><tr><th>Giáo viên</th>${isAdm?'<th>Cơ sở</th>':''}<th class="tright">Lên lớp</th><th class="tright">Dạy bù</th><th class="tright">Nghỉ</th><th class="tright">Dạy thay</th><th class="tright">Ca thực dạy</th><th class="tright">Đơn giá/ca</th><th class="tright">Thành tiền</th></tr></thead><tbody>`;
   if(!D.gvRows.length)h+=`<tr><td colspan="${isAdm?9:8}"><div class="empty">Chưa có chấm công trong khoảng này.</div></td></tr>`;
   else{
-    D.gvRows.forEach(g=>{const gia=giaCua(g.name);
+    D.gvRows.forEach(g=>{const gia=giaCua(g);
       h+=`<tr><td><b>${esc(g.name)}</b></td>${isAdm?`<td>${esc(g.csTen)}</td>`:''}
         <td class="tright num">${g.day}</td><td class="tright num">${g.bu}</td><td class="tright num">${g.nghi}</td>
         <td class="tright num">${g.thay?`<span class="paidtag" style="background:var(--violet-soft);color:var(--violet);border-color:#d6c8f5">${g.thay}</span>`:'—'}</td>
         <td class="tright num"><b>${g.ca}</b></td>
-        <td class="tright"><input class="bcGia" data-gv="${esc(g.name)}" inputmode="numeric" value="${gia||''}" placeholder="—"
+        <td class="tright"><input class="bcGia" data-gv="${esc(g.key)}" inputmode="numeric" value="${gia||''}" placeholder="—"
           style="width:110px;padding:5px 8px;border:1px solid var(--line);border-radius:8px;font-weight:700;text-align:right"/></td>
         <td class="tright num"><b>${gia?fmtVND(g.ca*gia):'—'}</b></td></tr>`;});
     h+=`<tr style="background:var(--soft)"><td colspan="${isAdm?6:5}" class="tright"><b>TỔNG CỘNG</b></td>
@@ -5570,8 +5614,8 @@ function bcBind(){
     luuGiaCa(); renderBaoCao();
   };
   $$('#view .bcGia').forEach(el=>{ attachMoneyFormat(el);
-    el.onchange=()=>{ const ten=el.dataset.gv, v=Number(String(el.value).replace(/\D/g,''))||0;
-      if(v)bcGiaGV[ten]=v; else delete bcGiaGV[ten];
+    el.onchange=()=>{ const k=el.dataset.gv, v=Number(String(el.value).replace(/\D/g,''))||0;   // k = mã giáo viên
+      if(v)bcGiaGV[k]=v; else delete bcGiaGV[k];
       luuGiaCa(); renderBaoCao(); }; });
   const il=$('#bcInLuong'); if(il)il.onclick=()=>inBangLuong();
 }
@@ -5580,10 +5624,10 @@ function inBangLuong(){
   const isAdm=USER.role==='admin', D=bcCollect(), now=new Date();
   const phamvi=isAdm?(scope==='all'?'Toàn hệ thống':csName(Number(scope))):csName(USER.coSoId);
   const rows=D.gvRows;
-  const tongCa=rows.reduce((s,g)=>s+g.ca,0), tongTien=rows.reduce((s,g)=>s+g.ca*giaCua(g.name),0);
+  const tongCa=rows.reduce((s,g)=>s+g.ca,0), tongTien=rows.reduce((s,g)=>s+g.ca*giaCua(g),0);
   const cot=[['STT',5],['HỌ VÀ TÊN GIÁO VIÊN',24],['CƠ SỞ',16],['LÊN LỚP',8],['DẠY BÙ',8],['DẠY THAY',8],['CA THỰC DẠY',10],['ĐƠN GIÁ/CA',10],['THÀNH TIỀN',11]];
   const tongW=cot.reduce((s,c)=>s+c[1],0);
-  const body=rows.map((g,i)=>{const gia=giaCua(g.name);
+  const body=rows.map((g,i)=>{const gia=giaCua(g);
     return `<tr><td class="c">${i+1}</td><td>${esc(g.name)}</td><td>${esc(g.csTen)}</td>
       <td class="c">${g.day}</td><td class="c">${g.bu}</td><td class="c">${g.thay||''}</td>
       <td class="c"><b>${g.ca}</b></td><td class="r">${gia?Math.round(gia).toLocaleString('vi-VN'):''}</td>
@@ -5672,7 +5716,7 @@ async function bcExport(){
      {h:'Lên lớp',k:'day',w:10,num:1},{h:'Dạy bù',k:'bu',w:10,num:1},{h:'Nghỉ',k:'nghi',w:9,num:1},
      {h:'Dạy thay',k:'thay',w:10,num:1},{h:'Ca thực dạy',k:'ca',w:12,num:1},
      {h:'Đơn giá/ca',k:'gia',w:14,num:1},{h:'Thành tiền',k:'tien',w:16,num:1}],
-    D.gvRows.map((g,i)=>{const gia=giaCua(g.name);
+    D.gvRows.map((g,i)=>{const gia=giaCua(g);
       return {stt:i+1,gv:g.name,cs:g.csTen,day:g.day,bu:g.bu,nghi:g.nghi,thay:g.thay,ca:g.ca,gia,tien:g.ca*gia};}));
   // 3) Tổng hợp theo lớp
   await bcSheetPro(wb,'Tong hop lop','TỔNG HỢP ĐIỂM DANH THEO LỚP',sub,
