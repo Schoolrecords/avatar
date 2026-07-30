@@ -2058,9 +2058,11 @@ const HD_START={
   admin:[
     ['Chọn phạm vi xem','Ô <b>Toàn hệ thống</b> ở đầu trang: chọn “Toàn hệ thống” để xem cả chuỗi, hoặc chọn một cơ sở để xem riêng. Mọi trang đều theo lựa chọn này.'],
     ['Dựng dữ liệu nền','Vào <b>Giáo viên</b> và <b>Lớp học</b> để thêm giáo viên, thêm lớp và phân công lớp cho giáo viên.'],
+    ['Khai lịch dạy','Vào <b>Lịch học</b> → kiểm tra <b>⏱ Khung ca</b> của cơ sở (mặc định 5 ca, mỗi ca 2 giờ) → bấm từng lớp để tích <b>thứ</b> và <b>ca</b> lớp đó học.'],
     ['Mở tài khoản cho giáo viên','Vào <b>Tài khoản</b> → chọn cơ sở → <b>Tạo tài khoản</b> (hoặc <b>＋ Tạo hàng loạt</b>) rồi phát tên đăng nhập &amp; mật khẩu cho giáo viên.']
   ],
   owner:[
+    ['Khai lịch cho các lớp','Vào <b>Lịch học</b> → bấm từng lớp → tích ô giao giữa <b>ca</b> và <b>thứ</b> mà lớp đó học, điền <b>phòng</b> → <b>Lưu lịch</b>. Khai một lần dùng cả khóa.'],
     ['Ghi danh học sinh','Vào <b>Ghi danh</b> → chọn lớp → nhập từng em, hoặc <b>Tải mẫu Excel (cả cơ sở)</b> rồi <b>Nhập Excel</b>.'],
     ['Cập nhật học phí','Vào <b>Học sinh</b> → bấm <b>Hồ sơ</b> → nhập học phí cả khóa, chọn <b>✓ Đã đóng</b> và số tiền đã nộp. Phiếu thu tự vào Sổ quỹ.'],
     ['Đối soát mỗi cuối ngày','Vào <b>Đối soát</b> → xem các ca <b>Chờ đối soát</b> giáo viên vừa gửi → bấm <b>✓ Chấp nhận</b>.']
@@ -2087,8 +2089,16 @@ const HD_HOWTO={
     ['🏗️','Dựng dữ liệu nền cho một cơ sở',[
       'Vào <b>Giáo viên</b> → chọn cơ sở ở ô lọc → <b>＋ Thêm giáo viên</b>; hoặc <b>⬇ Tải mẫu Excel</b>, điền rồi <b>⬆ Nhập Excel</b> (phải chọn 1 cơ sở trước khi nhập).',
       'Vào <b>Lớp học</b> → <b>＋ Thêm lớp</b>: tên lớp, môn, <b>sĩ số dự kiến</b>, giáo viên phụ trách.',
-      '⚠ Lớp chỉ xuất hiện trong ô chọn lớp của <b>Ghi danh / Điểm danh</b> khi đã có <b>sĩ số dự kiến &gt; 0</b> hoặc đã có ít nhất một học sinh.',
-      'Muốn đổi phân công: <b>Giáo viên</b> → mở hồ sơ → mục <b>Phụ trách lớp</b> → tích/bỏ tích lớp → <b>Lưu thay đổi</b>.'
+      '⚠ Lớp chỉ xuất hiện trong ô chọn lớp của <b>Ghi danh / Điểm danh</b> khi đã có <b>sĩ số dự kiến &gt; 0</b>, đã có ít nhất một học sinh, hoặc <b>đã khai lịch học</b>.',
+      'Muốn đổi phân công: <b>Giáo viên</b> → mở hồ sơ → mục <b>Phụ trách lớp</b> → tích/bỏ tích lớp → <b>Lưu thay đổi</b>.',
+      'Xong lớp thì sang <b>Lịch học</b> khai <b>thứ – ca – phòng</b> cho từng lớp (xem mục dưới).'
+    ]],
+    ['🕐','Khung ca &amp; lịch dạy',[
+      'Vào <b>Lịch học</b> → <b>⏱ Khung ca</b>: mỗi cơ sở một khung riêng. Mặc định 5 ca × 2 giờ: <b>07:00–09:00 · 09:15–11:15 · 15:00–17:00 · 17:15–19:15 · 19:30–21:30</b>. Cơ sở mầm non (ca 55 phút) hoặc trường liên kết thì sửa lại giờ, thêm/bớt ca đều được.',
+      'Khai lịch lớp: bấm dòng lớp ở bảng <b>Lịch từng lớp</b> → tích ô giao giữa <b>ca</b> và <b>thứ</b> → điền <b>Phòng</b> → <b>💾 Lưu lịch</b>.',
+      'Bảng <b>Lịch tuần</b> phía trên hiện ngay thời khóa biểu cả cơ sở; bấm <b>🖶 In lịch tuần</b> để in khổ A4 nằm ngang.',
+      'Nếu xếp <b>một giáo viên hai lớp cùng ca</b> hoặc <b>một phòng hai lớp cùng giờ</b>, hệ thống hiện khung vàng cảnh báo và tô đỏ ô bị trùng — sửa lại rồi lưu.',
+      '⚠ Xóa một ca mà vẫn còn lớp xếp vào ca đó thì hệ thống hỏi lại, vì lịch các lớp ấy sẽ không còn hiện trên bảng.'
     ]],
     ['🔑','Tài khoản đăng nhập cho giáo viên',[
       'Vào <b>Tài khoản</b> → chọn cơ sở. Mỗi giáo viên hiện một dòng kèm trạng thái: <i>Chưa có TK / Đang dùng / Đã khóa</i>.',
@@ -2131,6 +2141,15 @@ const HD_HOWTO={
       'Đổi lớp cho một em: <b>Học sinh</b> → <b>Hồ sơ</b> → ô <b>Lớp đang học</b> → chọn lớp mới → <b>Lưu hồ sơ</b>.',
       'Em nào nghỉ: <b>Hồ sơ</b> → <b>Đã thôi học</b> → nhập ngày + lý do → <b>Lưu</b>. Hồ sơ vẫn giữ nhưng không tính vào sĩ số và dự thu nữa.'
     ]],
+    ['👥','Em học nhiều lớp (nhiều ca trong ngày)',[
+      'Cứ <b>ghi danh vào từng lớp</b> như bình thường — mỗi lớp một lượt, có học phí và ngày nhập học riêng.',
+      'Gõ họ tên ở trang <b>Ghi danh</b>: nếu em đã học lớp khác, hệ thống báo <i>“👥 Em này đang học 2 lớp khác…”</i> và <b>tự điền sẵn</b> ngày sinh, phụ huynh, điện thoại. Hãy để nguyên phần tự điền — có khớp thì hệ thống mới hiểu là <b>một em</b>.',
+      'Trang <b>Học sinh</b> gắn nhãn tím <b>“Học N lớp”</b> (rê chuột thấy tên các lớp). Thống kê hiện cả hai số: <b>đầu người</b> và <b>lượt ghi danh</b>.',
+      'Sửa <b>họ tên · ngày sinh · phụ huynh · điện thoại</b> trong <b>Hồ sơ</b> thì hệ thống <b>tự áp cho mọi lớp</b> em đó học — chỉ cần sửa một lần. Còn <b>học phí · lớp · ngày nhập học</b> chỉ áp cho lớp đang mở.',
+      'Cho thôi học: có ô tích <b>“Cho thôi học cả N lớp”</b>. Không tích thì chỉ thôi lớp đang mở.',
+      'Bấm <b>Xóa</b>: hệ thống hỏi rõ xóa khỏi <b>một lớp</b> hay <b>tất cả các lớp</b>.',
+      '⚠ Hệ thống chỉ báo <b>trùng</b> khi cùng họ tên + cùng ngày sinh + <b>cùng một lớp</b>. Cùng tên khác lớp là bình thường, không phải nhập trùng.'
+    ]],
     ['💰','Học phí — thu theo từng đợt',[
       'Vào <b>Học sinh</b> → <b>Hồ sơ</b> → nhập <b>Học phí (đ/khóa)</b>.',
       'Mỗi lần phụ huynh nộp tiền: ở khung <b>Các đợt đóng học phí</b>, nhập <b>số tiền đợt này</b>, ngày, <b>người nộp</b>, hình thức (tiền mặt / chuyển khoản) → bấm <b>＋ Ghi nhận đóng tiền</b>.',
@@ -2146,7 +2165,11 @@ const HD_HOWTO={
       'Cuối tháng, sau khi đối chiếu xong: chọn <b>kỳ</b> + <b>cơ sở</b> rồi báo Quản trị bấm <b>🔒 Chốt sổ kỳ này</b> — kỳ đó khóa lại, không ai thêm/sửa/xóa phiếu được nữa.'
     ]],
     ['🗓️','Điểm danh &amp; đối soát',[
-      'Vào <b>Điểm danh</b> → chọn <b>ngày</b> và <b>lớp</b> → tích <b>Có / Muộn / Phép / Vắng</b> (Phép = vắng có xin phép). Mỗi lần tích là lưu ngay; bấm lại đúng nút đang chọn để bỏ điểm danh em đó.',
+      'Vào <b>Điểm danh</b> — đầu trang là khung <b>Ca trong ngày</b>: mỗi ca một dòng có số ca, giờ, phòng, lớp, giáo viên, đã điểm mấy em và trạng thái đối soát. <b>Bấm một dòng</b> là vào thẳng lớp đó, khỏi phải tìm trong ô chọn lớp.',
+      'Muốn xem ngày khác thì đổi ô <b>ngày</b>; khung ca sẽ hiện lịch của đúng thứ đó.',
+      'Dạy bù ngoài lịch: cứ chọn lớp ở ô <b>LỚP</b> như trước — hệ thống gắn nhãn <b>“ngoài lịch”</b> để phân biệt, vẫn điểm danh bình thường.',
+      'Tích <b>Có / Muộn / Phép / Vắng</b> (Phép = vắng có xin phép). Mỗi lần tích là lưu ngay; bấm lại đúng nút đang chọn để bỏ điểm danh em đó.',
+      'Bấm <b>🖶 In danh sách</b> để in bảng điểm danh khổ A4 của đúng lớp – đúng ca đó, có ô ký của Giáo viên, Lễ tân và Quản trị.',
       'Khung <b>Chấm công giáo viên</b> phía trên: chọn <b>Lên lớp / Nghỉ / Dạy bù</b> cho buổi dạy.',
       'Cơ sở <b>có</b> tài khoản giáo viên: giáo viên tự điểm danh rồi gửi lên — lễ tân vào <b>Đối soát</b> bấm <b>✓ Chấp nhận</b>.',
       'Cơ sở <b>chưa có</b> tài khoản giáo viên: lễ tân tự điểm danh rồi bấm <b>✓ Gửi đối soát</b> — ca chuyển thẳng sang <b>Đã đối soát</b> chờ Quản trị chốt.',
@@ -2156,15 +2179,25 @@ const HD_HOWTO={
       'Vào <b>Ghi danh</b> → <b>⬇ Tải mẫu Excel (cả cơ sở)</b> — một file dùng cho mọi lớp của cơ sở.',
       'Điền mỗi em một dòng ngay dưới hàng tiêu đề xanh. Cột <b>Lớp</b> hãy <b>bấm chọn</b> trong danh sách xổ xuống, đừng gõ tay.',
       'Ngày ghi dạng <b>ngày/tháng/năm</b> (01/09/2015); học phí ghi số không dấu chấm (600000); cột <b>TT</b> chỉ để đánh số.',
-      'Lưu file → <b>⬆ Nhập Excel</b> → xem trước danh sách → xác nhận. Dòng thiếu họ tên hoặc sai tên lớp sẽ bị bỏ qua và báo rõ số dòng.'
+      'Em nào <b>học 2 lớp</b> thì ghi <b>2 dòng</b>, mỗi dòng một lớp, <b>cùng họ tên và cùng ngày sinh</b> — hệ thống hiểu là một em học 2 lớp, không báo trùng.',
+      'Lưu file → <b>⬆ Nhập Excel</b> → xem trước danh sách → xác nhận. Dòng thiếu họ tên hoặc sai tên lớp sẽ bị bỏ qua và báo rõ số dòng.',
+      'Chỉ những dòng <b>trùng tên + trùng ngày sinh + cùng một lớp</b> mới bị chặn — nên up lại file cũ không sợ nhân đôi danh sách.'
     ]]
   ],
   teacher:[
     ['🗓️','Điểm danh học sinh',[
-      'Đăng nhập là vào thẳng <b>Điểm danh</b>. Chọn <b>ngày</b> và <b>lớp</b> mình phụ trách ở đầu trang.',
+      'Đăng nhập là vào thẳng <b>Điểm danh</b>. Đầu trang là khung <b>Ca dạy của tôi</b> — liệt kê các ca mình dạy hôm nay kèm giờ, phòng và lớp. <b>Bấm một ca</b> là vào đúng lớp đó.',
+      'Dạy nhiều ca trong ngày thì cứ điểm danh xong ca này, bấm sang ca khác ngay trên khung đó.',
+      'Muốn xem ngày khác (dạy bù, xem lại hôm trước) thì đổi ô <b>ngày</b>.',
       'Tích <b>Có / Muộn / Phép / Vắng</b> cho từng em (Phép = vắng có xin phép) — tích tới đâu lưu tới đó, không cần bấm Lưu.',
       'Bấm lại đúng nút đang chọn để bỏ điểm danh em đó.',
+      'Cần bản giấy: bấm <b>🖶 In danh sách</b> — bảng điểm danh khổ A4 có tên lớp, ca, giờ, phòng và ô ký.',
       'Khung <b>Chấm công giáo viên</b> phía trên: chọn <b>Lên lớp</b>, <b>Nghỉ</b> hoặc <b>Dạy bù</b> cho buổi dạy của mình.'
+    ]],
+    ['📅','Xem lịch dạy của tôi',[
+      'Vào menu <b>Lịch học</b> — bảng <b>Lịch dạy của tôi</b> hiện cả tuần: hàng là <b>ca</b> (kèm giờ), cột là <b>thứ</b>, ô là lớp mình dạy và phòng.',
+      'Bảng phía dưới liệt kê từng lớp kèm lịch dạng gọn, ví dụ <i>“T3, T5, T7 · Ca 1 · Phòng 3”</i>.',
+      'Giáo viên chỉ <b>xem</b>, không sửa lịch. Lịch sai thì báo lễ tân cơ sở sửa lại.'
     ]],
     ['✅','Gửi đối soát',[
       'Điểm danh xong, bấm <b>✓ Gửi đối soát</b> ở khung <b>Ca dạy</b> phía trên.',
@@ -2204,7 +2237,12 @@ const HD_NUMBERS=[
 const HD_FAQ=[
   ['Đăng nhập báo “Tài khoản chưa được phân quyền”','Tài khoản đã tạo nhưng chưa gán vai trò. Báo Quản trị gán vai trò (Giám đốc / Lễ tân) hoặc tạo lại tài khoản giáo viên trong mục <b>Tài khoản</b>.'],
   ['Giáo viên đăng nhập báo “chưa được gắn lớp phụ trách”','Vào <b>Giáo viên</b> → mở hồ sơ giáo viên đó → mục <b>Phụ trách lớp</b> → tích lớp → <b>Lưu thay đổi</b>. Sau đó giáo viên đăng nhập lại.'],
-  ['Không thấy lớp trong ô chọn lớp của Ghi danh / Điểm danh','Lớp đó chưa có <b>sĩ số dự kiến</b> và cũng chưa có học sinh nào. Vào <b>Lớp học</b> → mở lớp → nhập sĩ số dự kiến.'],
+  ['Không thấy lớp trong ô chọn lớp của Ghi danh / Điểm danh','Lớp đó chưa có <b>sĩ số dự kiến</b>, chưa có học sinh nào và cũng <b>chưa khai lịch</b>. Vào <b>Lớp học</b> nhập sĩ số dự kiến, hoặc vào <b>Lịch học</b> khai lịch cho lớp đó.'],
+  ['Khung “Ca trong ngày” báo hôm nay không có lớp nào','Các lớp chưa được khai lịch, hoặc hôm đó đúng là không có lớp nào học. Vào <b>Lịch học</b> → bấm từng lớp → tích thứ và ca. Vẫn điểm danh được bằng cách chọn lớp ở ô <b>LỚP</b> (sẽ có nhãn <i>ngoài lịch</i>).'],
+  ['Không thấy menu “Lịch học”','Quản trị chưa chạy file <b>sql-giai-doan-6-ca.sql</b> trong Supabase → SQL Editor. Chạy xong tải lại trang (Ctrl+F5).'],
+  ['Lịch báo khung vàng “xếp trùng”','Một giáo viên bị xếp hai lớp cùng ca, hoặc một phòng bị xếp hai lớp cùng giờ. Ô bị trùng được tô đỏ trên bảng lịch tuần — mở lớp đó sửa lại ca hoặc phòng.'],
+  ['Một em học 2 lớp có bị coi là nhập trùng không?','Không. Trùng chỉ tính khi <b>cùng họ tên + cùng ngày sinh + cùng một lớp</b>. Em học 2 lớp có nhãn tím <b>“Học 2 lớp”</b>, được đếm là <b>1 học sinh</b> nhưng vẫn tính <b>2 sĩ số lớp</b> và <b>2 khoản học phí</b>.'],
+  ['Một em bị đếm thành 2 học sinh','Hai lượt ghi danh của em đó ghi <b>khác ngày sinh</b> (hoặc một bên bỏ trống) nên hệ thống tưởng là hai em. Mở <b>Hồ sơ</b> từng lượt, sửa cho ngày sinh giống nhau — sửa xong hệ thống tự gộp lại.'],
   ['Không tích được điểm danh, các nút bị mờ','Ca đó đã <b>Đã chốt</b> (khóa). Nhờ Quản trị vào <b>Đối soát</b> bấm <b>🔓 Mở khóa</b>.'],
   ['Xóa lớp không được','Lớp còn học sinh. Vào <b>Học sinh</b> chuyển các em sang lớp khác (hoặc cho thôi học) rồi xóa lớp.'],
   ['Nhập Excel bị bỏ qua vài dòng','Dòng thiếu <b>họ và tên</b>, hoặc <b>tên lớp không khớp</b> lớp nào của cơ sở. Cửa sổ xem trước có ghi rõ số dòng bị bỏ — sửa file rồi nhập lại.'],
