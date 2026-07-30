@@ -472,9 +472,20 @@ tbody tr:hover{background:var(--soft)}
 .tkb .tkitem b{display:block;font-size:.76rem;font-weight:800}
 .tkb .tkitem small{display:block;color:var(--muted);font-size:.68rem;font-weight:600}
 .tkb .tkitem.dup{border-left-color:var(--rose);background:var(--rose-soft)}
-.lwarn{background:var(--amber-soft);border:1px solid #f0d79a;border-radius:12px;padding:10px 12px;font-size:.8rem;font-weight:600;margin-bottom:12px}
-.lwarn b{display:block;margin-bottom:3px}
-.lwarn ul{margin:4px 0 0;padding-left:18px}
+.lwarn{background:#fffaf0;border:1.5px solid #f0d79a;border-radius:14px;padding:13px 15px;font-size:.82rem;font-weight:600;margin-bottom:14px}
+.lwarn>b{display:block;margin-bottom:6px;font-size:.95rem;color:#8a5a00}
+.lw-giai{font-weight:600;line-height:1.65;color:#6b5322;background:#fff;border:1px solid #f2e3bf;border-radius:11px;padding:10px 12px;margin-bottom:11px}
+.lw-gv{background:#fff;border:1px solid #f2e3bf;border-radius:11px;padding:9px 11px;margin-bottom:8px}
+.lw-ten{font-weight:800;font-size:.88rem;color:var(--ink);margin-bottom:6px;display:flex;align-items:center;gap:8px}
+.lw-dem{font-size:.7rem;font-weight:800;background:var(--amber-soft);color:var(--amber);padding:2px 9px;border-radius:99px}
+.lw-slot{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:5px 0;border-top:1px dashed #f0e3c8}
+.lw-slot:first-of-type{border-top:0}
+.lw-khi{font-size:.78rem;font-weight:700;color:var(--muted);min-width:190px}
+.lw-lop{font-size:.78rem;font-weight:800;background:var(--rose-soft);color:var(--rose);border:1.4px solid #f2bcbf;
+  border-radius:9px;padding:4px 11px;cursor:pointer;transition:.14s}
+.lw-lop:hover{background:var(--rose);color:#fff;border-color:var(--rose)}
+.lw-them{font-size:.8rem;font-weight:600;color:var(--muted);padding:2px 2px 0}
+@media(max-width:560px){.lw-khi{min-width:100%}}
 /* ===== THÔNG BÁO CỦA TRUNG TÂM ===== */
 .tbcard{border:1.6px solid var(--line);border-left-width:5px;border-radius:14px;background:#fff;padding:13px 15px;margin-bottom:11px;transition:.14s}
 .tbcard:hover{box-shadow:var(--shadow-sm)}
@@ -2379,7 +2390,8 @@ const HD_HOWTO={
       'Khai lịch lớp: bấm dòng lớp ở bảng <b>Lịch từng lớp</b> → tích ô giao giữa <b>ca</b> và <b>thứ</b> → điền <b>Phòng</b> → <b>💾 Lưu lịch</b>.',
       '<b>Sửa giờ ngay khi đang khai lịch:</b> trong cửa sổ đó, dưới tên mỗi ca có sẵn 2 ô giờ — sửa thẳng vào đó rồi bấm <b>Lưu lịch</b>, hệ thống lưu cả giờ ca lẫn lịch trong một lần. ⚠ Giờ ca dùng chung cho <b>mọi lớp của cơ sở</b>, không riêng lớp đang mở.',
       'Bảng <b>Lịch tuần</b> phía trên hiện ngay thời khóa biểu cả cơ sở; bấm <b>🖶 In lịch tuần</b> để in khổ A4 nằm ngang.',
-      'Nếu xếp <b>một giáo viên hai lớp cùng ca</b> hoặc <b>một phòng hai lớp cùng giờ</b>, hệ thống hiện khung vàng cảnh báo và tô đỏ ô bị trùng — sửa lại rồi lưu.',
+      'Nếu xếp <b>một giáo viên hai lớp cùng ca</b> hoặc <b>một phòng hai lớp cùng giờ</b>, hệ thống hiện khung vàng cảnh báo, gom theo từng giáo viên kèm thứ – ca – giờ. <b>Bấm thẳng tên lớp</b> trong khung đó để mở ra sửa lịch. (Đây không phải lỗi “một lớp hai giáo viên” — mỗi lớp vẫn chỉ có một người phụ trách.)',
+      'Muốn soi lịch của riêng một người: chọn tên ở ô <b>Tất cả giáo viên</b> — bảng lịch tuần chỉ còn lớp của người đó.',
       '⚠ Xóa một ca mà vẫn còn lớp xếp vào ca đó thì hệ thống hỏi lại, vì lịch các lớp ấy sẽ không còn hiện trên bảng.'
     ]],
     ['🔑','Tài khoản đăng nhập cho giáo viên',[
@@ -2556,7 +2568,8 @@ const HD_FAQ=[
   ['Không thấy menu “Lịch học”','Quản trị chưa chạy file <b>sql-giai-doan-6-ca.sql</b> trong Supabase → SQL Editor. Chạy xong tải lại trang (Ctrl+F5).'],
   ['Menu Thông báo báo “Chưa bật tính năng”','Quản trị chưa chạy file <b>sql-giai-doan-8-thong-bao.sql</b>. Chạy xong tải lại trang (Ctrl+F5).'],
   ['Giáo viên không thấy thông báo vừa gửi','Kiểm tra lại 2 ô khi soạn tin: <b>Gửi cho</b> phải là <i>Tất cả</i> hoặc <i>Giáo viên</i>; <b>Phạm vi</b> phải là <i>Toàn chuỗi</i> hoặc đúng cơ sở của giáo viên đó. Cũng kiểm tra <b>Hiển thị đến ngày</b> đã qua chưa.'],
-  ['Lịch báo khung vàng “xếp trùng”','Một giáo viên bị xếp hai lớp cùng ca, hoặc một phòng bị xếp hai lớp cùng giờ. Ô bị trùng được tô đỏ trên bảng lịch tuần — mở lớp đó sửa lại ca hoặc phòng.'],
+  ['Lịch báo khung vàng “xếp trùng”','⚠ Đây <b>KHÔNG</b> phải lỗi “một lớp có hai giáo viên” — mỗi lớp vẫn chỉ có một giáo viên phụ trách. Nghĩa là <b>cùng một giáo viên bị xếp dạy nhiều lớp trong CÙNG MỘT CA</b>, mà một người không thể đứng hai lớp cùng lúc. Khung cảnh báo gom theo từng giáo viên, kèm thứ – ca – giờ; <b>bấm thẳng tên lớp</b> trong đó để mở ra sửa. Hai cách sửa: chuyển lớp sang <b>thứ hoặc ca khác</b>, hoặc vào mục <b>Giáo viên</b> đổi người phụ trách cho một trong các lớp đó. Ô bị trùng cũng được tô đỏ trên bảng lịch tuần.'],
+  ['Muốn xem lịch riêng của một giáo viên','Trang <b>Lịch học</b> có ô <b>Tất cả giáo viên</b> — chọn tên một người thì bảng lịch tuần chỉ còn lớp của người đó, nhìn là thấy ngay họ có bị xếp hai lớp cùng ca không. Khung cảnh báo vẫn tính trên cả cơ sở nên không bỏ sót ai.'],
   ['Một em học 2 lớp có bị coi là nhập trùng không?','Không. Trùng chỉ tính khi <b>cùng họ tên + cùng ngày sinh + cùng một lớp</b>. Em học 2 lớp có nhãn tím <b>“Học 2 lớp”</b>, được đếm là <b>1 học sinh</b> nhưng vẫn tính <b>2 sĩ số lớp</b> và <b>2 khoản học phí</b>.'],
   ['Một em bị đếm thành 2 học sinh','Hai lượt ghi danh của em đó ghi <b>khác ngày sinh</b> hoặc <b>khác số điện thoại</b> nên hệ thống tưởng là hai em. Mở <b>Hồ sơ</b> từng lượt, sửa cho hai thông tin đó giống nhau — sửa xong hệ thống tự gộp lại.'],
   ['Hai em khác nhau bị đếm thành 1 học sinh','Hai em trùng tên mà <b>bỏ trống cả ngày sinh lẫn số điện thoại</b> thì máy không có căn cứ nào để phân biệt. Mở <b>Hồ sơ</b> điền ngày sinh (hoặc số điện thoại phụ huynh) khác nhau là hệ thống tách ra ngay.'],
@@ -4698,25 +4711,38 @@ function renderDuyet(){
    Quản trị / Lễ tân: khai khung ca của cơ sở + lịch từng lớp, xem thời khóa biểu tuần.
    Giáo viên: chỉ XEM lịch dạy của mình. */
 let lhCs='auto';                       // cơ sở đang xem (admin chọn); 'auto' = theo ô Phạm vi
+let lhGv='all';                        // lọc lưới lịch theo 1 giáo viên (để soi chỗ xếp trùng)
 function lhCoSo(){
   if(USER.role!=='admin') return USER.coSoId;
   if(lhCs!=='auto') return Number(lhCs);
   return scope!=='all' ? Number(scope) : (inCOSO().filter(c=>!c.build)[0]||{id:0}).id;
 }
-/* Tìm các va chạm trong lịch 1 cơ sở: 1 GV dạy 2 lớp cùng thứ+ca, hoặc 1 phòng xếp 2 lớp cùng lúc */
+/* Dò lịch xếp trùng GIỜ trong 1 cơ sở.
+   Ý nghĩa: cùng MỘT giáo viên (hoặc MỘT phòng) bị xếp cho NHIỀU LỚP trong cùng thứ + ca.
+   KHÔNG phải lỗi "một lớp có hai giáo viên" — mỗi lớp vẫn chỉ có một GV phụ trách.
+   Gom cả nhóm (3 lớp cùng ca thì gom thành 1 chỗ, không tách thành 3 cặp rời rạc). */
 function lichTrung(coSoId){
-  const gvKey={}, phKey={}, gv=[], ph=[], dup=new Set();
+  const oGv={}, oPh={}, dup=new Set();
   OPS.lich.forEach(x=>{
     const lop=LOP.find(l=>l.id===x.lopId); if(!lop||lop.coSoId!==coSoId)return;
     const slot=x.thu+'|'+x.caMa;
-    if(lop.gv){ const k=slot+'|'+lop.gv;
-      if(gvKey[k]){ gv.push({thu:x.thu,caMa:x.caMa,ten:lop.gv,lops:[gvKey[k],lop.lop]}); dup.add(lop.id); dup.add(gvKey[k+'_id']); }
-      else { gvKey[k]=lop.lop; gvKey[k+'_id']=lop.id; } }
+    if(lop.gv){ const k=slot+'|'+nameKey(lop.gv);      // bỏ qua hoa/thường & khoảng trắng thừa
+      const g=oGv[k]=oGv[k]||{thu:x.thu,caMa:x.caMa,ten:lop.gv,lops:[]};
+      if(!g.lops.some(l=>l.id===lop.id))g.lops.push(lop); }
     if(x.phong){ const k=slot+'|'+phongKey(x.phong);   // "Phòng 1" và "phòng 1" là một
-      if(phKey[k]){ ph.push({thu:x.thu,caMa:x.caMa,ten:x.phong,lops:[phKey[k],lop.lop]}); dup.add(lop.id); dup.add(phKey[k+'_id']); }
-      else { phKey[k]=lop.lop; phKey[k+'_id']=lop.id; } }
+      const g=oPh[k]=oPh[k]||{thu:x.thu,caMa:x.caMa,ten:x.phong,lops:[]};
+      if(!g.lops.some(l=>l.id===lop.id))g.lops.push(lop); }
   });
+  const loc=o=>Object.values(o).filter(g=>g.lops.length>1).sort((a,b)=>a.thu-b.thu||a.caMa-b.caMa);
+  const gv=loc(oGv), ph=loc(oPh);
+  [...gv,...ph].forEach(g=>g.lops.forEach(l=>dup.add(l.id)));
   return {gv,ph,dup};
+}
+/* Gom các chỗ trùng theo TỪNG giáo viên để lễ tân xử lý gọn từng người một */
+function trungTheoGV(ds){
+  const m={};
+  ds.forEach(g=>{const k=nameKey(g.ten);(m[k]=m[k]||{ten:g.ten,slots:[]}).slots.push(g);});
+  return Object.values(m).sort((a,b)=>b.slots.length-a.slots.length);
 }
 function renderLichHoc(){
   const isTe=USER.role==='teacher', canSua=!isTe;
@@ -4727,21 +4753,40 @@ function renderLichHoc(){
   }
   const coSoId=lhCoSo(), cas=caList(coSoId);
   // GV: chỉ lớp mình. Lễ tân/Quản trị: toàn bộ lớp của cơ sở đang xem.
-  const lops=isTe ? inLOP().slice() : LOP.filter(l=>l.coSoId===coSoId);
-  const tr=isTe?{gv:[],ph:[],dup:new Set()}:lichTrung(coSoId);
+  let lops=isTe ? inLOP().slice() : LOP.filter(l=>l.coSoId===coSoId);
+  const tr=isTe?{gv:[],ph:[],dup:new Set()}:lichTrung(coSoId);   // dò trùng trên TOÀN cơ sở, trước khi lọc
+  if(!isTe && lhGv!=='all') lops=lops.filter(l=>l.gv===lhGv);
 
   let h='';
   if(!isTe){
     const csOpts=inCOSO().filter(c=>!c.build).map(c=>`<option value="${c.id}" ${c.id===coSoId?'selected':''}>${esc(c.ten)}</option>`).join('');
+    // Lọc theo giáo viên: xem lịch của riêng một người là thấy ngay họ có bị xếp trùng ca không
+    const gvCo=[...new Set(LOP.filter(l=>l.coSoId===coSoId&&l.gv).map(l=>l.gv))].sort((a,b)=>a.localeCompare(b,'vi'));
     h+=`<div class="toolbar">
-      ${USER.role==='admin'?`<select class="fsel" id="lhcs" style="flex:1;min-width:180px;max-width:100%">${csOpts}</select>`:''}
+      ${USER.role==='admin'?`<select class="fsel" id="lhcs" style="flex:1;min-width:170px;max-width:100%">${csOpts}</select>`:''}
+      <select class="fsel" id="lhgv" style="flex:1;min-width:170px;max-width:100%"><option value="all">Tất cả giáo viên</option>${
+        gvCo.map(g=>`<option value="${esc(g)}" ${lhGv===g?'selected':''}>${esc(g)}</option>`).join('')}</select>
       <button class="btn btn-sm btn-ghost" id="lhCa" style="white-space:nowrap">⏱ Khung ca</button>
       <button class="btn btn-sm btn-light" id="lhPrint" style="white-space:nowrap">🖶 In lịch tuần</button>
     </div>`;
     if(tr.gv.length||tr.ph.length){
-      const li=[...tr.gv.map(x=>`${THU_DAI[x.thu]} · Ca ${x.caMa}: <b>${esc(x.ten)}</b> bị xếp dạy cùng lúc lớp ${esc(x.lops[0])} và ${esc(x.lops[1])}`),
-                ...tr.ph.map(x=>`${THU_DAI[x.thu]} · Ca ${x.caMa}: phòng <b>${esc(x.ten)}</b> bị xếp 2 lớp ${esc(x.lops[0])} và ${esc(x.lops[1])}`)];
-      h+=`<div class="lwarn"><b>⚠️ Lịch đang bị xếp trùng (${li.length} chỗ)</b><ul>${li.map(t=>'<li>'+t+'</li>').join('')}</ul></div>`;
+      const dongSlot=(g,coSoId)=>{const gio=caGio(coSoId,g.caMa);
+        return `<div class="lw-slot"><span class="lw-khi">${THU_DAI[g.thu]} · Ca ${g.caMa}${gio?' ('+esc(gio)+')':''}</span>
+          ${g.lops.map(l=>`<button class="lw-lop" data-lwlop="${l.id}" title="Bấm để sửa lịch lớp ${esc(l.lop)}">${esc(l.lop)}</button>`).join('')}</div>`;};
+      const nhomGV=trungTheoGV(tr.gv), CAP=6;
+      h+=`<div class="lwarn">
+        <b>⚠️ Có ${tr.gv.length+tr.ph.length} chỗ xếp trùng giờ — cần xem lại</b>
+        <div class="lw-giai">Đây <b>KHÔNG</b> phải lỗi “một lớp có hai giáo viên”. Mỗi lớp vẫn chỉ có một giáo viên phụ trách.
+          <br/>Ý nghĩa: <b>cùng một giáo viên bị xếp dạy nhiều lớp trong CÙNG MỘT CA</b> — một người không thể đứng hai lớp cùng lúc.
+          <br/><b>Cách sửa:</b> bấm tên lớp bên dưới để đổi sang <b>thứ hoặc ca khác</b>; hoặc vào mục <b>Giáo viên</b> đổi người phụ trách cho một trong các lớp đó.</div>`;
+      nhomGV.slice(0,CAP).forEach(n=>{
+        h+=`<div class="lw-gv"><div class="lw-ten">👩‍🏫 ${esc(n.ten)} <span class="lw-dem">${n.slots.length} chỗ</span></div>
+          ${n.slots.map(g=>dongSlot(g,coSoId)).join('')}</div>`;});
+      if(nhomGV.length>CAP) h+=`<div class="lw-them">… và ${nhomGV.length-CAP} giáo viên nữa cũng bị trùng.</div>`;
+      if(tr.ph.length) h+=`<div class="lw-gv"><div class="lw-ten">🚪 Trùng phòng học <span class="lw-dem">${tr.ph.length} chỗ</span></div>
+        ${tr.ph.map(g=>`<div class="lw-slot"><span class="lw-khi">${THU_DAI[g.thu]} · Ca ${g.caMa} · phòng ${esc(g.ten)}</span>
+          ${g.lops.map(l=>`<button class="lw-lop" data-lwlop="${l.id}">${esc(l.lop)}</button>`).join('')}</div>`).join('')}</div>`;
+      h+=`</div>`;
     }
   }
   // ----- Hôm nay dạy gì (giáo viên mở app là thấy ngay) -----
@@ -4796,7 +4841,10 @@ function renderLichHoc(){
   $('#view').innerHTML=h;
   tbBarBind();
   $$('#view .carow[data-golop]').forEach(r=>r.onclick=()=>{ddLopId=Number(r.dataset.golop);ddDate=todayISO();go('diemdanh');});
-  const sel=$('#lhcs'); if(sel)sel.onchange=e=>{lhCs=e.target.value;renderLichHoc();};
+  const sel=$('#lhcs'); if(sel)sel.onchange=e=>{lhCs=e.target.value;lhGv='all';renderLichHoc();};
+  const sg=$('#lhgv'); if(sg)sg.onchange=e=>{lhGv=e.target.value;renderLichHoc();};
+  // Bấm tên lớp trong khung cảnh báo → mở thẳng cửa sổ sửa lịch của lớp đó
+  $$('#view [data-lwlop]').forEach(b=>b.onclick=()=>{const l=LOP.find(x=>x.id===Number(b.dataset.lwlop));if(l)openLopLich(l);});
   const bc=$('#lhCa'); if(bc)bc.onclick=()=>openKhungCa(coSoId);
   const bp=$('#lhPrint'); if(bp)bp.onclick=()=>inLichTuan(coSoId,lops);
   if(canSua)$$('#view [data-lich]').forEach(r=>r.onclick=()=>{const l=LOP.find(x=>x.id===Number(r.dataset.lich));if(l)openLopLich(l);});
