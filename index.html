@@ -902,17 +902,42 @@ const gvToDb=o=>({ten:o.ten,ns:o.ns||'',td:o.td||'',dc:o.dc||'',sdt:o.sdt||'',mo
 const lopFromDb=r=>({id:r.id,lop:r.lop,gv:r.gv||'',siso:Number(r.siso)||0,mon:r.mon||'VH',coSoId:r.coso_id,gvId:(r.gv_id!=null?r.gv_id:null)});
 const lopToDb=o=>({lop:o.lop,gv:o.gv||'',siso:Number(o.siso)||0,mon:o.mon||'VH',coso_id:o.coSoId});
 let gvLive=false;   // true khi đã chạy SQL Giai đoạn 2 (GV/Lớp lấy từ Supabase)
+/* ===== TẢI DỮ LIỆU LỚN AN TOÀN =====
+   Supabase cắt mỗi truy vấn ở ~1000 dòng. Với 341 lớp (vài nghìn học sinh) mà
+   không phân trang thì app hiện THIẾU dữ liệu mà KHÔNG báo lỗi. fetchAll() tải
+   theo lô cho tới hết. Truyền hàm tạo query (builder dùng 1 lần là hỏng). */
+const PAGE_SIZE=1000;
+async function fetchAll(build){
+  const out=[]; let buoc=PAGE_SIZE;
+  for(let from=0; from<400000; from+=buoc){
+    const {data,error}=await build().range(from,from+PAGE_SIZE-1);
+    if(error)return {data:null,error};
+    const lo=data||[]; out.push(...lo);
+    // Lô đầu cho biết server thật sự trả tối đa bao nhiêu dòng (cấu hình "Max rows" của Supabase
+    // có thể nhỏ hơn 1000) — lấy đó làm bước nhảy, nếu không sẽ dừng sớm và mất dữ liệu.
+    if(from===0){ if(!lo.length)break; buoc=lo.length; }
+    else if(lo.length<buoc)break;
+  }
+  return {data:out,error:null};
+}
+const DD_SO_NGAY=120;              // điểm danh / chấm công / đối soát: tải sẵn ~4 tháng gần nhất
+function isoCongNgay(iso,d){const t=new Date(iso+'T00:00:00');t.setDate(t.getDate()+d);
+  return `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;}
+let ddFrom='';                     // mốc ngày sớm nhất ĐÃ tải
+let ddFromWanted='';               // mốc sớm nhất CẦN tải (nới ra khi xem báo cáo cũ; loadCloud giữ nguyên mốc này)
 async function loadCloud(){
+  const mocMacDinh=isoCongNgay(todayISO(),-DD_SO_NGAY);
+  ddFrom=(ddFromWanted && ddFromWanted<mocMacDinh) ? ddFromWanted : mocMacDinh;
   const [hv,gd,dd,cc,ge,gvR,lopR,dz,cs]=await Promise.all([
-    SB.from('hoc_vien').select('*'),
-    SB.from('so_quy').select('*'),
-    SB.from('diem_danh_hv').select('*'),
-    SB.from('cham_cong_gv').select('*'),
-    SB.from('gv_edits').select('*'),
-    SB.from('giao_vien').select('*'),
-    SB.from('lop_hoc').select('*'),
-    SB.from('duyet_diem_danh').select('*'),
-    SB.from('chot_so_quy').select('*')
+    fetchAll(()=>SB.from('hoc_vien').select('*')),
+    fetchAll(()=>SB.from('so_quy').select('*')),          // sổ quỹ tải đủ: tồn quỹ tính lũy kế từ đầu
+    fetchAll(()=>SB.from('diem_danh_hv').select('*').gte('ngay',ddFrom)),
+    fetchAll(()=>SB.from('cham_cong_gv').select('*').gte('ngay',ddFrom)),
+    fetchAll(()=>SB.from('gv_edits').select('*')),
+    fetchAll(()=>SB.from('giao_vien').select('*')),
+    fetchAll(()=>SB.from('lop_hoc').select('*')),
+    fetchAll(()=>SB.from('duyet_diem_danh').select('*').gte('ngay',ddFrom)),
+    fetchAll(()=>SB.from('chot_so_quy').select('*'))
   ]);
   if(hv.error||gd.error||dd.error||cc.error) throw (hv.error||gd.error||dd.error||cc.error);
   OPS.hv=(hv.data||[]).map(hvFromDb);
@@ -939,6 +964,26 @@ async function loadCloud(){
       applyGvEdits(ge.data||[]);
     }
   }
+}
+/* Xem báo cáo khoảng ngày cũ hơn phần đã tải → tải bù đúng khúc còn thiếu (không tải lại từ đầu) */
+let ddLoading=false;
+async function loadDiemDanhTu(iso){
+  if(!iso || !ddFrom || iso>=ddFrom || ddLoading) return false;
+  ddLoading=true;
+  const den=isoCongNgay(ddFrom,-1);
+  try{
+    const [dd,cc,dz]=await Promise.all([
+      fetchAll(()=>SB.from('diem_danh_hv').select('*').gte('ngay',iso).lte('ngay',den)),
+      fetchAll(()=>SB.from('cham_cong_gv').select('*').gte('ngay',iso).lte('ngay',den)),
+      fetchAll(()=>SB.from('duyet_diem_danh').select('*').gte('ngay',iso).lte('ngay',den))
+    ]);
+    (dd.data||[]).forEach(r=>{const k=r.lop_id+'|'+r.ngay;(OPS.ddHV[k]=OPS.ddHV[k]||{})[r.hv_id]=r.trang_thai;});
+    (cc.data||[]).forEach(r=>{OPS.ccGV['cc|'+r.lop_id+'|'+r.ngay]=r.trang_thai;});
+    (dz.data||[]).forEach(r=>{OPS.duyet[r.lop_id+'|'+r.ngay]={id:r.id,st:r.trang_thai,gvAt:r.gv_gui_at,letanAt:r.letan_at,adminAt:r.admin_at};});
+    ddFrom=iso; ddFromWanted=iso;   // giữ mốc để realtime tải lại không làm mất phần vừa bù
+    return true;
+  }catch(e){ return false; }
+  finally{ ddLoading=false; }
 }
 /* gộp các chỉnh sửa giáo viên (lưu ở Supabase) đè lên dữ liệu tĩnh data.js */
 function applyGvEdits(rows){
@@ -1487,9 +1532,11 @@ function subscribeRealtime(){
   // Đang thao tác thì KHÔNG vẽ lại (tránh mất chữ đang gõ / đóng phiếu) — chỉ cập nhật chuông.
   const busy=()=>$('#modal').classList.contains('on') || $('#voucher').classList.contains('on')
     || (document.activeElement && /^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement.tagName));
+  // Gộp nhiều thay đổi dồn dập thành 1 lần tải (điểm danh cả lớp = mấy chục thay đổi liền nhau).
+  // 1,8 giây thay vì 0,8 vì dữ liệu thật lớn hơn nhiều — tải lại quá dày sẽ làm app giật.
   const bump=()=>{ clearTimeout(timer); timer=setTimeout(async()=>{
     try{ await loadCloud(); if(busy()) renderBell(); else renderCurrent(); }catch(e){}
-  },800); };
+  },1800); };
   rtChannel=SB.channel('avatar-rt');
   ['hoc_vien','so_quy','diem_danh_hv','cham_cong_gv','gv_edits','giao_vien','lop_hoc','duyet_diem_danh','chot_so_quy'].forEach(t=>
     rtChannel.on('postgres_changes',{event:'*',schema:'public',table:t},bump));
@@ -3970,6 +4017,9 @@ function renderBaoCao(){
   if(USER.role==='teacher'){go('diemdanh');return;}
   const isAdm=USER.role==='admin', ids=scopeIds();
   if(bcTo<bcFrom){const t=bcFrom;bcFrom=bcTo;bcTo=t;}   // đảo nếu chọn ngược
+  // Chọn khoảng cũ hơn phần đã tải sẵn → tải bù rồi vẽ lại (app chỉ giữ ~4 tháng gần nhất cho nhẹ)
+  const canBu=(bcFrom<ddFrom);
+  if(canBu && !ddLoading) loadDiemDanhTu(bcFrom).then(ok=>{if(ok&&VIEW==='baocao')renderBaoCao();});
   const D=bcCollect();
   const anyData=D.hsRows.length||D.gvRows.length||D.lopRows.length||D.duky.length;
   const lopOpts=LOP.filter(l=>ids.includes(l.coSoId)).slice().sort((a,b)=>a.coSoId-b.coSoId||String(a.lop).localeCompare(b.lop,'vi'));
@@ -3988,8 +4038,10 @@ function renderBaoCao(){
     <div class="kpi"><div class="kpi-top"><div class="kpi-ic ic-em">${svg(IC.diemdanh)}</div></div><b>${ccPct}%</b><span>Chuyên cần chung</span></div>
     <div class="kpi"><div class="kpi-top"><div class="kpi-ic ic-am">${svg(IC.duyet)}</div></div><b>${D.chot}</b><span>Ca đã chốt</span></div>
   </div>`;
+  if(canBu) h+=`<div class="panel"><div class="pbody" style="padding:12px 14px;display:flex;gap:9px;align-items:center">
+    <span style="font-size:1.1rem">⏳</span><span style="font-size:.84rem;font-weight:600">Đang tải thêm dữ liệu điểm danh từ ${isoVN(bcFrom)}… Số liệu bên dưới sẽ tự cập nhật sau vài giây.</span></div></div>`;
   if(!anyData){
-    h+=`<div class="panel"><div class="pbody"><div class="empty">${svg(IC.baocao,1.5)}Chưa có dữ liệu điểm danh trong khoảng <b>${isoVN(bcFrom)} – ${isoVN(bcTo)}</b>.<br/>Hãy chọn lại khoảng thời gian hoặc lớp.</div></div></div>`;
+    h+=`<div class="panel"><div class="pbody"><div class="empty">${svg(IC.baocao,1.5)}${canBu?'Đang tải dữ liệu của khoảng thời gian này…':`Chưa có dữ liệu điểm danh trong khoảng <b>${isoVN(bcFrom)} – ${isoVN(bcTo)}</b>.<br/>Hãy chọn lại khoảng thời gian hoặc lớp.`}</div></div></div>`;
     $('#view').innerHTML=h; bcBind(); return;
   }
   // 1) Chuyên cần học sinh
