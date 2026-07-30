@@ -999,7 +999,11 @@ async function loadCloud(){
   if(hv.error||gd.error||dd.error||cc.error) throw (hv.error||gd.error||dd.error||cc.error);
   OPS.hv=(hv.data||[]).map(hvFromDb);
   OPS.gd=(gd.data||[]).map(gdFromDb);
-  OPS.ddHV={}; (dd.data||[]).forEach(r=>{const k=r.lop_id+'|'+r.ngay;(OPS.ddHV[k]=OPS.ddHV[k]||{})[r.hv_id]=r.trang_thai;});
+  // Bỏ qua bản ghi điểm danh MỒ CÔI: học sinh đã bị xóa nhưng điểm danh còn sót lại.
+  // Nếu không lọc, bảng điều hành vẫn hiện "1/1 có mặt" của em không còn tồn tại.
+  const hvCon=new Set(OPS.hv.map(h=>h.id));
+  OPS.ddHV={}; (dd.data||[]).forEach(r=>{ if(!hvCon.has(r.hv_id))return;
+    const k=r.lop_id+'|'+r.ngay;(OPS.ddHV[k]=OPS.ddHV[k]||{})[r.hv_id]=r.trang_thai;});
   OPS.ccGV={}; (cc.data||[]).forEach(r=>{OPS.ccGV['cc|'+r.lop_id+'|'+r.ngay]=r.trang_thai;});
   // Trạng thái duyệt ca dạy (bỏ qua êm nếu chưa chạy SQL Giai đoạn 4)
   OPS.duyet={}; if(!dz.error)(dz.data||[]).forEach(r=>{OPS.duyet[r.lop_id+'|'+r.ngay]={id:r.id,st:r.trang_thai,gvAt:r.gv_gui_at,letanAt:r.letan_at,adminAt:r.admin_at};});
@@ -1039,7 +1043,9 @@ async function loadDiemDanhTu(iso){
       fetchAll(()=>SB.from('cham_cong_gv').select('*').gte('ngay',iso).lte('ngay',den)),
       fetchAll(()=>SB.from('duyet_diem_danh').select('*').gte('ngay',iso).lte('ngay',den))
     ]);
-    (dd.data||[]).forEach(r=>{const k=r.lop_id+'|'+r.ngay;(OPS.ddHV[k]=OPS.ddHV[k]||{})[r.hv_id]=r.trang_thai;});
+    const hvCon=new Set(OPS.hv.map(h=>h.id));      // bỏ qua điểm danh của học sinh đã xóa
+    (dd.data||[]).forEach(r=>{ if(!hvCon.has(r.hv_id))return;
+      const k=r.lop_id+'|'+r.ngay;(OPS.ddHV[k]=OPS.ddHV[k]||{})[r.hv_id]=r.trang_thai;});
     (cc.data||[]).forEach(r=>{OPS.ccGV['cc|'+r.lop_id+'|'+r.ngay]=r.trang_thai;});
     (dz.data||[]).forEach(r=>{OPS.duyet[r.lop_id+'|'+r.ngay]={id:r.id,st:r.trang_thai,gvAt:r.gv_gui_at,letanAt:r.letan_at,adminAt:r.admin_at};});
     ddFrom=iso; ddFromWanted=iso;   // giữ mốc để realtime tải lại không làm mất phần vừa bù
@@ -2918,10 +2924,21 @@ function openLopEdit(l){
   };
   $('#lp_del').onclick=async()=>{
     if(soHS>0){err('Lớp còn '+soHS+' học sinh. Hãy chuyển các em sang lớp khác (trong mục Học sinh) trước khi xóa.');return;}
-    if(!await avaConfirm('Xóa lớp "'+l.lop+'"? Thao tác này không thể hoàn tác.',{danger:true,okText:'Xóa'}))return;
+    const soBuoi=Object.keys(OPS.ddHV).filter(k=>Number(k.split('|')[0])===l.id).length;
+    if(!await avaConfirm('Xóa lớp "'+l.lop+'"?'+(soBuoi?'\n\n'+soBuoi+' buổi điểm danh và chấm công của lớp này cũng bị xóa theo.':'')
+      +'\n\nThao tác này không thể hoàn tác.',{danger:true,okText:'Xóa'}))return;
+    // Dọn sạch dữ liệu bám theo lớp, nếu không sẽ thành bản ghi mồ côi nằm lại trong CSDL
+    await SB.from('diem_danh_hv').delete().eq('lop_id',l.id);
+    await SB.from('cham_cong_gv').delete().eq('lop_id',l.id);
+    await SB.from('duyet_diem_danh').delete().eq('lop_id',l.id);
+    await SB.from('lich_lop').delete().eq('lop_id',l.id);
     const {error}=await SB.from('lop_hoc').delete().eq('id',l.id);
     if(error){err('Lỗi xóa: '+error.message);return;}
     const i=LOP.findIndex(x=>x.id===l.id); if(i>=0)LOP.splice(i,1);
+    OPS.lich=OPS.lich.filter(x=>x.lopId!==l.id);
+    for(const k in OPS.ddHV) if(Number(k.split('|')[0])===l.id) delete OPS.ddHV[k];
+    for(const k in OPS.ccGV) if(Number(k.split('|')[1])===l.id) delete OPS.ccGV[k];
+    for(const k in OPS.duyet) if(Number(k.split('|')[0])===l.id) delete OPS.duyet[k];
     closeModal(); renderLop();
   };
 }
@@ -3705,10 +3722,11 @@ async function cleanMauHV(mauList){
   const done=new Set(); let fail=0, msg='';
   for(let i=0;i<ids.length;i+=100){
     const chunk=ids.slice(i,i+100);
+    await SB.from('diem_danh_hv').delete().in('hv_id',chunk);   // xóa điểm danh kèm theo, tránh bỏ lại bản ghi mồ côi
     const {error}=await SB.from('hoc_vien').delete().in('id',chunk);
     if(error){fail+=chunk.length;msg=error.message;} else chunk.forEach(id=>done.add(id));
   }
-  if(done.size) OPS.hv=OPS.hv.filter(x=>!done.has(x.id));
+  if(done.size){ OPS.hv=OPS.hv.filter(x=>!done.has(x.id)); await loadCloud(); }
   renderHocVien();
   if(fail) avaAlert(`Đã dọn ${done.size} em. Còn ${fail} em không xóa được${msg?': '+msg:''}.`);
   else avaAlert(`Đã dọn xong ${done.size} học sinh mẫu.`);
@@ -3847,9 +3865,13 @@ function openHvEdit(h){
     const ps=xoa.flatMap(x=>hpPhieuCua(x.id));
     for(const p of ps){ if(daChotKy(p.coSoId,p.ngay)){ err('Không xóa được: phiếu thu học phí '+soPhieu(p)+' thuộc kỳ sổ quỹ đã chốt. Hãy nhờ Quản trị mở khóa kỳ đó trước.'); return; } }
     const hvIds=xoa.map(x=>x.id);
+    // Xóa điểm danh của em TRƯỚC, nếu không sẽ để lại bản ghi mồ côi làm bảng điều hành
+    // vẫn hiện "có mặt" của em đã xóa (chuyên cần, buổi điểm danh hôm nay, hoạt động gần đây).
+    await SB.from('diem_danh_hv').delete().in('hv_id',hvIds);
     const {error}=await SB.from('hoc_vien').delete().in('id',hvIds);
     if(error){err('Lỗi xóa: '+error.message);return;}
     OPS.hv=OPS.hv.filter(x=>!hvIds.includes(x.id));
+    for(const k in OPS.ddHV){ hvIds.forEach(id=>delete OPS.ddHV[k][id]); if(!Object.keys(OPS.ddHV[k]).length) delete OPS.ddHV[k]; }
     if(ps.length){                                   // xóa các phiếu thu học phí kèm theo
       const ids=ps.map(p=>p.id);
       await SB.from('so_quy').delete().in('id',ids);
@@ -4010,7 +4032,13 @@ function renderGhiDanh(){
     const obj=hvFromDb(data); obj.ngayNhapHoc=obj.ngayNhapHoc||nhIso;
     OPS.hv.push(obj);renderGhiDanh();
   };
-  $$('#view [data-del]').forEach(b=>b.onclick=async()=>{const id=Number(b.dataset.del);const {error}=await SB.from('hoc_vien').delete().eq('id',id);if(error){avaAlert('Lỗi xóa: '+error.message);return;}OPS.hv=OPS.hv.filter(x=>x.id!==id);renderGhiDanh();});
+  $$('#view [data-del]').forEach(b=>b.onclick=async()=>{const id=Number(b.dataset.del);
+    await SB.from('diem_danh_hv').delete().eq('hv_id',id);        // xóa điểm danh kèm theo
+    const {error}=await SB.from('hoc_vien').delete().eq('id',id);
+    if(error){avaAlert('Lỗi xóa: '+error.message);return;}
+    OPS.hv=OPS.hv.filter(x=>x.id!==id);
+    for(const k in OPS.ddHV){ delete OPS.ddHV[k][id]; if(!Object.keys(OPS.ddHV[k]).length) delete OPS.ddHV[k]; }
+    renderGhiDanh();});
   renderNavCounts();
 }
 
