@@ -463,6 +463,24 @@ td.chi{color:var(--rose);font-weight:800}
 .vsign b{display:block;font-size:.9rem}
 .vsign small{display:block;font-style:italic;color:#333;font-size:.76rem;margin-top:2px}
 .vsign::before{content:"";}
+/* Sổ quỹ in trên giấy A4 NẰM NGANG — bảng kẻ ô, chữ nhỏ hơn phiếu thu/chi */
+.sqpaper{max-width:1120px;padding:26px 30px 24px}
+.sqtbl{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:6px}
+.sqtbl th,.sqtbl td{border:1px solid #333;padding:4px 6px;vertical-align:middle}
+.sqtbl th{background:#e8eefa;font-weight:700;text-align:center;font-size:12px}
+.sqtbl td.c{text-align:center;white-space:nowrap}
+.sqtbl td.r{text-align:right;white-space:nowrap}
+.sqtbl tr.sum td{background:#f2f5fb;font-weight:700}
+.sqtbl tbody tr:nth-child(even) td{background:#fbfcfe}
+.sqtbl tbody tr.sum:nth-child(even) td{background:#f2f5fb}
+@page sqland{size:A4 landscape;margin:10mm}         /* chỉ sổ quỹ in ngang, phiếu thu/chi vẫn in dọc */
+@media print{
+  .voucher.sq{padding:0}
+  .sqpaper{max-width:100%;padding:0;box-shadow:none;page:sqland}
+  .sqtbl{font-size:10.5px}
+  .sqtbl thead{display:table-header-group}          /* lặp tiêu đề bảng ở mỗi trang in */
+  .sqtbl tr{page-break-inside:avoid}
+}
 @media print{
   body>*{display:none!important}
   #voucher{display:block!important;position:static;background:#fff;padding:0;backdrop-filter:none}
@@ -818,24 +836,64 @@ const hvFromDb=r=>{
 /* Học sinh đang học = chưa có ngày thôi học */
 const hvActive=h=>!h.ngayThoiHoc;
 const hvToDb=o=>({ten:o.ten,ns:o.ns||'',ph:o.ph||'',sdt:o.sdt||'',hoc_phi:o.hocPhi||0,da_dong:!!o.daDong,lop_id:o.lopId,coso_id:o.coSoId,mau:!!o.mau});
-const gdFromDb=r=>({id:r.id,ngay:r.ngay,loai:r.loai,hangMuc:r.hang_muc,coSoId:r.coso_id,soTien:Number(r.so_tien)||0,noiDung:r.noi_dung||'',nguoiLap:r.nguoi_lap||'',hvId:(r.hv_id!=null?r.hv_id:null),createdAt:r.created_at||null});
+const gdFromDb=r=>({id:r.id,ngay:r.ngay,loai:r.loai,hangMuc:r.hang_muc,coSoId:r.coso_id,soTien:Number(r.so_tien)||0,
+  noiDung:r.noi_dung||'',nguoiLap:r.nguoi_lap||'',hvId:(r.hv_id!=null?r.hv_id:null),createdAt:r.created_at||null,
+  soPhieu:r.so_phieu||'',nguoiNop:r.nguoi_nop||'',hinhThuc:r.hinh_thuc||'tien_mat',
+  gvId:(r.gv_id!=null?r.gv_id:null),kyLuong:r.ky_luong||''});
 const gdToDb=o=>({ngay:o.ngay,loai:o.loai,hang_muc:o.hangMuc,coso_id:o.coSoId,so_tien:o.soTien,noi_dung:o.noiDung||'',nguoi_lap:o.nguoiLap||''});
-/* Đồng bộ phiếu thu học phí trong Sổ quỹ theo trạng thái "đã đóng" của học sinh.
-   Bỏ qua êm nếu chưa chạy SQL thêm cột hv_id. */
-async function syncHocPhiVoucher(h,amt){
-  const del=await SB.from('so_quy').delete().eq('hv_id',h.id);
-  if(del.error) return;                       // cột hv_id chưa có → chưa chạy SQL đồng bộ
-  OPS.gd=OPS.gd.filter(g=>g.hvId!==h.id);
-  // Số tiền ghi phiếu thu = số tiền đã đóng thực tế (có thể là một phần của học phí cả khóa).
-  const hp=h.hocPhi||0;
-  const sd=Math.min(Number(amt!=null?amt:h.soTienDong)||0,hp);
-  if(sd>0){
-    const conLai=hp-sd;
-    const noi='Học phí: '+h.ten+' — '+lopName(h.lopId)+(conLai>0?(' (đóng '+fmtVND(sd)+'/'+fmtVND(hp)+', còn '+fmtVND(conLai)+')'):' (đã đủ)');
-    const rec={ngay:h.ngayDong||todayISO(),loai:'thu',hangMuc:'Học phí',coSoId:h.coSoId,soTien:sd,noiDung:noi,nguoiLap:USER.role==='admin'?'Quản trị':csName(USER.coSoId)};
-    const {data,error}=await SB.from('so_quy').insert({...gdToDb(rec),hv_id:h.id}).select().single();
-    if(!error&&data) OPS.gd.push(gdFromDb(data));
+/* Các cột thêm ở Giai đoạn 5 — tách riêng để còn chạy được khi chưa chạy SQL */
+const gdToDb5=o=>({nguoi_nop:o.nguoiNop||'',hinh_thuc:o.hinhThuc||'tien_mat',
+  ...(o.gvId!=null?{gv_id:o.gvId}:{}), ...(o.kyLuong?{ky_luong:o.kyLuong}:{})});
+let sqLive5=true;      // false khi chưa chạy sql-giai-doan-5-thu-chi.sql (thiếu cột mới)
+/* Thêm 1 phiếu vào sổ quỹ. Tự thử cột mới trước, thiếu cột thì lùi về bản tối thiểu
+   và báo rõ cho người dùng biết cần chạy SQL — không "bỏ qua êm" như trước. */
+const thieuCot=e=>/column .* does not exist|schema cache/i.test((e&&e.message)||'');
+async function insertPhieu(rec){
+  const hv=(rec.hvId!=null?{hv_id:rec.hvId}:{});
+  if(sqLive5){
+    const r=await SB.from('so_quy').insert({...gdToDb(rec),...gdToDb5(rec),...hv}).select().single();
+    if(!r.error) return r;
+    if(!thieuCot(r.error)) return r;                 // lỗi thật (RLS, kỳ đã chốt…) → trả về nguyên trạng
+    sqLive5=false;
   }
+  const r2=await SB.from('so_quy').insert({...gdToDb(rec),...hv}).select().single();
+  if(!r2.error || !thieuCot(r2.error) || !rec.hvId) return r2;
+  return await SB.from('so_quy').insert(gdToDb(rec)).select().single();   // chưa chạy cả SQL đồng bộ học phí
+}
+/* Số phiếu hiển thị: ưu tiên số chuẩn sinh từ CSDL (PT-02-2607-001),
+   chưa chạy SQL Giai đoạn 5 thì lùi về mã cũ theo id (PT0001). */
+const soPhieu=g=>g&&g.soPhieu?g.soPhieu:((g&&g.loai==='thu'?'PT':'PC')+String((g&&g.id)||0).padStart(4,'0'));
+const HT_LABEL={tien_mat:'Tiền mặt',chuyen_khoan:'Chuyển khoản'};
+/* ---- Học phí: mỗi ĐỢT đóng là một phiếu thu riêng (giữ đầy đủ lịch sử) ---- */
+const hpPhieuCua=hvId=>OPS.gd.filter(g=>g.hvId===hvId&&g.loai==='thu').sort((a,b)=>a.ngay.localeCompare(b.ngay)||a.id-b.id);
+const hpDaDong=hvId=>hpPhieuCua(hvId).reduce((s,g)=>s+g.soTien,0);
+/* Số đã đóng dùng để HIỂN THỊ: có phiếu thì lấy tổng phiếu; chưa có phiếu nào
+   (dữ liệu cũ nhập tay trước khi tách theo đợt) thì lấy số lưu ở hồ sơ. */
+const hpDaHT=h=>{const ps=hpPhieuCua(h.id); return ps.length?ps.reduce((s,g)=>s+g.soTien,0):(Number(h.soTienDong)||0);};
+/* Ghi nhận một đợt đóng học phí: tạo phiếu thu + cập nhật lại tổng đã đóng của HS */
+async function themDotDong(h,{soTien,ngay,nguoiNop,hinhThuc}){
+  const daCo=hpDaDong(h.id), conLai=Math.max(0,(h.hocPhi||0)-daCo);
+  const sd=Math.max(0,Number(soTien)||0);
+  if(sd<=0) return {error:'Số tiền phải lớn hơn 0.'};
+  const noi='Học phí: '+h.ten+' — '+lopName(h.lopId)
+    + (h.hocPhi?(' (đợt này '+fmtVND(sd)+', lũy kế '+fmtVND(daCo+sd)+'/'+fmtVND(h.hocPhi)
+      + ((h.hocPhi-daCo-sd)>0?', còn '+fmtVND(h.hocPhi-daCo-sd):', đã đủ')+')'):'');
+  const rec={ngay:ngay||todayISO(),loai:'thu',hangMuc:'Học phí',coSoId:h.coSoId,soTien:sd,noiDung:noi,
+    nguoiLap:USER.role==='admin'?'Quản trị':csName(USER.coSoId),nguoiNop:nguoiNop||h.ph||'',hinhThuc:hinhThuc||'tien_mat',hvId:h.id};
+  const {data,error}=await insertPhieu(rec);
+  if(error) return {error:error.message};
+  OPS.gd.push(gdFromDb(data));
+  await capNhatTongDong(h);
+  return {data};
+}
+/* Tổng đã đóng của học sinh = tổng các phiếu thu học phí của em đó */
+async function capNhatTongDong(h){
+  const tong=hpDaDong(h.id);
+  const ps=hpPhieuCua(h.id);
+  const ngayCuoi=ps.length?ps[ps.length-1].ngay:null;
+  h.soTienDong=tong; h.daDong=tong>0; h.ngayDong=ngayCuoi;
+  await SB.from('hoc_vien').update({da_dong:tong>0}).eq('id',h.id);
+  await SB.from('hoc_vien').update({so_tien_dong:tong,ngay_dong:ngayCuoi}).eq('id',h.id);
 }
 /* Giáo viên & Lớp học sống (Giai đoạn 2) */
 const gvFromDb=r=>({id:r.id,ten:r.ten,ns:r.ns||'',td:r.td||'',dc:r.dc||'',sdt:r.sdt||'',mon:r.mon||'VH',coSoId:r.coso_id,ngayHd:r.ngay_hd||null});
@@ -844,7 +902,7 @@ const lopFromDb=r=>({id:r.id,lop:r.lop,gv:r.gv||'',siso:Number(r.siso)||0,mon:r.
 const lopToDb=o=>({lop:o.lop,gv:o.gv||'',siso:Number(o.siso)||0,mon:o.mon||'VH',coso_id:o.coSoId});
 let gvLive=false;   // true khi đã chạy SQL Giai đoạn 2 (GV/Lớp lấy từ Supabase)
 async function loadCloud(){
-  const [hv,gd,dd,cc,ge,gvR,lopR,dz]=await Promise.all([
+  const [hv,gd,dd,cc,ge,gvR,lopR,dz,cs]=await Promise.all([
     SB.from('hoc_vien').select('*'),
     SB.from('so_quy').select('*'),
     SB.from('diem_danh_hv').select('*'),
@@ -852,7 +910,8 @@ async function loadCloud(){
     SB.from('gv_edits').select('*'),
     SB.from('giao_vien').select('*'),
     SB.from('lop_hoc').select('*'),
-    SB.from('duyet_diem_danh').select('*')
+    SB.from('duyet_diem_danh').select('*'),
+    SB.from('chot_so_quy').select('*')
   ]);
   if(hv.error||gd.error||dd.error||cc.error) throw (hv.error||gd.error||dd.error||cc.error);
   OPS.hv=(hv.data||[]).map(hvFromDb);
@@ -861,6 +920,9 @@ async function loadCloud(){
   OPS.ccGV={}; (cc.data||[]).forEach(r=>{OPS.ccGV['cc|'+r.lop_id+'|'+r.ngay]=r.trang_thai;});
   // Trạng thái duyệt ca dạy (bỏ qua êm nếu chưa chạy SQL Giai đoạn 4)
   OPS.duyet={}; if(!dz.error)(dz.data||[]).forEach(r=>{OPS.duyet[r.lop_id+'|'+r.ngay]={id:r.id,st:r.trang_thai,gvAt:r.gv_gui_at,letanAt:r.letan_at,adminAt:r.admin_at};});
+  // Kỳ sổ quỹ đã chốt (Giai đoạn 5). Chưa chạy SQL → coi như chưa chốt kỳ nào.
+  OPS.chot={}; if(!cs.error)(cs.data||[]).forEach(r=>{OPS.chot[r.coso_id+'|'+r.ky]={id:r.id,ky:r.ky,coSoId:r.coso_id,tongThu:Number(r.tong_thu)||0,tongChi:Number(r.tong_chi)||0,tonCuoi:Number(r.ton_cuoi)||0,chotAt:r.chot_at,ghiChu:r.ghi_chu||''};});
+  sqLive5 = (gd.data||[]).length===0 ? sqLive5 : ('so_phieu' in (gd.data[0]||{}));   // đã có cột mới chưa
   // GV giảng dạy: RLS chỉ trả lớp mình phụ trách → LOP = đúng các lớp đó (GV có thể rỗng)
   if(USER.role==='teacher'){
     gvLive=true;
@@ -1038,7 +1100,20 @@ function duyetPending(){
 
 /* ===== NGHIỆP VỤ: ghi danh & điểm danh — lưu trên Supabase (đồng bộ mọi máy) ===== */
 /* OPS là bộ nhớ đệm trong trình duyệt; nạp bằng loadCloud() sau khi đăng nhập. */
-let OPS={hv:[],ddHV:{},ccGV:{},gd:[],duyet:{}};
+let OPS={hv:[],ddHV:{},ccGV:{},gd:[],duyet:{},chot:{}};
+/* ===== CHỐT SỔ QUỸ THEO THÁNG (Giai đoạn 5) =====
+   Kỳ đã chốt = khóa với MỌI vai trò (khác chốt ca dạy: admin vẫn sửa được).
+   Muốn sửa phiếu trong kỳ đã chốt thì Quản trị phải Mở khóa kỳ đó trước. */
+const kyCua=ngay=>String(ngay||'').slice(0,7);
+const chotCua=(coSoId,ky)=>OPS.chot[coSoId+'|'+ky]||null;
+const daChotKy=(coSoId,ngay)=>!!chotCua(coSoId,kyCua(ngay));
+/* Chặn sớm ngay trên giao diện (CSDL vẫn chặn lần nữa bằng RLS) */
+async function chanKyChot(coSoId,ngay,viec){
+  if(!daChotKy(coSoId,ngay))return false;
+  await avaAlert('Sổ quỹ '+csName(coSoId)+' kỳ tháng '+(+kyCua(ngay).split('-')[1])+'/'+kyCua(ngay).split('-')[0]
+    +' đã được CHỐT nên không '+(viec||'thay đổi')+' được.\n\nMuốn sửa, Quản trị vào Thu – Chi → chọn đúng kỳ và cơ sở → bấm 🔓 Mở khóa kỳ.');
+  return true;
+}
 const HM_THU=['Học phí','Ghi danh/Nhập học','Bán tài liệu','Thu khác'];
 const HM_CHI=['Lương giáo viên','Thuê mặt bằng','Điện nước','Vật tư/Văn phòng phẩm','Marketing','Chi khác'];
 const isoVN=s=>{if(!s)return'';const p=String(s).split('-');return `${p[2]}/${p[1]}/${p[0]}`;};
@@ -1340,7 +1415,7 @@ function subscribeRealtime(){
     try{ await loadCloud(); if(busy()) renderBell(); else renderCurrent(); }catch(e){}
   },800); };
   rtChannel=SB.channel('avatar-rt');
-  ['hoc_vien','so_quy','diem_danh_hv','cham_cong_gv','gv_edits','giao_vien','lop_hoc','duyet_diem_danh'].forEach(t=>
+  ['hoc_vien','so_quy','diem_danh_hv','cham_cong_gv','gv_edits','giao_vien','lop_hoc','duyet_diem_danh','chot_so_quy'].forEach(t=>
     rtChannel.on('postgres_changes',{event:'*',schema:'public',table:t},bump));
   rtChannel.subscribe();
 }
@@ -1728,7 +1803,7 @@ const HD_MENU_DESC={
   diemdanh:'Điểm danh học sinh và chấm công giáo viên theo từng buổi; gửi đối soát / chốt ca ngay tại đây.',
   duyet:'Danh sách các ca dạy theo trạng thái: <b>Chờ đối soát → Đã đối soát → Đã chốt</b>, kèm nút xử lý theo vai trò.',
   baocao:'Chuyên cần học sinh, công giáo viên, tổng hợp theo lớp, chi tiết từng buổi, giáo viên dạy mấy ca/ngày, nhật ký đối soát — xuất Excel 7 sheet khổ A4.',
-  thu:'Sổ quỹ thu – chi theo hạng mục, tồn quỹ, phiếu thu/chi (in &amp; tải Word); dự thu học phí theo cơ sở. Nút <b>Xuất Excel</b> cho ra <b>mẫu sổ quỹ khổ A4</b>: số dư đầu kỳ – phát sinh – số dư cuối kỳ, tồn quỹ lũy kế sau từng phiếu, khối ký, kèm sheet tổng hợp theo hạng mục và theo cơ sở.',
+  thu:'Sổ quỹ thu – chi theo hạng mục: lập / <b>sửa</b> / xóa phiếu, số hiệu phiếu chuẩn, người nộp – nhận tiền, tiền mặt hay chuyển khoản, tồn quỹ, in &amp; tải Word từng phiếu, dự thu học phí theo cơ sở. <b>🖶 In sổ quỹ</b> in ngay khổ A4; <b>⬇ Xuất Excel</b> cho mẫu sổ quỹ có số dư đầu kỳ – cuối kỳ, tồn lũy kế, khối ký + sheet tổng hợp. Quản trị <b>chốt sổ theo tháng</b> để khóa số liệu đã quyết toán.',
   taikhoan:'Tạo / đổi mật khẩu / khóa / xóa tài khoản đăng nhập của giáo viên (tạo lẻ hoặc hàng loạt cả cơ sở).',
   huongdan:'Chính là trang này — có nút in để phát cho nhân viên.'
 };
@@ -1784,8 +1859,21 @@ const HD_HOWTO={
       'Vào <b>Báo cáo</b> → chọn <b>Từ ngày – Đến ngày</b> (và lớp nếu cần) → xem 6 bảng trên màn hình.',
       'Bấm <b>⬇ Xuất Excel</b> để tải file 7 sheet đã căn khổ A4, có tiêu đề lặp mỗi trang — in hoặc gửi đi được ngay.',
       'Vào <b>Thu – Chi</b> để xem sổ quỹ, tồn quỹ và dự thu học phí theo từng cơ sở.',
-      'Chọn <b>kỳ</b> (tháng) rồi bấm <b>⬇ Xuất Excel</b> → file sổ quỹ khổ A4 in được ngay, có số dư đầu kỳ – cuối kỳ và khối ký. Nếu lọc riêng <i>Chỉ Thu</i> hoặc <i>Chỉ Chi</i> thì file xuất ra là <b>bảng kê phiếu thu/chi</b>.',
+      'Chọn <b>kỳ</b> (tháng) rồi bấm <b>🖶 In sổ quỹ</b> (in ngay trên web) hoặc <b>⬇ Xuất Excel</b> → sổ quỹ khổ A4 có số dư đầu kỳ – cuối kỳ, số tiền bằng chữ và khối ký. Nếu lọc riêng <i>Chỉ Thu</i> hoặc <i>Chỉ Chi</i> thì kết quả là <b>bảng kê phiếu thu/chi</b>.',
       'Ở <b>Bảng điều hành</b>, khung <b>Cảnh báo điều hành</b> tự nhắc cơ sở chưa nhập lớp hoặc thu học phí dưới 72%.'
+    ]],
+    ['🔒','Chốt sổ quỹ cuối tháng',[
+      'Vào <b>Thu – Chi</b> → chọn <b>một cơ sở</b> ở ô Phạm vi và <b>một kỳ</b> (tháng) ở ô lọc.',
+      'Đối chiếu tổng thu – tổng chi – tồn quỹ với tiền thực tế, xong bấm <b>🔒 Chốt sổ kỳ này</b>.',
+      'Kỳ đã chốt bị <b>khóa với mọi người, kể cả Quản trị</b> — thêm/sửa/xóa phiếu đều bị chặn ngay ở CSDL. Số liệu đã chốt dùng để quyết toán.',
+      'Cần sửa lại: bấm <b>🔓 Mở khóa kỳ</b>, sửa xong nhớ chốt lại.',
+      'Con số lưu khi chốt (tổng thu, tổng chi, tồn cuối kỳ) hiện ngay trên thanh trạng thái để đối chiếu về sau.'
+    ]],
+    ['💵','Chi lương giáo viên theo công',[
+      'Vào <b>Thu – Chi</b> → <b>－ Phiếu chi</b> → hạng mục <b>Lương giáo viên</b>.',
+      'Khung tính lương hiện ra: chọn <b>giáo viên</b> + <b>kỳ lương</b> → hệ thống lấy <b>số buổi đã chấm công</b> (lên lớp + dạy bù, không tính buổi nghỉ).',
+      'Nhập <b>đơn giá/buổi</b> rồi bấm <b>Tính &amp; điền</b> — số tiền và diễn giải tự điền vào phiếu, người nhận tiền là giáo viên đó.',
+      'Số buổi lấy từ chấm công thực tế, nên hãy chốt điểm danh trước khi tính lương.'
     ]]
   ],
   owner:[
@@ -1795,12 +1883,19 @@ const HD_HOWTO={
       'Đổi lớp cho một em: <b>Học sinh</b> → <b>Hồ sơ</b> → ô <b>Lớp đang học</b> → chọn lớp mới → <b>Lưu hồ sơ</b>.',
       'Em nào nghỉ: <b>Hồ sơ</b> → <b>Đã thôi học</b> → nhập ngày + lý do → <b>Lưu</b>. Hồ sơ vẫn giữ nhưng không tính vào sĩ số và dự thu nữa.'
     ]],
-    ['💰','Học phí &amp; phiếu thu',[
+    ['💰','Học phí — thu theo từng đợt',[
       'Vào <b>Học sinh</b> → <b>Hồ sơ</b> → nhập <b>Học phí (đ/khóa)</b>.',
-      'Khi phụ huynh nộp tiền: chọn <b>✓ Đã đóng</b>, nhập <b>ngày đóng</b> và <b>số tiền đã đóng</b> (nộp một phần cũng được) → <b>Lưu hồ sơ</b>.',
-      'Hệ thống tự tạo <b>phiếu thu học phí</b> trong <b>Thu – Chi</b> đúng số tiền đó; sửa lại số tiền thì phiếu tự cập nhật theo.',
-      '⚠ Xóa phiếu thu học phí trong Sổ quỹ đồng nghĩa đánh dấu em đó <b>chưa đóng</b> — cân nhắc trước khi xóa.',
-      'Các khoản khác (bán tài liệu, thu khác, chi lương, thuê mặt bằng…): <b>Thu – Chi</b> → <b>＋ Phiếu thu</b> / <b>－ Phiếu chi</b>; có <b>Xem trước</b>, <b>In phiếu</b> và <b>Tải Word</b>.'
+      'Mỗi lần phụ huynh nộp tiền: ở khung <b>Các đợt đóng học phí</b>, nhập <b>số tiền đợt này</b>, ngày, <b>người nộp</b>, hình thức (tiền mặt / chuyển khoản) → bấm <b>＋ Ghi nhận đóng tiền</b>.',
+      'Mỗi đợt sinh <b>một phiếu thu riêng</b> trong sổ quỹ nên giữ đủ lịch sử: đóng 3 lần thì có 3 phiếu, không ghi đè lên nhau.',
+      'Khung này tự tính <b>đã đóng</b> và <b>còn phải thu</b>; ô "Đã đóng" không nhập tay nữa để số liệu luôn khớp với chứng từ trong sổ quỹ.',
+      'Ghi nhầm một đợt: bấm <b>Xóa đợt</b> ngay tại đó (phiếu thu tương ứng cũng bị xóa và số tiền được tính lại).',
+      'Các khoản khác (bán tài liệu, thu khác, chi lương, thuê mặt bằng…): <b>Thu – Chi</b> → <b>＋ Phiếu thu</b> / <b>－ Phiếu chi</b>; có <b>Xem trước</b>, <b>In phiếu</b>, <b>Tải Word</b>.'
+    ]],
+    ['🧾','Sửa phiếu, in sổ quỹ, chốt sổ tháng',[
+      'Lập nhầm phiếu: <b>Thu – Chi</b> → bấm <b>Sửa</b> ở cuối dòng → sửa ngày, hạng mục, số tiền, người nộp/nhận, hình thức → <b>Lưu thay đổi</b>. Không phải xóa đi lập lại nữa.',
+      'Mỗi phiếu có <b>số hiệu riêng</b> dạng <b>PT-02-2607-001</b> (PT/PC · mã cơ sở · tháng năm · số thứ tự), mỗi cơ sở một dãy liên tục theo tháng.',
+      'Bấm <b>🖶 In sổ quỹ</b> để in ngay trên web: khổ A4 nằm ngang, kẻ ô, có số dư đầu kỳ – cuối kỳ và khối ký; hoặc <b>⬇ Xuất Excel</b> nếu cần file.',
+      'Cuối tháng, sau khi đối chiếu xong: chọn <b>kỳ</b> + <b>cơ sở</b> rồi báo Quản trị bấm <b>🔒 Chốt sổ kỳ này</b> — kỳ đó khóa lại, không ai thêm/sửa/xóa phiếu được nữa.'
     ]],
     ['🗓️','Điểm danh &amp; đối soát',[
       'Vào <b>Điểm danh</b> → chọn <b>ngày</b> và <b>lớp</b> → tích <b>Có / Muộn / Phép / Vắng</b> (Phép = vắng có xin phép). Mỗi lần tích là lưu ngay; bấm lại đúng nút đang chọn để bỏ điểm danh em đó.',
@@ -1845,7 +1940,10 @@ const HD_HOWTO={
 const HD_NUMBERS=[
   ['Học sinh đang học','Là những em <b>chưa có ngày thôi học</b>. Em đã thôi học vẫn giữ hồ sơ nhưng không tính vào sĩ số, dự thu.'],
   ['Dự thu học phí','Tổng <b>học phí cả khóa</b> của các học sinh đang học trong phạm vi đang xem.'],
-  ['Đã thu học phí','Tổng <b>số tiền đã đóng</b> của các em (tối đa bằng học phí cả khóa của em đó).'],
+  ['Đã thu học phí','Tổng <b>số tiền đã đóng</b> của các em — cộng từ <b>các đợt đóng</b> (mỗi đợt là một phiếu thu trong sổ quỹ), tối đa bằng học phí cả khóa của em đó.'],
+  ['Số hiệu phiếu','Dạng <b>PT-02-2607-001</b>: PT = phiếu thu / PC = phiếu chi · <b>02</b> mã cơ sở · <b>2607</b> tháng 7 năm 2026 · <b>001</b> số thứ tự. Mỗi cơ sở một dãy riêng, đếm lại từ 001 mỗi tháng.'],
+  ['Kỳ sổ quỹ đã chốt','Kỳ (tháng) của một cơ sở đã được Quản trị chốt: số liệu <b>khóa hoàn toàn</b>, không ai thêm/sửa/xóa phiếu được. Dùng làm số quyết toán.'],
+  ['Hình thức thanh toán','Mỗi phiếu ghi <b>Tiền mặt</b> hoặc <b>Chuyển khoản</b>; phiếu chuyển khoản có nhãn <b>CK</b> trong sổ — để đối chiếu riêng tiền tại quỹ và tiền trong tài khoản ngân hàng.'],
   ['Còn phải thu','Dự thu trừ Đã thu.'],
   ['Chuyên cần','(Có mặt + Muộn) chia cho tổng lượt đã điểm danh — <b>Phép</b> và <b>Vắng</b> đều không tính là có mặt. Ở <b>Bảng điều hành</b> tính trong <b>30 ngày gần nhất</b>; ở <b>Báo cáo</b> tính đúng khoảng ngày mình chọn.'],
   ['Tồn quỹ','Tổng thu trừ tổng chi của <b>toàn bộ sổ quỹ</b> trong phạm vi — không phụ thuộc bộ lọc tháng/loại đang chọn.'],
@@ -1861,7 +1959,10 @@ const HD_FAQ=[
   ['Xóa lớp không được','Lớp còn học sinh. Vào <b>Học sinh</b> chuyển các em sang lớp khác (hoặc cho thôi học) rồi xóa lớp.'],
   ['Nhập Excel bị bỏ qua vài dòng','Dòng thiếu <b>họ và tên</b>, hoặc <b>tên lớp không khớp</b> lớp nào của cơ sở. Cửa sổ xem trước có ghi rõ số dòng bị bỏ — sửa file rồi nhập lại.'],
   ['Số liệu trên máy này khác máy kia','Hệ thống tự đồng bộ theo thời gian thực. Nếu đang gõ trong ô nhập, việc vẽ lại tạm hoãn để khỏi mất chữ — bấm <b>↻ Tải lại</b> hoặc chuyển sang mục khác rồi quay lại.'],
-  ['Học sinh đã đóng tiền nhưng Sổ quỹ không thấy phiếu','Phiếu thu học phí chỉ sinh khi <b>số tiền đã đóng &gt; 0</b> và đã bấm <b>Lưu hồ sơ</b>. Mở lại hồ sơ em đó kiểm tra ô số tiền.'],
+  ['Học sinh đã đóng tiền nhưng Sổ quỹ không thấy phiếu','Tiền học phí chỉ vào sổ khi ghi nhận qua khung <b>Các đợt đóng học phí</b> (nút <b>＋ Ghi nhận đóng tiền</b>) trong hồ sơ em đó. Nếu hồ sơ hiện dòng nhắc “chưa có phiếu thu” thì đó là số liệu nhập tay trước đây — hãy ghi nhận lại thành một đợt.'],
+  ['Không thêm/sửa/xóa được phiếu, báo lỗi quyền','Kỳ sổ quỹ tháng đó của cơ sở đã được <b>chốt sổ</b> (số phiếu có dấu 🔒). Quản trị vào <b>Thu – Chi</b> → chọn đúng kỳ &amp; cơ sở → <b>🔓 Mở khóa kỳ</b>.'],
+  ['Lập nhầm hạng mục hoặc số tiền trên phiếu','Bấm <b>Sửa</b> ở cuối dòng phiếu trong sổ quỹ (không cần xóa đi lập lại). Phiếu thu học phí sửa số tiền thì số đã đóng của học sinh tự tính lại.'],
+  ['Số phiếu vẫn là PT0001 chứ không phải PT-02-2607-001','Chưa chạy file <b>sql-giai-doan-5-thu-chi.sql</b> trong Supabase → SQL Editor. Chạy xong tải lại trang; các phiếu cũ cũng được đánh số lại theo đúng trình tự ngày.'],
   ['Quên mật khẩu','Giáo viên: Quản trị vào <b>Tài khoản</b> → <b>Đổi MK</b>. Giám đốc / Lễ tân: liên hệ bộ phận kỹ thuật đặt lại.'],
   ['Muốn đổi mật khẩu của chính mình','Bấm <b>Đổi mật khẩu</b> ở cuối thanh menu bên trái (điện thoại: bấm ☰ rồi kéo xuống), nhập mật khẩu mới hai lần.']
 ];
@@ -2553,6 +2654,11 @@ function renderThu(){
   const ton=inSc.reduce((s,g)=>s+(g.loai==='thu'?g.soTien:-g.soTien),0);
   const adm=USER.role==='admin';
 
+  // Kỳ đang xem đã chốt chưa (chỉ xét được khi đã chọn 1 tháng + 1 cơ sở cụ thể)
+  const csXem = adm ? (scope==='all'?null:Number(scope)) : USER.coSoId;
+  const kyXem = ktThang==='all'?null:ktThang;
+  const chotXem = (csXem!=null&&kyXem)?chotCua(csXem,kyXem):null;
+
   let h=`<div class="kpis">
     <div class="kpi money"><div class="kpi-top"><div class="kpi-ic ic-em">${svg(IC.thu)}</div></div><b>${fmtVND(tThu)}</b><span>Tổng thu</span></div>
     <div class="kpi money"><div class="kpi-top"><div class="kpi-ic ic-am">${svg(IC.thu)}</div></div><b>${fmtVND(tChi)}</b><span>Tổng chi</span></div>
@@ -2563,26 +2669,34 @@ function renderThu(){
     <select class="fsel" id="ktThang"><option value="all">Tất cả kỳ</option>${months.map(m=>{const p=m.split('-');return `<option value="${m}" ${ktThang===m?'selected':''}>Tháng ${+p[1]}/${p[0]}</option>`;}).join('')}</select>
     <select class="fsel" id="ktLoai">${[['all','Thu & Chi'],['thu','Chỉ Thu'],['chi','Chỉ Chi']].map(([k,t])=>`<option value="${k}" ${ktLoai===k?'selected':''}>${t}</option>`).join('')}</select>
     <div class="acts" style="margin-left:auto">
-      <button class="btn btn-sm btn-thu" id="addThu">＋ Phiếu thu</button>
-      <button class="btn btn-sm btn-chi" id="addChi">－ Phiếu chi</button>
+      <button class="btn btn-sm btn-thu" id="addThu" ${chotXem?'disabled':''}>＋ Phiếu thu</button>
+      <button class="btn btn-sm btn-chi" id="addChi" ${chotXem?'disabled':''}>－ Phiếu chi</button>
+      <button class="btn btn-sm btn-light" id="prnSo">🖶 In sổ quỹ</button>
       <button class="btn btn-sm btn-xls" id="expXls">⬇ Xuất Excel</button>
     </div>
-  </div>
-  <div class="panel"><div class="phead"><h3>Sổ quỹ thu – chi</h3><span class="sub">${list.length} phiếu</span></div>
-    <div class="twrap"><table><thead><tr><th>Ngày</th><th>Loại</th><th>Hạng mục</th><th>Nội dung</th>${adm?'<th>Cơ sở</th>':''}<th class="tright">Thu</th><th class="tright">Chi</th><th></th></tr></thead><tbody>`;
+  </div>`;
+  // Thanh chốt sổ theo kỳ
+  h+=chotBar(csXem,kyXem,chotXem,{tThu,tChi,ton:tThu-tChi});
+  h+=`<div class="panel"><div class="phead"><h3>Sổ quỹ thu – chi</h3><span class="sub">${list.length} phiếu${chotXem?' · đã chốt':''}</span></div>
+    <div class="twrap"><table><thead><tr><th>Ngày</th><th>Số phiếu</th><th>Loại</th><th>Hạng mục</th><th>Nội dung</th><th>Người nộp/nhận</th>${adm?'<th>Cơ sở</th>':''}<th class="tright">Thu</th><th class="tright">Chi</th><th></th></tr></thead><tbody>`;
+  const nCol=adm?10:9;
   if(!list.length){
-    h+=`<tr><td colspan="${adm?8:7}"><div class="empty">${svg(IC.thu,1.5)}Chưa có phiếu thu/chi nào.<br/>Bấm <b>＋ Phiếu thu</b> hoặc <b>－ Phiếu chi</b> để ghi sổ.</div></td></tr>`;
+    h+=`<tr><td colspan="${nCol}"><div class="empty">${svg(IC.thu,1.5)}Chưa có phiếu thu/chi nào.<br/>Bấm <b>＋ Phiếu thu</b> hoặc <b>－ Phiếu chi</b> để ghi sổ.</div></td></tr>`;
   }else{
-    list.forEach(g=>{h+=`<tr>
+    list.forEach(g=>{
+      const khoa=daChotKy(g.coSoId,g.ngay);
+      h+=`<tr>
       <td class="num">${isoVN(g.ngay)}</td>
+      <td class="num" style="white-space:nowrap;font-weight:700">${esc(soPhieu(g))}${khoa?' 🔒':''}</td>
       <td><span class="badge ${g.loai==='thu'?'bg-em':'bg-rose'}">${g.loai==='thu'?'Thu':'Chi'}</span></td>
       <td>${esc(g.hangMuc)}</td><td>${esc(g.noiDung||'—')}</td>
+      <td>${esc(g.nguoiNop||'—')}${g.hinhThuc==='chuyen_khoan'?' <span class="badge bg-am" style="margin-left:3px">CK</span>':''}</td>
       ${adm?`<td>${esc(csName(g.coSoId))}</td>`:''}
       <td class="tright num ${g.loai==='thu'?'thu':''}">${g.loai==='thu'?fmtVND(g.soTien):'—'}</td>
       <td class="tright num ${g.loai==='chi'?'chi':''}">${g.loai==='chi'?fmtVND(g.soTien):'—'}</td>
-      <td class="tright" style="white-space:nowrap"><button class="linkbtn" data-view="${g.id}">Xem</button> &nbsp;<button class="linkbtn" data-del="${g.id}" style="color:var(--rose)">Xóa</button></td></tr>`;});
-    h+=`<tr style="background:var(--soft)"><td colspan="${adm?5:4}" class="tright"><b>TỔNG</b></td><td class="tright num thu">${fmtVND(tThu)}</td><td class="tright num chi">${fmtVND(tChi)}</td><td></td></tr>
-    <tr style="background:var(--soft)"><td colspan="${adm?5:4}" class="tright"><b>TỒN QUỸ (toàn bộ)</b></td><td colspan="2" class="tright"><b style="color:var(--brand-700);font-size:1.03rem">${fmtVND(ton)}</b></td><td></td></tr>`;
+      <td class="tright" style="white-space:nowrap"><button class="linkbtn" data-view="${g.id}">Xem</button>${khoa?'':` &nbsp;<button class="linkbtn" data-edit="${g.id}">Sửa</button> &nbsp;<button class="linkbtn" data-del="${g.id}" style="color:var(--rose)">Xóa</button>`}</td></tr>`;});
+    h+=`<tr style="background:var(--soft)"><td colspan="${adm?7:6}" class="tright"><b>TỔNG</b></td><td class="tright num thu">${fmtVND(tThu)}</td><td class="tright num chi">${fmtVND(tChi)}</td><td></td></tr>
+    <tr style="background:var(--soft)"><td colspan="${adm?7:6}" class="tright"><b>TỒN QUỸ (toàn bộ)</b></td><td colspan="2" class="tright"><b style="color:var(--brand-700);font-size:1.03rem">${fmtVND(ton)}</b></td><td></td></tr>`;
   }
   h+='</tbody></table></div></div>';
 
@@ -2603,26 +2717,76 @@ function renderThu(){
   $('#addThu').onclick=()=>addGD('thu');
   $('#addChi').onclick=()=>addGD('chi');
   $('#expXls').onclick=()=>exportSoQuy(list,{tThu,tChi,ton});
+  $('#prnSo').onclick=()=>inSoQuy(list,{tThu,tChi});
+  const cbtn=$('#chotBtn'); if(cbtn)cbtn.onclick=()=>chotKyAction(csXem,kyXem,!!chotXem,{tThu,tChi});
   $$('#view [data-view]').forEach(b=>b.onclick=()=>{const g=OPS.gd.find(x=>x.id===Number(b.dataset.view));if(g)openVoucher(g);});
+  $$('#view [data-edit]').forEach(b=>b.onclick=()=>{const g=OPS.gd.find(x=>x.id===Number(b.dataset.edit));if(g)editGD(g);});
   $$('#view [data-del]').forEach(b=>b.onclick=async()=>{
     const id=Number(b.dataset.del);
     const g=OPS.gd.find(x=>x.id===id);
-    const hv=(g&&g.hvId!=null)?OPS.hv.find(x=>x.id===g.hvId):null;
-    // Phiếu thu học phí gắn với 1 học sinh: xóa sẽ đánh dấu lại "chưa đóng" — cần cảnh báo rõ.
-    const msg=(hv&&hv.daDong)
-      ? `Xóa phiếu thu học phí của "${esc(hv.ten)}"?\nHọc sinh này sẽ được đánh dấu lại là CHƯA đóng học phí.\nThao tác không thể hoàn tác.`
-      : 'Xóa phiếu này khỏi sổ quỹ? Thao tác không thể hoàn tác.';
+    if(!g)return;
+    if(await chanKyChot(g.coSoId,g.ngay,'xóa phiếu'))return;
+    const hv=(g.hvId!=null)?OPS.hv.find(x=>x.id===g.hvId):null;
+    // Phiếu thu học phí gắn với 1 học sinh: xóa sẽ trừ lại số tiền đã đóng của em đó.
+    const msg=hv
+      ? `Xóa phiếu thu học phí ${soPhieu(g)} của "${esc(hv.ten)}" (${fmtVND(g.soTien)})?\nSố tiền đã đóng của em sẽ được tính lại theo các đợt còn lại.\nThao tác không thể hoàn tác.`
+      : `Xóa phiếu ${soPhieu(g)} khỏi sổ quỹ? Thao tác không thể hoàn tác.`;
     if(!await avaConfirm(msg,{danger:true,okText:'Xóa'}))return;
     const {error}=await SB.from('so_quy').delete().eq('id',id);
     if(error){avaAlert('Lỗi xóa phiếu: '+error.message);return;}
     OPS.gd=OPS.gd.filter(x=>x.id!==id);
-    if(hv&&hv.daDong){
-      await SB.from('hoc_vien').update({da_dong:false}).eq('id',hv.id);
-      await SB.from('hoc_vien').update({so_tien_dong:0}).eq('id',hv.id);
-      await SB.from('hoc_vien').update({ngay_dong:null}).eq('id',hv.id);   // xóa luôn ngày đóng để dữ liệu nhất quán
-      hv.daDong=false;hv.soTienDong=0;hv.ngayDong=null;
-    }
+    if(hv) await capNhatTongDong(hv);          // tính lại tổng đã đóng từ các đợt còn lại
     renderThu();});
+}
+/* Thanh trạng thái chốt sổ của kỳ đang xem (chỉ hiện khi đã chọn 1 tháng + 1 cơ sở) */
+function chotBar(csXem,kyXem,chotXem,t){
+  const adm=USER.role==='admin';
+  if(csXem==null||!kyXem){
+    return `<div class="g-note ok" style="margin-bottom:14px"><span>ℹ️</span><div>Muốn <b>chốt sổ theo tháng</b>, hãy chọn <b>một kỳ</b> ở ô "Tất cả kỳ"${adm?' và <b>một cơ sở</b> ở ô Phạm vi phía trên':''}.</div></div>`;
+  }
+  const kyTxt='tháng '+(+kyXem.split('-')[1])+'/'+kyXem.split('-')[0];
+  if(chotXem){
+    return `<div class="panel"><div class="pbody" style="display:flex;gap:11px;align-items:center;flex-wrap:wrap;padding:13px 15px">
+      <span class="castat ca-chot">🔒 Đã chốt sổ</span>
+      <b style="font-size:.86rem">${esc(csName(csXem))} · ${kyTxt}</b>
+      <span class="muted" style="font-size:.8rem">Thu ${fmtVND(chotXem.tongThu)} · Chi ${fmtVND(chotXem.tongChi)} · Tồn cuối kỳ ${fmtVND(chotXem.tonCuoi)} · chốt lúc ${esc(fmtDT(chotXem.chotAt))}</span>
+      <div style="flex:1"></div>
+      ${adm?`<button class="btn btn-sm btn-light" id="chotBtn" style="color:var(--rose)">🔓 Mở khóa kỳ</button>`
+           :`<span class="muted" style="font-size:.8rem">Cần sửa? Báo Quản trị mở khóa.</span>`}
+    </div></div>`;
+  }
+  return `<div class="panel"><div class="pbody" style="display:flex;gap:11px;align-items:center;flex-wrap:wrap;padding:13px 15px">
+    <span class="castat ca-none">Chưa chốt sổ</span>
+    <b style="font-size:.86rem">${esc(csName(csXem))} · ${kyTxt}</b>
+    <span class="muted" style="font-size:.8rem">Thu ${fmtVND(t.tThu)} · Chi ${fmtVND(t.tChi)}</span>
+    <div style="flex:1"></div>
+    ${adm?`<button class="btn btn-sm btn-primary" id="chotBtn">🔒 Chốt sổ kỳ này</button>`
+         :`<span class="muted" style="font-size:.8rem">Quản trị là người chốt sổ.</span>`}
+  </div></div>`;
+}
+/* Chốt / mở khóa một kỳ sổ quỹ của một cơ sở */
+async function chotKyAction(coSoId,ky,dangChot,t){
+  if(USER.role!=='admin')return;
+  const kyTxt='tháng '+(+ky.split('-')[1])+'/'+ky.split('-')[0];
+  if(dangChot){
+    if(!await avaConfirm('Mở khóa sổ quỹ '+csName(coSoId)+' '+kyTxt+'?\nSau khi mở, lễ tân lại thêm/sửa/xóa phiếu trong kỳ này được.'))return;
+    const {error}=await SB.from('chot_so_quy').delete().eq('coso_id',coSoId).eq('ky',ky);
+    if(error){avaAlert('Lỗi mở khóa: '+error.message+'\n\nNếu báo thiếu bảng, hãy chạy file sql-giai-doan-5-thu-chi.sql trong Supabase.');return;}
+    delete OPS.chot[coSoId+'|'+ky];
+    renderThu(); return;
+  }
+  // tồn quỹ cuối kỳ = lũy kế toàn bộ phiếu của cơ sở này tới hết kỳ
+  const den=ky+'-31';
+  let ton=0; OPS.gd.forEach(g=>{ if(g.coSoId!==coSoId||g.ngay>den)return; ton+=(g.loai==='thu'?g.soTien:-g.soTien); });
+  if(!await avaConfirm('CHỐT SỔ QUỸ '+csName(coSoId).toUpperCase()+' — '+kyTxt+'?\n\n'
+    +'Tổng thu: '+fmtVND(t.tThu)+'\nTổng chi: '+fmtVND(t.tChi)+'\nTồn quỹ cuối kỳ: '+fmtVND(ton)+'\n\n'
+    +'Sau khi chốt, KHÔNG AI thêm/sửa/xóa được phiếu của kỳ này (kể cả Quản trị) cho tới khi mở khóa.',{okText:'Chốt sổ'}))return;
+  const {data,error}=await SB.from('chot_so_quy')
+    .insert({coso_id:coSoId,ky,tong_thu:t.tThu,tong_chi:t.tChi,ton_cuoi:ton}).select().single();
+  if(error){avaAlert('Lỗi chốt sổ: '+error.message+'\n\nNếu báo thiếu bảng, hãy chạy file sql-giai-doan-5-thu-chi.sql trong Supabase.');return;}
+  OPS.chot[coSoId+'|'+ky]={id:data.id,ky,coSoId,tongThu:t.tThu,tongChi:t.tChi,tonCuoi:ton,chotAt:data.chot_at,ghiChu:''};
+  renderThu();
+  avaAlert('Đã chốt sổ quỹ '+csName(coSoId)+' '+kyTxt+'.\nTồn quỹ cuối kỳ: '+fmtVND(ton));
 }
 
 function addGD(loai){
@@ -2640,8 +2804,11 @@ function addGD(loai){
      <div class="fld"><label>Ngày</label><input type="date" id="gd_ngay" value="${todayISO()}"/></div>
      <div class="fld"><label>Hạng mục</label><select id="gd_hm">${cats.map(c=>`<option>${c}</option>`).join('')}</select></div>
      <div class="fld full"><label>Cơ sở</label><select id="gd_cs" ${USER.role!=='admin'?'disabled':''}>${csOpts.map(c=>`<option value="${c.id}" ${c.id===defCs?'selected':''}>${esc(c.ten)}</option>`).join('')}</select></div>
+     <div class="fld full" id="gd_luongBox" style="display:none"></div>
      <div class="fld full"><label>Số tiền (đồng)</label><input id="gd_tien" inputmode="numeric" placeholder="VD: 600.000"/></div>
      <div class="fld full"><label>Nội dung / diễn giải</label><input id="gd_nd" placeholder="${loai==='thu'?'VD: Thu học phí T7 lớp 8A1':'VD: Trả lương GV tháng 7'}"/></div>
+     <div class="fld"><label>${loai==='thu'?'Người nộp tiền':'Người nhận tiền'}</label><input id="gd_nop" placeholder="${loai==='thu'?'VD: Chị Lan (PH em An)':'VD: Cô Chu Thị Lan'}"/></div>
+     <div class="fld"><label>Hình thức</label><select id="gd_ht"><option value="tien_mat">Tiền mặt</option><option value="chuyen_khoan">Chuyển khoản</option></select></div>
      <div class="fld full"><label>Người lập phiếu</label><input id="gd_ng" value="${USER.role==='admin'?'Ban Giám đốc':'Lễ tân '+esc(csName(USER.coSoId))}"/></div>
      <div class="fld full" style="display:flex;gap:8px">
        <button class="btn btn-light" style="flex:1" id="gd_preview">Xem trước</button>
@@ -2650,20 +2817,135 @@ function addGD(loai){
    </div></div>`;
   $('#modal').classList.add('on');
   attachMoneyFormat($('#gd_tien'));
+  let luong=null;                                   // {gvId, ky, buoi, donGia}
+  const syncLuong=()=>{ luong=luongBoxRender(loai,$('#gd_hm').value,Number($('#gd_cs').value),v=>{luong=v;}); };
+  $('#gd_hm').onchange=syncLuong; $('#gd_cs').onchange=syncLuong; syncLuong();
   const readForm=()=>{
     const tien=Number($('#gd_tien').value.replace(/\D/g,''))||0; if(!tien){$('#gd_tien').focus();return null;}
-    return {ngay:$('#gd_ngay').value||todayISO(),loai,hangMuc:$('#gd_hm').value,coSoId:Number($('#gd_cs').value),soTien:tien,noiDung:$('#gd_nd').value.trim(),nguoiLap:$('#gd_ng').value.trim()};
+    const g={ngay:$('#gd_ngay').value||todayISO(),loai,hangMuc:$('#gd_hm').value,coSoId:Number($('#gd_cs').value),soTien:tien,
+      noiDung:$('#gd_nd').value.trim(),nguoiLap:$('#gd_ng').value.trim(),
+      nguoiNop:$('#gd_nop').value.trim(),hinhThuc:$('#gd_ht').value};
+    const lb=$('#gd_gvSel');
+    if(lb&&lb.value){ g.gvId=Number(lb.value); const kyEl=$('#gd_kyLuong'); if(kyEl)g.kyLuong=kyEl.value; }
+    return g;
   };
-  const doSave=async g=>{const {data,error}=await SB.from('so_quy').insert(gdToDb(g)).select().single();if(error){avaAlert('Lỗi lưu phiếu: '+error.message);return;}OPS.gd.push(gdFromDb(data));closeModal();renderThu();};
+  const doSave=async g=>{
+    if(await chanKyChot(g.coSoId,g.ngay,'thêm phiếu'))return;
+    const {data,error}=await insertPhieu(g);
+    if(error){avaAlert('Lỗi lưu phiếu: '+error.message);return;}
+    OPS.gd.push(gdFromDb(data)); closeModal(); renderThu();
+    if(!sqLive5) avaAlert('Đã lưu phiếu, nhưng CSDL chưa có các cột mới (người nộp tiền, hình thức, số phiếu).\nHãy chạy file sql-giai-doan-5-thu-chi.sql trong Supabase → SQL Editor.');
+  };
   $('#gd_save').onclick=()=>{const g=readForm();if(g)doSave(g);};
   $('#gd_preview').onclick=()=>{const g=readForm();if(g)openVoucher(g,{onSave:()=>doSave(g)});};
+}
+/* Khối gợi ý CHI LƯƠNG: chọn giáo viên + kỳ → lấy số buổi đã chấm công → nhập đơn giá → tự tính tiền */
+function luongBoxRender(loai,hangMuc,coSoId,onChange){
+  const box=$('#gd_luongBox'); if(!box)return null;
+  if(loai!=='chi'||!/lương/i.test(hangMuc||'')){ box.style.display='none'; box.innerHTML=''; return null; }
+  const gvs=GV.filter(g=>g.coSoId===coSoId).slice().sort((a,b)=>String(a.ten).localeCompare(b.ten,'vi'));
+  const d=new Date(); d.setMonth(d.getMonth()-1);                    // mặc định kỳ lương = tháng trước
+  const kyMac=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+  const kys=[]; for(let i=0;i<6;i++){const x=new Date(); x.setMonth(x.getMonth()-i); kys.push(`${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}`);}
+  box.style.display='block';
+  box.innerHTML=`<label>Tính lương theo công giáo viên <span style="font-weight:600;color:var(--muted)">· tùy chọn</span></label>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <select id="gd_gvSel" style="flex:2;min-width:150px"><option value="">— Không tính theo công —</option>
+        ${gvs.map(g=>`<option value="${g.id}">${esc(g.ten)}</option>`).join('')}</select>
+      <select id="gd_kyLuong" style="flex:1;min-width:120px">${kys.map(k=>`<option value="${k}" ${k===kyMac?'selected':''}>Tháng ${+k.split('-')[1]}/${k.split('-')[0]}</option>`).join('')}</select>
+    </div>
+    <div id="gd_luongInfo" style="margin-top:8px"></div>`;
+  const info=$('#gd_luongInfo');
+  const tinh=()=>{
+    const gvId=Number($('#gd_gvSel').value)||0, ky=$('#gd_kyLuong').value;
+    if(!gvId){info.innerHTML='';onChange&&onChange(null);return;}
+    const gv=GV.find(x=>x.id===gvId);
+    const lopIds=LOP.filter(l=>l.gvId===gvId||(gv&&(l.gv||'').trim()===gv.ten.trim())).map(l=>l.id);
+    let day=0,bu=0,nghi=0;
+    for(const k in OPS.ccGV){ const p=k.split('|'); if(!p[2].startsWith(ky))continue;
+      if(!lopIds.includes(Number(p[1])))continue;
+      const st=OPS.ccGV[k]; if(st==='day')day++; else if(st==='bu')bu++; else if(st==='nghi')nghi++; }
+    const buoi=day+bu;
+    info.innerHTML=`<div class="g-note ok" style="margin:0"><span>🧮</span><div>
+      <b>${esc(gv?gv.ten:'')}</b> — tháng ${+ky.split('-')[1]}/${ky.split('-')[0]}: <b>${buoi} buổi dạy</b> (lên lớp ${day}${bu?' + dạy bù '+bu:''}${nghi?', nghỉ '+nghi:''}).
+      <div style="display:flex;gap:8px;align-items:center;margin-top:7px;flex-wrap:wrap">
+        <span style="font-size:.82rem">Đơn giá/buổi:</span>
+        <input id="gd_donGia" inputmode="numeric" placeholder="VD: 150.000" style="flex:1;min-width:120px;padding:7px 10px;border:1px solid var(--line);border-radius:9px;font-weight:700"/>
+        <button type="button" class="btn btn-sm btn-light" id="gd_apDung">Tính &amp; điền</button>
+      </div>
+      ${buoi?'':'<div style="margin-top:6px;font-size:.8rem">Chưa có buổi nào được chấm công trong kỳ này.</div>'}
+    </div></div>`;
+    attachMoneyFormat($('#gd_donGia'));
+    $('#gd_apDung').onclick=()=>{
+      const dg=Number(String($('#gd_donGia').value).replace(/\D/g,''))||0;
+      if(!dg){$('#gd_donGia').focus();return;}
+      const tien=dg*buoi;
+      $('#gd_tien').value=tien.toLocaleString('vi-VN');
+      $('#gd_nd').value='Lương tháng '+(+ky.split('-')[1])+'/'+ky.split('-')[0]+' — '+(gv?gv.ten:'')+': '+buoi+' buổi × '+fmtVND(dg);
+      const nop=$('#gd_nop'); if(nop&&!nop.value.trim()&&gv)nop.value=gv.ten;
+    };
+    onChange&&onChange({gvId,ky,buoi});
+  };
+  $('#gd_gvSel').onchange=tinh; $('#gd_kyLuong').onchange=tinh;
+  return null;
+}
+/* Sửa một phiếu đã lập (không đổi loại và cơ sở để giữ đúng dãy số phiếu) */
+function editGD(g){
+  const cats=g.loai==='thu'?HM_THU:HM_CHI;
+  const grad=g.loai==='thu'?'#0c6b52,#0f766e':'#8a2b39,#b23a4a';
+  const hv=(g.hvId!=null)?OPS.hv.find(x=>x.id===g.hvId):null;
+  $('#mcard').innerHTML=`
+   <div class="mhead" style="background:var(--dots),linear-gradient(150deg,${grad});background-size:18px 18px,auto">
+     <div class="mava">✎</div>
+     <div style="flex:1"><h3>Sửa ${g.loai==='thu'?'phiếu thu':'phiếu chi'}</h3><p>${esc(soPhieu(g))} · ${esc(csName(g.coSoId))}</p></div>
+     <button class="mclose" onclick="closeModal()">${svg('<path d="M6 6l12 12M18 6L6 18"/>')}</button>
+   </div>
+   <div class="mbody"><div class="form2">
+     ${hv?`<div class="fld full"><div class="g-note" style="margin:0"><span>⚠</span><div>Đây là phiếu thu học phí của <b>${esc(hv.ten)}</b>. Sửa số tiền sẽ cập nhật lại số tiền đã đóng của em.</div></div></div>`:''}
+     <div class="fld"><label>Ngày</label><input type="date" id="eg_ngay" value="${g.ngay}"/></div>
+     <div class="fld"><label>Hạng mục</label><select id="eg_hm">${cats.map(c=>`<option ${c===g.hangMuc?'selected':''}>${c}</option>`).join('')}${cats.includes(g.hangMuc)?'':`<option selected>${esc(g.hangMuc||'')}</option>`}</select></div>
+     <div class="fld full"><label>Số tiền (đồng)</label><input id="eg_tien" inputmode="numeric" value="${g.soTien||''}"/></div>
+     <div class="fld full"><label>Nội dung / diễn giải</label><input id="eg_nd" value="${esc(g.noiDung||'')}"/></div>
+     <div class="fld"><label>${g.loai==='thu'?'Người nộp tiền':'Người nhận tiền'}</label><input id="eg_nop" value="${esc(g.nguoiNop||'')}"/></div>
+     <div class="fld"><label>Hình thức</label><select id="eg_ht">
+       <option value="tien_mat" ${g.hinhThuc!=='chuyen_khoan'?'selected':''}>Tiền mặt</option>
+       <option value="chuyen_khoan" ${g.hinhThuc==='chuyen_khoan'?'selected':''}>Chuyển khoản</option></select></div>
+     <div class="fld full"><label>Người lập phiếu</label><input id="eg_ng" value="${esc(g.nguoiLap||'')}"/></div>
+     <div id="eg_err" class="fld full" style="display:none;color:#c0392b;font-size:.85rem;font-weight:600"></div>
+     <div class="fld full" style="display:flex;gap:8px">
+       <button class="btn btn-light" style="flex:1" onclick="closeModal()">Hủy</button>
+       <button class="btn btn-primary" style="flex:2" id="eg_save">💾 Lưu thay đổi</button>
+     </div>
+   </div></div>`;
+  $('#modal').classList.add('on');
+  attachMoneyFormat($('#eg_tien'));
+  const err=m=>{const e=$('#eg_err');e.textContent=m||'';e.style.display=m?'block':'none';};
+  $('#eg_save').onclick=async()=>{
+    const tien=Number(String($('#eg_tien').value).replace(/\D/g,''))||0;
+    if(!tien){err('Vui lòng nhập số tiền.');$('#eg_tien').focus();return;}
+    const ngay=$('#eg_ngay').value||g.ngay;
+    if(await chanKyChot(g.coSoId,g.ngay,'sửa phiếu'))return;
+    if(ngay!==g.ngay && await chanKyChot(g.coSoId,ngay,'chuyển phiếu sang kỳ đó'))return;
+    const patch={ngay,hang_muc:$('#eg_hm').value,so_tien:tien,noi_dung:$('#eg_nd').value.trim(),nguoi_lap:$('#eg_ng').value.trim()};
+    const patch5={nguoi_nop:$('#eg_nop').value.trim(),hinh_thuc:$('#eg_ht').value};
+    const btn=$('#eg_save'); btn.disabled=true; btn.textContent='Đang lưu…'; err('');
+    let r=await SB.from('so_quy').update(sqLive5?{...patch,...patch5}:patch).eq('id',g.id);
+    if(r.error && /column .* does not exist|schema cache/i.test(r.error.message||'')){
+      sqLive5=false; r=await SB.from('so_quy').update(patch).eq('id',g.id);
+    }
+    btn.disabled=false; btn.textContent='💾 Lưu thay đổi';
+    if(r.error){err('Lỗi lưu: '+r.error.message);return;}
+    Object.assign(g,{ngay,hangMuc:patch.hang_muc,soTien:tien,noiDung:patch.noi_dung,nguoiLap:patch.nguoi_lap,
+      nguoiNop:patch5.nguoi_nop,hinhThuc:patch5.hinh_thuc});
+    if(hv) await capNhatTongDong(hv);
+    closeModal(); renderThu();
+  };
 }
 
 /* ===== XUẤT EXCEL SỔ QUỸ THU – CHI =====
    Mẫu kế toán: khổ A4 nằm ngang, kẻ ô toàn bảng, số dư đầu kỳ – phát sinh –
    số dư cuối kỳ, tồn quỹ lũy kế sau từng phiếu, khối ký cuối sổ, lặp tiêu đề
    mỗi trang in. Kèm sheet tổng hợp theo hạng mục (và theo cơ sở khi xem cả chuỗi). */
-const soPhieu=g=>(g.loai==='thu'?'PT':'PC')+String(g.id||0).padStart(4,'0');
 const XL_HEAD='FF2A5490';
 function xlSetRow(ws,r,vals,opt){
   opt=opt||{}; const row=ws.getRow(r); row.height=opt.h||17;
@@ -2686,8 +2968,9 @@ async function exportSoQuy(list,t){
     OPS.gd.forEach(g=>{ if(!ids.includes(g.coSoId)||g.ngay>=dauKy)return; duDau+=(g.loai==='thu'?g.soTien:-g.soTien); });
   }
   const rows=list.slice().sort((a,b)=>a.ngay.localeCompare(b.ngay)||a.id-b.id);   // sổ quỹ ghi theo trình tự thời gian
-  const cols=[{h:'STT',k:'stt',w:6,a:'center'},{h:'Ngày',k:'ngay',w:12,a:'center'},{h:'Số phiếu',k:'sp',w:12,a:'center'},
-    {h:'Loại',k:'loai',w:8,a:'center'},{h:'Hạng mục',k:'hm',w:22},{h:'Diễn giải / nội dung',k:'nd',w:38,wrap:true}]
+  const cols=[{h:'STT',k:'stt',w:6,a:'center'},{h:'Ngày',k:'ngay',w:12,a:'center'},{h:'Số phiếu',k:'sp',w:17,a:'center'},
+    {h:'Loại',k:'loai',w:8,a:'center'},{h:'Hạng mục',k:'hm',w:22},{h:'Diễn giải / nội dung',k:'nd',w:34,wrap:true},
+    {h:'Người nộp / nhận',k:'nop',w:22},{h:'Hình thức',k:'ht',w:13,a:'center'}]
     .concat(adm?[{h:'Cơ sở',k:'cs',w:17}]:[])
     .concat([{h:'Thu (đồng)',k:'thu',w:16,num:true},{h:'Chi (đồng)',k:'chi',w:16,num:true}])
     .concat(motLoai?[]:[{h:'Tồn quỹ (đồng)',k:'ton',w:17,num:true}])
@@ -2743,6 +3026,7 @@ async function exportSoQuy(list,t){
     const vals=[];
     vals[ci('stt')-1]=i+1; vals[ci('ngay')-1]=isoVN(g.ngay); vals[ci('sp')-1]=soPhieu(g);
     vals[ci('loai')-1]=g.loai==='thu'?'Thu':'Chi'; vals[ci('hm')-1]=g.hangMuc||''; vals[ci('nd')-1]=g.noiDung||'';
+    vals[ci('nop')-1]=g.nguoiNop||''; vals[ci('ht')-1]=HT_LABEL[g.hinhThuc]||'Tiền mặt';
     if(adm)vals[ci('cs')-1]=csName(g.coSoId);
     vals[ci('thu')-1]=g.loai==='thu'?g.soTien:null; vals[ci('chi')-1]=g.loai==='chi'?g.soTien:null;
     if(!motLoai)vals[ci('ton')-1]=ton;
@@ -2834,6 +3118,73 @@ async function exportSoQuy(list,t){
   if(btn){btn.disabled=false;btn.textContent=oldTxt;}
 }
 
+/* ===== IN SỔ QUỸ TRỰC TIẾP TỪ WEB (khổ A4 nằm ngang) =====
+   Dùng chung khung in với phiếu thu/chi: đổ bảng sổ quỹ vào #voucher rồi window.print(). */
+function inSoQuy(list,t){
+  const adm=USER.role==='admin', ids=scopeIds();
+  const phamvi=adm?(scope==='all'?'Toàn hệ thống':csName(Number(scope))):csName(USER.coSoId);
+  const kyTxt=ktThang==='all'?'Tất cả các kỳ':('Tháng '+(+ktThang.split('-')[1])+'/'+ktThang.split('-')[0]);
+  const motLoai=ktLoai!=='all';
+  const tenBang=motLoai?(ktLoai==='thu'?'BẢNG KÊ PHIẾU THU':'BẢNG KÊ PHIẾU CHI'):'SỔ QUỸ THU – CHI';
+  let duDau=0;
+  if(!motLoai && ktThang!=='all'){
+    const dauKy=ktThang+'-01';
+    OPS.gd.forEach(g=>{ if(!ids.includes(g.coSoId)||g.ngay>=dauKy)return; duDau+=(g.loai==='thu'?g.soTien:-g.soTien); });
+  }
+  const rows=list.slice().sort((a,b)=>a.ngay.localeCompare(b.ngay)||a.id-b.id);
+  let ton=duDau;
+  const now=new Date();
+  const body=rows.map((g,i)=>{
+    ton+=(g.loai==='thu'?g.soTien:-g.soTien);
+    return `<tr>
+      <td class="c">${i+1}</td><td class="c">${isoVN(g.ngay)}</td><td class="c">${esc(soPhieu(g))}</td>
+      <td>${esc(g.hangMuc||'')}</td><td>${esc(g.noiDung||'')}</td><td>${esc(g.nguoiNop||'')}</td>
+      ${adm?`<td>${esc(csName(g.coSoId))}</td>`:''}
+      <td class="r">${g.loai==='thu'?Math.round(g.soTien).toLocaleString('vi-VN'):''}</td>
+      <td class="r">${g.loai==='chi'?Math.round(g.soTien).toLocaleString('vi-VN'):''}</td>
+      ${motLoai?'':`<td class="r">${Math.round(ton).toLocaleString('vi-VN')}</td>`}
+      <td>${esc(g.nguoiLap||'')}</td></tr>`;}).join('');
+  const nCot=(adm?10:9)-(motLoai?1:0);
+  const truocTien=(adm?7:6);        // số cột trước cột Thu (để gộp ô các dòng tổng)
+  $('#voucher').innerHTML=`<div class="vbar">
+      <button class="btn btn-sm btn-light" id="sqPrint">🖶 In / lưu PDF</button>
+      <button class="btn btn-sm btn-light" id="sqClose">Đóng</button>
+    </div>
+    <div class="vpaper sqpaper">
+      <div class="vtop">
+        <div><b>TRUNG TÂM ANH NGỮ AVATAR</b><br/><span>Cơ sở: ${esc(phamvi)}</span></div>
+        <div class="vmau">Mẫu số S05-DNN<br/><i>(Ban hành theo TT 133/2016/TT-BTC)</i></div>
+      </div>
+      <div class="vtitle">${tenBang}</div>
+      <div class="vdate">Kỳ: ${esc(kyTxt)} · Phạm vi: ${esc(phamvi)}</div>
+      <div style="text-align:right;font-style:italic;font-size:12px;margin-bottom:4px">Đơn vị tính: đồng</div>
+      <table class="sqtbl">
+        <thead><tr>
+          <th>STT</th><th>Ngày</th><th>Số phiếu</th><th>Hạng mục</th><th>Diễn giải</th><th>Người nộp/nhận</th>
+          ${adm?'<th>Cơ sở</th>':''}<th>Thu</th><th>Chi</th>${motLoai?'':'<th>Tồn quỹ</th>'}<th>Người lập</th>
+        </tr></thead>
+        <tbody>
+          ${motLoai?'':`<tr class="sum"><td colspan="${truocTien}" class="r">SỐ DƯ ĐẦU KỲ</td><td></td><td></td><td class="r">${Math.round(duDau).toLocaleString('vi-VN')}</td><td></td></tr>`}
+          ${body||`<tr><td colspan="${nCot}" style="text-align:center;font-style:italic;padding:14px">Không có phiếu nào trong kỳ này.</td></tr>`}
+          <tr class="sum"><td colspan="${truocTien}" class="r">CỘNG PHÁT SINH TRONG KỲ</td>
+            <td class="r">${Math.round(t.tThu).toLocaleString('vi-VN')}</td><td class="r">${Math.round(t.tChi).toLocaleString('vi-VN')}</td>
+            ${motLoai?'':'<td></td>'}<td></td></tr>
+          ${motLoai?'':`<tr class="sum"><td colspan="${truocTien}" class="r">SỐ DƯ CUỐI KỲ</td><td></td><td></td><td class="r"><b>${Math.round(ton).toLocaleString('vi-VN')}</b></td><td></td></tr>`}
+        </tbody>
+      </table>
+      ${motLoai?'':`<div style="font-style:italic;font-size:12.5px;margin-top:6px">Số dư cuối kỳ bằng chữ: ${docSoVN(Math.abs(ton))}${ton<0?' (âm)':''}</div>`}
+      <div style="text-align:right;font-style:italic;font-size:12.5px;margin-top:10px">Nghệ An, ngày ${now.getDate()} tháng ${now.getMonth()+1} năm ${now.getFullYear()}</div>
+      <div class="vsign" style="margin-top:6px">
+        <div><b>Người lập biểu</b><small>(Ký, họ tên)</small><div style="height:48px"></div></div>
+        <div><b>Kế toán</b><small>(Ký, họ tên)</small><div style="height:48px"></div></div>
+        <div><b>Giám đốc</b><small>(Ký, họ tên)</small><div style="height:48px"></div></div>
+      </div>
+    </div>`;
+  $('#voucher').classList.add('on'); $('#voucher').classList.add('sq');
+  $('#sqClose').onclick=()=>{$('#voucher').classList.remove('on');$('#voucher').classList.remove('sq');};
+  $('#sqPrint').onclick=()=>window.print();
+}
+
 /* đọc số tiền bằng chữ (VND) */
 function docSoVN(number){
   number=Math.round(number); if(number===0)return 'Không đồng';
@@ -2858,8 +3209,9 @@ function taiWord(html,filename){
   const url=URL.createObjectURL(blob),a=document.createElement('a'); a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
 function voucherHTML(g){
-  const thu=g.loai==='thu', d=(g.ngay||'').split('-'), so=(thu?'PT':'PC')+String(g.id||1).padStart(4,'0');
-  const sign=[['Giám đốc',''],['Kế toán',''],[thu?'Người nộp tiền':'Người nhận tiền',''],['Người lập phiếu',esc(g.nguoiLap||'')],['Thủ quỹ','']];
+  const thu=g.loai==='thu', d=(g.ngay||'').split('-'), so=soPhieu(g);
+  const nguoi=(g.nguoiNop||'').trim();
+  const sign=[['Giám đốc',''],['Kế toán',''],[thu?'Người nộp tiền':'Người nhận tiền',esc(nguoi)],['Người lập phiếu',esc(g.nguoiLap||'')],['Thủ quỹ','']];
   return `<div class="vpaper">
     <div class="vtop">
       <div><b>TRUNG TÂM ANH NGỮ AVATAR</b><br/><span>Cơ sở: ${esc(csName(g.coSoId))}</span></div>
@@ -2867,12 +3219,12 @@ function voucherHTML(g){
     </div>
     <div class="vtitle">${thu?'PHIẾU THU':'PHIẾU CHI'}</div>
     <div class="vdate">Ngày ${d[2]||'.....'} tháng ${d[1]||'.....'} năm ${d[0]||'.......'}</div>
-    <div class="vno">Số: ${so}</div>
+    <div class="vno">Số: ${esc(so)}</div>
     <table class="vfields">
-      <tr><td>Họ tên người ${thu?'nộp':'nhận'} tiền:</td><td>${esc(g.nguoiLap||'.....................................')}</td></tr>
+      <tr><td>Họ tên người ${thu?'nộp':'nhận'} tiền:</td><td>${esc(nguoi||'.....................................')}</td></tr>
       <tr><td>Địa chỉ:</td><td>${esc(csName(g.coSoId))}</td></tr>
       <tr><td>Lý do ${thu?'nộp':'chi'}:</td><td>${esc(g.hangMuc)}${g.noiDung?' — '+esc(g.noiDung):''}</td></tr>
-      <tr><td>Số tiền:</td><td><b>${fmtVND(g.soTien)}</b></td></tr>
+      <tr><td>Số tiền:</td><td><b>${fmtVND(g.soTien)}</b> <span style="font-size:.9em">(${esc(HT_LABEL[g.hinhThuc]||'Tiền mặt')})</span></td></tr>
       <tr><td>Bằng chữ:</td><td><i>${docSoVN(g.soTien)}</i></td></tr>
       <tr><td>Kèm theo:</td><td>................. chứng từ gốc</td></tr>
     </table>
@@ -2880,6 +3232,7 @@ function voucherHTML(g){
   </div>`;
 }
 function openVoucher(g,opts={}){
+  $('#voucher').classList.remove('sq');
   $('#voucher').innerHTML=`<div class="vbar">
     ${opts.onSave?'<button class="btn btn-sm btn-primary" id="vSave">✓ Lưu vào sổ</button>':''}
     <button class="btn btn-sm btn-light" id="vPrint">🖶 In phiếu</button>
@@ -2889,7 +3242,7 @@ function openVoucher(g,opts={}){
   $('#voucher').classList.add('on');
   $('#vClose').onclick=()=>$('#voucher').classList.remove('on');
   $('#vPrint').onclick=()=>window.print();
-  $('#vWord').onclick=()=>taiWord($('#voucher .vpaper').outerHTML,((g.loai==='thu'?'Phieu-thu-':'Phieu-chi-')+(g.loai==='thu'?'PT':'PC')+String(g.id||1).padStart(4,'0')+'.doc'));
+  $('#vWord').onclick=()=>taiWord($('#voucher .vpaper').outerHTML,((g.loai==='thu'?'Phieu-thu-':'Phieu-chi-')+String(soPhieu(g)).replace(/[\\/:*?"<>|\s]+/g,'-')+'.doc'));
   if(opts.onSave)$('#vSave').onclick=()=>{opts.onSave();$('#voucher').classList.remove('on');};
 }
 
@@ -3000,14 +3353,8 @@ function openHvEdit(h){
      <div class="fld full"><label>Họ và tên</label><input id="hv_ten" value="${esc(h.ten)}"/></div>
      <div class="fld"><label>Ngày sinh</label><input id="hv_ns" value="${esc(h.ns)}" placeholder="dd/mm/yyyy"/></div>
      <div class="fld"><label>Học phí (đ/khóa)</label><input id="hv_hp" inputmode="numeric" value="${h.hocPhi||''}" placeholder="VD: 600.000"/></div>
-     <div class="fld full"><label>Tình trạng học phí · ngày đóng</label>
-       <div class="hv-paid3" id="hv_paid">
-         <button type="button" data-p="1">✓ Đã đóng</button>
-         <button type="button" data-p="0">Chưa đóng</button>
-         <input id="hv_ngaydong" placeholder="dd/mm/yyyy" value="${h.daDong&&h.ngayDong?isoVN(h.ngayDong):''}"/>
-       </div></div>
-     <div class="fld full"><label>Số tiền đã đóng (đ)</label><input id="hv_sotien" inputmode="numeric" value="${h.soTienDong||''}" placeholder="VD: đóng trước 200.000"/>
-       <small class="muted" style="font-size:.72rem">Nhập số tiền phụ huynh đã nộp. Đóng đủ thì bằng học phí cả khóa. Phiếu thu trong Sổ quỹ ghi đúng số này.</small></div>
+     <div class="fld"><label>Đã đóng</label><input value="${fmtVND(hpDaHT(h))}" disabled style="opacity:.8;font-weight:800"/></div>
+     <div class="fld full" id="hv_dotBox">${hpDotHTML(h)}</div>
      <div class="fld"><label>Phụ huynh</label><input id="hv_ph" value="${esc(h.ph)}" placeholder="Tên phụ huynh"/></div>
      <div class="fld"><label>Điện thoại</label><input id="hv_sdt" value="${esc(h.sdt)}" inputmode="tel" placeholder="SĐT liên hệ"/></div>
      <div class="fld full"><label>Lớp đang học</label><select id="hv_lop">${lopsCs.map(l=>`<option value="${l.id}" ${l.id===h.lopId?'selected':''}>${esc(l.lop)} — ${esc(l.gv||'?')}</option>`).join('')}</select></div>
@@ -3027,21 +3374,9 @@ function openHvEdit(h){
      <div class="fld full" style="display:flex;gap:9px"><button class="btn btn-primary" id="hv_save" style="flex:1">✓ Lưu hồ sơ</button><button class="btn btn-light" id="hv_del" style="color:var(--rose)">Xóa</button></div>
    </div></div>`;
   $('#modal').classList.add('on');
-  attachMoneyFormat($('#hv_hp')); attachMoneyFormat($('#hv_sotien')); attachDateFormat($('#hv_ns')); attachDateFormat($('#hv_ngaydong'));
+  attachMoneyFormat($('#hv_hp')); attachDateFormat($('#hv_ns'));
   attachDateFormat($('#hv_nhaphoc')); attachDateFormat($('#hv_thoihoc'));
-  let paid=!!h.daDong;
-  const ndInp=$('#hv_ngaydong'), sdInp=$('#hv_sotien');
-  const numOf=el=>Number(String(el.value).replace(/[^\d]/g,''))||0;
-  const setPaidUI=()=>{
-    $$('#hv_paid button').forEach(x=>x.classList.toggle('sel',x.dataset.p===(paid?'1':'0')));
-    ndInp.disabled=!paid; sdInp.disabled=!paid;
-    if(paid){
-      if(!ndInp.value) ndInp.value=isoVN(todayISO());
-      if(!numOf(sdInp)) sdInp.value=String(numOf($('#hv_hp')));   // mồi = học phí cả khóa; lễ tân sửa xuống nếu đóng một phần
-    } else { ndInp.value=''; sdInp.value=''; }
-  };
-  $$('#hv_paid button').forEach(b=>b.onclick=()=>{paid=b.dataset.p==='1';setPaidUI();});
-  setPaidUI();
+  bindHpDot(h);
   // Trạng thái học: Đang học / Đã thôi học
   let thoi=!!h.ngayThoiHoc;
   const setSttUI=()=>{
@@ -3057,15 +3392,10 @@ function openHvEdit(h){
     if(!ten){err('Vui lòng nhập họ tên.');return;}
     if(!isValidDob($('#hv_ns').value)){err('Ngày sinh chưa đúng dạng ngày/tháng/năm (VD: 01/09/2015).');$('#hv_ns').focus();return;}
     const hp=Number(String($('#hv_hp').value).replace(/[^\d]/g,''))||0;
-    let ndIso=null, sd=0;
-    if(paid){
-      const ndv=$('#hv_ngaydong').value.trim();
-      if(ndv && !isValidDob(ndv)){err('Ngày đóng chưa đúng dạng ngày/tháng/năm.');$('#hv_ngaydong').focus();return;}
-      ndIso = ndv ? vnToIso(ndv) : todayISO();
-      sd=Number(String($('#hv_sotien').value).replace(/[^\d]/g,''))||0;
-      if(sd<=0){err('Đã chọn "Đã đóng" — vui lòng nhập số tiền đã đóng (VD: 200.000).');$('#hv_sotien').focus();return;}
-      if(hp>0 && sd>hp){err('Số tiền đã đóng ('+fmtVND(sd)+') lớn hơn học phí cả khóa ('+fmtVND(hp)+'). Vui lòng kiểm tra lại.');$('#hv_sotien').focus();return;}
-    }
+    // Số tiền đã đóng KHÔNG nhập tay nữa — tính từ các đợt đóng (mỗi đợt là một phiếu thu)
+    const sd=hpDaHT(h);
+    const psCu=hpPhieuCua(h.id);
+    const ndIso=psCu.length?psCu[psCu.length-1].ngay:null;
     // ngày nhập học
     const nhv=$('#hv_nhaphoc').value.trim();
     if(nhv && !isValidDob(nhv)){err('Thời gian nhập học chưa đúng dạng ngày/tháng/năm.');$('#hv_nhaphoc').focus();return;}
@@ -3085,21 +3415,98 @@ function openHvEdit(h){
     const {error}=await SB.from('hoc_vien').update({ten:patch.ten,ns:patch.ns,ph:patch.ph,sdt:patch.sdt,hoc_phi:hp,da_dong:daDong,lop_id:lopId,mau:false}).eq('id',h.id);
     btn.disabled=false; btn.textContent='✓ Lưu hồ sơ';
     if(error){err('Lỗi lưu: '+error.message);return;}
-    await SB.from('hoc_vien').update({ngay_dong:ndIso}).eq('id',h.id);   // cần cột ngay_dong; bỏ qua êm nếu chưa chạy SQL
-    await SB.from('hoc_vien').update({ngay_nhap_hoc:nhIso,ngay_thoi_hoc:thIso,ly_do_thoi_hoc:lyDo}).eq('id',h.id);   // cần cột mới; bỏ qua êm nếu chưa chạy SQL
-    await SB.from('hoc_vien').update({so_tien_dong:sd}).eq('id',h.id);   // cần cột so_tien_dong; bỏ qua êm nếu chưa chạy SQL
+    // Các cột thêm sau này — nếu thiếu cột thì báo rõ để anh chạy SQL, không im lặng bỏ qua
+    const r2=await SB.from('hoc_vien').update({ngay_dong:ndIso,ngay_nhap_hoc:nhIso,ngay_thoi_hoc:thIso,ly_do_thoi_hoc:lyDo,so_tien_dong:sd}).eq('id',h.id);
+    if(r2.error){
+      err('Đã lưu thông tin cơ bản, nhưng chưa lưu được ngày nhập/thôi học & số tiền: '+r2.error.message
+        +' — hãy chạy các file sql-*.sql còn thiếu trong Supabase.');
+      Object.assign(h,{ten:patch.ten,ns:patch.ns,ph:patch.ph,sdt:patch.sdt,hocPhi:hp,lopId,mau:false});
+      renderHocVien(); return;
+    }
     Object.assign(h,patch,{mau:false});
-    await syncHocPhiVoucher(h);              // đồng bộ phiếu thu trong Sổ quỹ (theo số tiền đã đóng)
     closeModal(); renderHocVien();
   };
   $('#hv_del').onclick=async()=>{
-    if(!await avaConfirm('Xóa hồ sơ học sinh "'+h.ten+'"? Thao tác này không thể hoàn tác.',{danger:true,okText:'Xóa'}))return;
+    const ps=hpPhieuCua(h.id);
+    const msg='Xóa hồ sơ học sinh "'+h.ten+'"?'
+      + (ps.length?('\n\n'+ps.length+' phiếu thu học phí của em (tổng '+fmtVND(hpDaDong(h.id))+') sẽ bị xóa khỏi sổ quỹ.'):'')
+      + '\n\nThao tác này không thể hoàn tác.';
+    if(!await avaConfirm(msg,{danger:true,okText:'Xóa'}))return;
+    for(const p of ps){ if(daChotKy(p.coSoId,p.ngay)){ err('Không xóa được: phiếu thu học phí '+soPhieu(p)+' thuộc kỳ sổ quỹ đã chốt. Hãy nhờ Quản trị mở khóa kỳ đó trước.'); return; } }
     const {error}=await SB.from('hoc_vien').delete().eq('id',h.id);
     if(error){err('Lỗi xóa: '+error.message);return;}
     OPS.hv=OPS.hv.filter(x=>x.id!==h.id);
-    await syncHocPhiVoucher(h,0);           // xóa luôn phiếu thu tự sinh của em này
+    if(ps.length){                                   // xóa các phiếu thu học phí của em này
+      const ids=ps.map(p=>p.id);
+      await SB.from('so_quy').delete().in('id',ids);
+      OPS.gd=OPS.gd.filter(g=>!ids.includes(g.id));
+    }
     closeModal(); renderHocVien();
   };
+}
+/* ---- Khối "các đợt đóng học phí" trong hồ sơ học sinh ---- */
+function hpDotHTML(h){
+  const ps=hpPhieuCua(h.id), da=hpDaHT(h), hp=h.hocPhi||0, con=Math.max(0,hp-da);
+  const rows=ps.map((p,i)=>`<div class="ddrow" style="padding:8px 10px">
+      <div class="idx">${i+1}</div>
+      <div class="nm"><b>${fmtVND(p.soTien)}</b><small>${isoVN(p.ngay)} · ${esc(soPhieu(p))}${p.nguoiNop?' · '+esc(p.nguoiNop):''}${p.hinhThuc==='chuyen_khoan'?' · CK':''}</small></div>
+      ${daChotKy(p.coSoId,p.ngay)?'<span class="paidtag yes">🔒 đã chốt sổ</span>':`<button class="btn btn-sm btn-light" data-xoadot="${p.id}" style="color:var(--rose)">Xóa đợt</button>`}
+    </div>`).join('');
+  return `<label>Các đợt đóng học phí <span style="font-weight:600;color:var(--muted)">· mỗi đợt là một phiếu thu trong sổ quỹ</span></label>
+    <div class="ddsum" style="margin:6px 0 8px">
+      <div class="p co"><b>${fmtVND(da)}</b><span>đã đóng</span></div>
+      <div class="p ${con>0?'muon':'done'}"><b>${fmtVND(con)}</b><span>còn phải thu</span></div>
+      <div class="p"><b>${ps.length}</b><span>đợt</span></div>
+    </div>
+    ${ps.length?`<div class="ddgrid" style="max-height:30vh;overflow:auto">${rows}</div>`
+      :(da>0?`<div class="g-note" style="margin:0 0 8px"><span>ℹ️</span><div>Hồ sơ ghi <b>${fmtVND(da)}</b> đã đóng nhưng <b>chưa có phiếu thu</b> trong sổ quỹ (số liệu nhập tay trước đây). Nên ghi nhận lại thành một đợt bên dưới để sổ quỹ có chứng từ.</div></div>`
+        :'<div class="muted" style="font-size:.82rem;padding:4px 2px 8px">Chưa ghi nhận đợt đóng nào.</div>')}
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-top:9px">
+      <div style="flex:1;min-width:110px"><label style="font-size:.7rem">Số tiền đợt này</label>
+        <input id="hv_dotTien" inputmode="numeric" placeholder="${con>0?fmtVND(con).replace('₫',''):'VD: 200.000'}" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:10px;font-weight:700"/></div>
+      <div style="flex:1;min-width:110px"><label style="font-size:.7rem">Ngày đóng</label>
+        <input id="hv_dotNgay" placeholder="dd/mm/yyyy" value="${isoVN(todayISO())}" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:10px;font-weight:700"/></div>
+      <div style="flex:1;min-width:110px"><label style="font-size:.7rem">Người nộp</label>
+        <input id="hv_dotNguoi" value="${esc(h.ph||'')}" placeholder="Tên phụ huynh" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:10px"/></div>
+      <div style="flex:1;min-width:110px"><label style="font-size:.7rem">Hình thức</label>
+        <select id="hv_dotHT" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:10px;font-weight:700"><option value="tien_mat">Tiền mặt</option><option value="chuyen_khoan">Chuyển khoản</option></select></div>
+      <button class="btn btn-sm btn-primary" id="hv_dotAdd" style="white-space:nowrap">＋ Ghi nhận đóng tiền</button>
+    </div>
+    <div id="hv_dotErr" style="display:none;color:#c0392b;font-size:.82rem;font-weight:600;margin-top:6px"></div>`;
+}
+function bindHpDot(h){
+  const box=$('#hv_dotBox'); if(!box)return;
+  attachMoneyFormat($('#hv_dotTien')); attachDateFormat($('#hv_dotNgay'));
+  const err=m=>{const e=$('#hv_dotErr');if(e){e.textContent=m||'';e.style.display=m?'block':'none';}};
+  const lamMoi=()=>{ box.innerHTML=hpDotHTML(h); bindHpDot(h); };
+  $('#hv_dotAdd').onclick=async()=>{
+    const sd=Number(String($('#hv_dotTien').value).replace(/[^\d]/g,''))||0;
+    const nv=$('#hv_dotNgay').value.trim();
+    if(sd<=0){err('Nhập số tiền đợt này.');$('#hv_dotTien').focus();return;}
+    if(nv&&!isValidDob(nv)){err('Ngày đóng chưa đúng dạng ngày/tháng/năm.');$('#hv_dotNgay').focus();return;}
+    const ngay=nv?vnToIso(nv):todayISO();
+    const hp=Number(String($('#hv_hp').value).replace(/[^\d]/g,''))||h.hocPhi||0;
+    h.hocPhi=hp;                                     // lấy học phí đang hiển thị để tính "còn phải thu"
+    const da=hpDaHT(h);
+    if(hp>0 && da+sd>hp){
+      if(!await avaConfirm('Tổng đã đóng sẽ là '+fmtVND(da+sd)+', VƯỢT học phí cả khóa ('+fmtVND(hp)+').\nVẫn ghi nhận?'))return;
+    }
+    if(await chanKyChot(h.coSoId,ngay,'ghi nhận đóng tiền'))return;
+    const btn=$('#hv_dotAdd'); btn.disabled=true; btn.textContent='Đang lưu…'; err('');
+    const r=await themDotDong(h,{soTien:sd,ngay,nguoiNop:$('#hv_dotNguoi').value.trim(),hinhThuc:$('#hv_dotHT').value});
+    btn.disabled=false; btn.textContent='＋ Ghi nhận đóng tiền';
+    if(r.error){err('Lỗi: '+r.error);return;}
+    lamMoi();
+  };
+  $$('#hv_dotBox [data-xoadot]').forEach(b=>b.onclick=async()=>{
+    const id=Number(b.dataset.xoadot), p=OPS.gd.find(x=>x.id===id); if(!p)return;
+    if(!await avaConfirm('Xóa đợt đóng '+fmtVND(p.soTien)+' ngày '+isoVN(p.ngay)+' (phiếu '+soPhieu(p)+')?\nPhiếu thu này sẽ bị xóa khỏi sổ quỹ.',{danger:true,okText:'Xóa'}))return;
+    const {error}=await SB.from('so_quy').delete().eq('id',id);
+    if(error){err('Lỗi xóa: '+error.message);return;}
+    OPS.gd=OPS.gd.filter(x=>x.id!==id);
+    await capNhatTongDong(h);
+    lamMoi();
+  });
 }
 
 /* ============ GHI DANH ============ */
