@@ -1171,12 +1171,37 @@ const csName=id=>COSO.find(c=>c.id===id)?.ten||'—';
    Em học 2 lớp thì có 2 dòng — đó là hợp lệ, KHÔNG phải nhập trùng.
    Trùng thật = cùng cơ sở + cùng lớp + cùng tên + ngày sinh không mâu thuẫn.  */
 /* khóa nhận diện MỘT CON NGƯỜI (bỏ qua lớp) — để đếm đầu người */
-const hsKey=h=>h.coSoId+'|'+nameKey(h.ten)+'|'+(vnToIso(h.ns)||'');
+const sdtKey=s=>String(s||'').replace(/\D/g,'');
+/* ===== GOM CÁC LƯỢT GHI DANH THÀNH TỪNG CON NGƯỜI =====
+   Cùng cơ sở + cùng họ tên mới xét tiếp. Trong nhóm đó, hai lượt là CÙNG MỘT EM khi
+   ngày sinh và số điện thoại KHÔNG mâu thuẫn (một bên để trống thì bỏ qua).
+   Hai em trùng tên, đều trống ngày sinh nhưng KHÁC SỐ ĐIỆN THOẠI ⇒ hai em khác nhau —
+   trước đây bị gộp làm một nên số "học sinh" bị thiếu và gắn nhầm nhãn "Học 2 lớp". */
+function nhomNguoi(arr){
+  const theoTen={};
+  arr.forEach(h=>{const k=h.coSoId+'|'+nameKey(h.ten);(theoTen[k]=theoTen[k]||[]).push(h);});
+  const map=new Map();          // hv.id -> mã người
+  let n=0;
+  for(const k in theoTen){
+    const cum=[];               // mỗi phần tử: {ns, sd, ids:[]}
+    theoTen[k].forEach(h=>{
+      const ns=vnToIso(h.ns)||'', sd=sdtKey(h.sdt);
+      const g=cum.find(x=>(!x.ns||!ns||x.ns===ns)&&(!x.sd||!sd||x.sd===sd));
+      if(g){ if(ns&&!g.ns)g.ns=ns; if(sd&&!g.sd)g.sd=sd; g.ids.push(h.id); }
+      else cum.push({ns,sd,ids:[h.id]});
+    });
+    cum.forEach(g=>{const ma=k+'#'+(++n); g.ids.forEach(id=>map.set(id,ma));});
+  }
+  return map;
+}
 /* khóa nhận diện MỘT LƯỢT GHI DANH — để bắt trùng */
 const gdKey=h=>h.coSoId+'|'+h.lopId+'|'+nameKey(h.ten);
-const demHS=arr=>new Set(arr.map(hsKey)).size;
+const demHS=arr=>new Set(nhomNguoi(arr).values()).size;
 /* các lớp mà một em đang theo học (dùng để hiện nhãn "2 lớp") */
-const lopCuaEm=h=>OPS.hv.filter(x=>hsKey(x)===hsKey(h)&&hvActive(x));
+function lopCuaEm(h){
+  const dang=OPS.hv.filter(hvActive), map=nhomNguoi(dang), ma=map.get(h.id);
+  return ma?dang.filter(x=>map.get(x.id)===ma):[h];
+}
 /* Số học sinh ĐANG HỌC thực tế (từ bảng hoc_vien) theo phạm vi cơ sở — ĐẾM THEO ĐẦU NGƯỜI:
    em học 2 lớp vẫn là 1 học sinh (nhưng vẫn tính 2 sĩ số lớp).
    Dùng thống nhất cho KPI, thẻ cơ sở & badge menu để không lệch với trang Học sinh. */
@@ -1592,6 +1617,7 @@ function lopPickHTML(selId){
 let USER={role:'admin',coSoId:null}, VIEW='dashboard', scope='all';
 let gvSearch='',gvCs='all',gvMon='all', lopSearch='',lopCs='all', csSort='thu';
 let hvSearch='',hvCs='all',hvLop='all',hvPaid='all',hvStt='active';
+let hvNhieu=false;   // chỉ hiện các em học từ 2 lớp trở lên
 let hvSelMode=false, hvSel=new Set();   // chế độ chọn nhiều học sinh để xóa hàng loạt
 const LY_DO_THOI=['Hết khóa','Chuyển trường','Nghỉ hẳn','Khác'];
 let csDetailId=null;
@@ -2308,6 +2334,8 @@ const HD_HOWTO={
 const HD_NUMBERS=[
   ['Học sinh đang học','Là những em <b>chưa có ngày thôi học</b>. Em đã thôi học vẫn giữ hồ sơ nhưng không tính vào sĩ số, dự thu. Đếm theo <b>đầu người</b>: em học 2 lớp vẫn là <b>1 học sinh</b>, nhưng tính đủ <b>2 sĩ số lớp</b> và <b>2 khoản học phí</b>.'],
   ['Học sinh học nhiều lớp','Ghi danh em đó vào từng lớp như bình thường — mỗi lớp một lượt, có học phí và ngày nhập học riêng. Gõ họ tên ở trang <b>Ghi danh</b> thì hệ thống tự nhận ra em đã học lớp khác và <b>điền sẵn</b> ngày sinh, phụ huynh, điện thoại. Trang Học sinh gắn nhãn tím <b>“Học N lớp”</b>. Hệ thống chỉ báo <b>trùng</b> khi cùng tên + cùng ngày sinh + <b>cùng một lớp</b>.'],
+  ['Vì sao “học sinh” ít hơn “lượt ghi danh”','<b>Lượt ghi danh</b> đếm theo lớp, <b>học sinh</b> đếm theo đầu người — em học 2 lớp là 2 lượt nhưng chỉ 1 học sinh. Hai con số này lệch nhau đúng bằng số lớp học thêm. Bấm vào ô tím <b>“N em học ≥2 lớp”</b> ở trang Học sinh để xem chính xác những em nào.'],
+  ['Cách nhận ra hai lượt là CÙNG một em','Phải <b>cùng cơ sở + cùng họ tên</b>, rồi <b>ngày sinh</b> và <b>số điện thoại</b> không được mâu thuẫn (bên nào để trống thì bỏ qua). Hai em trùng tên nhưng <b>khác số điện thoại</b> được tính là hai học sinh. Vì vậy <b>hãy điền đủ ngày sinh và số điện thoại</b> — thiếu thì máy dễ nhầm hai em thành một.'],
   ['Sửa hồ sơ em học nhiều lớp','Trong <b>Hồ sơ</b>: sửa <b>họ tên · ngày sinh · phụ huynh · điện thoại</b> thì hệ thống <b>tự áp cho mọi lớp</b> em đó học (chỉ cần sửa một lần). Còn <b>học phí · lớp · ngày nhập học</b> chỉ áp cho đúng lớp đang mở. Khi cho <b>thôi học</b>, có ô tích <b>“Cho thôi học cả N lớp”</b>; khi <b>Xóa</b>, hệ thống hỏi rõ xóa khỏi một lớp hay tất cả.'],
   ['Dự thu học phí','Tổng <b>học phí cả khóa</b> của các học sinh đang học trong phạm vi đang xem.'],
   ['Đã thu học phí','Tổng <b>số tiền đã đóng</b> của các em — cộng từ <b>các đợt đóng</b> (mỗi đợt là một phiếu thu trong sổ quỹ), tối đa bằng học phí cả khóa của em đó.'],
@@ -2329,7 +2357,9 @@ const HD_FAQ=[
   ['Không thấy menu “Lịch học”','Quản trị chưa chạy file <b>sql-giai-doan-6-ca.sql</b> trong Supabase → SQL Editor. Chạy xong tải lại trang (Ctrl+F5).'],
   ['Lịch báo khung vàng “xếp trùng”','Một giáo viên bị xếp hai lớp cùng ca, hoặc một phòng bị xếp hai lớp cùng giờ. Ô bị trùng được tô đỏ trên bảng lịch tuần — mở lớp đó sửa lại ca hoặc phòng.'],
   ['Một em học 2 lớp có bị coi là nhập trùng không?','Không. Trùng chỉ tính khi <b>cùng họ tên + cùng ngày sinh + cùng một lớp</b>. Em học 2 lớp có nhãn tím <b>“Học 2 lớp”</b>, được đếm là <b>1 học sinh</b> nhưng vẫn tính <b>2 sĩ số lớp</b> và <b>2 khoản học phí</b>.'],
-  ['Một em bị đếm thành 2 học sinh','Hai lượt ghi danh của em đó ghi <b>khác ngày sinh</b> (hoặc một bên bỏ trống) nên hệ thống tưởng là hai em. Mở <b>Hồ sơ</b> từng lượt, sửa cho ngày sinh giống nhau — sửa xong hệ thống tự gộp lại.'],
+  ['Một em bị đếm thành 2 học sinh','Hai lượt ghi danh của em đó ghi <b>khác ngày sinh</b> hoặc <b>khác số điện thoại</b> nên hệ thống tưởng là hai em. Mở <b>Hồ sơ</b> từng lượt, sửa cho hai thông tin đó giống nhau — sửa xong hệ thống tự gộp lại.'],
+  ['Hai em khác nhau bị đếm thành 1 học sinh','Hai em trùng tên mà <b>bỏ trống cả ngày sinh lẫn số điện thoại</b> thì máy không có căn cứ nào để phân biệt. Mở <b>Hồ sơ</b> điền ngày sinh (hoặc số điện thoại phụ huynh) khác nhau là hệ thống tách ra ngay.'],
+  ['Số "học sinh" ít hơn "lượt ghi danh"','Đúng như thiết kế: lượt ghi danh đếm theo lớp, học sinh đếm theo đầu người. Bấm ô tím <b>“N em học ≥2 lớp”</b> để xem danh sách các em học nhiều lớp; bấm lần nữa để bỏ lọc.'],
   ['Không tích được điểm danh, các nút bị mờ','Ca đó đã <b>Đã chốt</b> (khóa). Nhờ Quản trị vào <b>Đối soát</b> bấm <b>🔓 Mở khóa</b>.'],
   ['Xóa lớp không được','Lớp còn học sinh. Vào <b>Học sinh</b> chuyển các em sang lớp khác (hoặc cho thôi học) rồi xóa lớp.'],
   ['Nhập Excel bị bỏ qua vài dòng','Dòng thiếu <b>họ và tên</b>, hoặc <b>tên lớp không khớp</b> lớp nào của cơ sở. Cửa sổ xem trước có ghi rõ số dòng bị bỏ — sửa file rồi nhập lại.'],
@@ -3728,6 +3758,14 @@ function renderHocVien(){
   const tongHP=list.filter(hvActive).reduce((s,h)=>s+(h.hocPhi||0),0);
   const daThu=list.filter(hvActive).reduce((s,h)=>s+Math.min(Number(h.soTienDong)||0,h.hocPhi||0),0);
   const nDa=list.filter(h=>hvActive(h)&&(Number(h.soTienDong)||0)>0).length, nChua=list.filter(hvActive).length-nDa;
+  // Gom lượt ghi danh thành từng con người — tính MỘT LẦN rồi tra bảng (đừng gọi trong vòng lặp).
+  const dangHoc=OPS.hv.filter(hvActive), mapNguoi=nhomNguoi(dangHoc);
+  const lopTheoNguoi={};    // mã người -> [tên lớp]
+  dangHoc.forEach(x=>{const m=mapNguoi.get(x.id);(lopTheoNguoi[m]=lopTheoNguoi[m]||[]).push(lopName(x.lopId));});
+  const soNguoi=demHS(list);                       // đầu người trong danh sách đang xem
+  const soNhieuLop=new Set(list.filter(h=>hvActive(h)&&(lopTheoNguoi[mapNguoi.get(h.id)]||[]).length>1)
+    .map(h=>mapNguoi.get(h.id))).size;             // bao nhiêu EM học từ 2 lớp trở lên
+  if(hvNhieu) list=list.filter(h=>(lopTheoNguoi[mapNguoi.get(h.id)]||[]).length>1);
   // Học sinh mẫu cũ (cờ mau) còn sót trong DB — cho phép dọn hàng loạt theo phạm vi cơ sở đang xem
   let mauList=inHV();
   if(isAdmin && hvCs!=='all') mauList=mauList.filter(h=>h.coSoId===Number(hvCs));
@@ -3766,15 +3804,16 @@ function renderHocVien(){
     <div class="search" style="flex:1;min-width:200px">${svg(IC.search,1.9)}<input id="hvq" placeholder="Tìm tên học sinh, phụ huynh, SĐT…" value="${esc(hvSearch)}" style="border:0;outline:0;background:none;flex:1;font-weight:600;font-size:.9rem"/></div>
     ${csSel}${lopSel}${sttSel}${paidSel}
   </div>
-  <div class="panel"><div class="phead"><div style="display:flex;align-items:baseline;gap:8px"><h3>Hồ sơ học sinh</h3><span class="sub">${demHS(list)} học sinh${list.length>demHS(list)?' · '+list.length+' lượt ghi danh':''}</span></div>
+  <div class="panel"><div class="phead"><div style="display:flex;align-items:baseline;gap:8px"><h3>Hồ sơ học sinh</h3><span class="sub">${soNguoi} học sinh${list.length>soNguoi?' · '+list.length+' lượt ghi danh':''}</span></div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
       ${isAdmin&&list.length?`<button class="btn btn-sm ${hvSelMode?'btn-primary':'btn-light'}" id="hvPick" style="white-space:nowrap">${hvSelMode?'✕ Thoát chọn':'☑ Chọn nhiều'}</button>`:''}
       ${mauList.length?`<button class="btn btn-sm btn-light" id="hvClean" style="color:var(--rose);white-space:nowrap">🧹 Dọn ${mauList.length} HS mẫu</button>`:''}
     </div></div>
     <div class="pbody">
       <div class="ddsum">
-        <div class="p done"><b>${demHS(list)}</b><span>học sinh</span></div>
-        ${list.length>demHS(list)?`<div class="p" title="Em học nhiều lớp thì mỗi lớp là một lượt ghi danh"><b>${list.length}</b><span>lượt ghi danh</span></div>`:''}
+        <div class="p done"><b>${soNguoi}</b><span>học sinh</span></div>
+        ${list.length>soNguoi?`<div class="p" title="Em học nhiều lớp thì mỗi lớp là một lượt ghi danh"><b>${list.length}</b><span>lượt ghi danh</span></div>`:''}
+        ${soNhieuLop?`<div class="p" id="hvXemNhieu" title="Bấm để xem danh sách các em học từ 2 lớp trở lên" style="cursor:pointer;background:var(--violet-soft);border-color:#d6c8f5"><b style="color:var(--violet)">${soNhieuLop}</b><span>em học ≥2 lớp${hvNhieu?' · đang lọc':''}</span></div>`:''}
         <div class="p co"><b>${nDa}</b><span>đã đóng HP</span></div>
         <div class="p muon"><b>${nChua}</b><span>chưa đóng</span></div>
         <div class="p"><b>${fmtShort(daThu)}</b><span>đã thu / ${fmtShort(tongHP)}</span></div>
@@ -3808,8 +3847,8 @@ function renderHocVien(){
       const leftTag=left?`<span class="leftTag">Đã thôi học${v.ngayThoiHoc?' '+isoVN(v.ngayThoiHoc):''}${v.lyDo?' · '+esc(v.lyDo):''}</span>`:'';
       const dupTag=dupIds.includes(v.id)?`<span class="paidtag no" style="background:#fff2cf;color:#8a5a00;border-color:#f2c14e">Bản trùng</span>`:'';
       // Em học nhiều lớp: gắn nhãn cho lễ tân khỏi tưởng là dữ liệu trùng
-      const dsLop=left?[]:lopCuaEm(v);
-      const nhieuTag=dsLop.length>1?`<span class="paidtag" style="background:var(--violet-soft);color:var(--violet);border-color:#d6c8f5" title="${esc(dsLop.map(x=>lopName(x.lopId)).join(', '))}">Học ${dsLop.length} lớp</span>`:'';
+      const dsLop=left?[]:(lopTheoNguoi[mapNguoi.get(v.id)]||[]);
+      const nhieuTag=dsLop.length>1?`<span class="paidtag" style="background:var(--violet-soft);color:var(--violet);border-color:#d6c8f5" title="${esc(dsLop.join(', '))}">Học ${dsLop.length} lớp</span>`:'';
       h+=`<div class="ddrow${left?' hv-left':''}${hvSelMode&&hvSel.has(v.id)?' hv-picked':''}" ${hvSelMode?`data-pick="${v.id}" style="cursor:pointer"`:''}>
         ${hvSelMode
           ? `<input type="checkbox" ${hvSel.has(v.id)?'checked':''} style="width:21px;height:21px;flex:none;margin:0 3px;accent-color:var(--brand);pointer-events:none"/>`
@@ -3827,6 +3866,7 @@ function renderHocVien(){
   const ls=$('#hvLopSel'); if(ls)ls.onchange=e=>{hvLop=e.target.value;renderHocVien();};
   const ps=$('#hvPaidSel'); if(ps)ps.onchange=e=>{hvPaid=e.target.value;renderHocVien();};
   const ss=$('#hvSttSel'); if(ss)ss.onchange=e=>{hvStt=e.target.value;renderHocVien();};
+  const xn=$('#hvXemNhieu'); if(xn)xn.onclick=()=>{hvNhieu=!hvNhieu;renderHocVien();};
   const tg=$('#toGhi2'); if(tg)tg.onclick=()=>go('ghidanh');
   const cl=$('#hvClean'); if(cl)cl.onclick=()=>cleanMauHV(mauList);
   $$('#view [data-edit]').forEach(b=>b.onclick=()=>{const hv=OPS.hv.find(x=>x.id===Number(b.dataset.edit));if(hv)openHvEdit(hv);});
@@ -3896,7 +3936,8 @@ function openHvEdit(h){
   const lopsCs=LOP.filter(l=>l.coSoId===h.coSoId).slice().sort((a,b)=>String(a.lop).localeCompare(String(b.lop),'vi'));
   // Các lượt ghi danh KHÁC của cùng một em (em học nhiều lớp). Tính TRƯỚC khi sửa,
   // vì đổi họ tên / ngày sinh sẽ làm khóa nhận diện đổi theo.
-  const anhEm=OPS.hv.filter(x=>x.id!==h.id&&hsKey(x)===hsKey(h));
+  const _mapNg=nhomNguoi(OPS.hv), _maNg=_mapNg.get(h.id);
+  const anhEm=OPS.hv.filter(x=>x.id!==h.id&&_mapNg.get(x.id)===_maNg);
   const anhEmSong=anhEm.filter(hvActive);
   const noteNhieuLop=anhEm.length?`<div class="fld full g-note" style="margin:0">
       <span>👥</span><div>Em này có <b>${anhEm.length+1} lượt ghi danh</b>: ${esc([h,...anhEm].map(x=>lopName(x.lopId)).join(', '))}.<br/>
