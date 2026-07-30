@@ -1135,9 +1135,21 @@ const csAbbr=id=>CS_ABBR[id]||'?';
 let GV=[],LOP=[];
 DATA.forEach(c=>{(c.gv||[]).forEach(g=>GV.push({...g,coSoId:c.id})); (c.lop||[]).forEach(l=>LOP.push({...l,coSoId:c.id}));});
 const csName=id=>COSO.find(c=>c.id===id)?.ten||'—';
-/* Số học sinh ĐANG HỌC thực tế (từ bảng hoc_vien) theo phạm vi cơ sở —
-   dùng thống nhất cho KPI, thẻ cơ sở & badge menu để không lệch với trang Học sinh. */
-const hsActiveCount=ids=>OPS.hv.filter(h=>ids.includes(h.coSoId)&&hvActive(h)).length;
+/* ===== MỘT HỌC SINH HỌC NHIỀU LỚP =====
+   Mô hình giữ nguyên: mỗi dòng hoc_vien = MỘT LƯỢT GHI DANH vào một lớp.
+   Em học 2 lớp thì có 2 dòng — đó là hợp lệ, KHÔNG phải nhập trùng.
+   Trùng thật = cùng cơ sở + cùng lớp + cùng tên + ngày sinh không mâu thuẫn.  */
+/* khóa nhận diện MỘT CON NGƯỜI (bỏ qua lớp) — để đếm đầu người */
+const hsKey=h=>h.coSoId+'|'+nameKey(h.ten)+'|'+(vnToIso(h.ns)||'');
+/* khóa nhận diện MỘT LƯỢT GHI DANH — để bắt trùng */
+const gdKey=h=>h.coSoId+'|'+h.lopId+'|'+nameKey(h.ten);
+const demHS=arr=>new Set(arr.map(hsKey)).size;
+/* các lớp mà một em đang theo học (dùng để hiện nhãn "2 lớp") */
+const lopCuaEm=h=>OPS.hv.filter(x=>hsKey(x)===hsKey(h)&&hvActive(x));
+/* Số học sinh ĐANG HỌC thực tế (từ bảng hoc_vien) theo phạm vi cơ sở — ĐẾM THEO ĐẦU NGƯỜI:
+   em học 2 lớp vẫn là 1 học sinh (nhưng vẫn tính 2 sĩ số lớp).
+   Dùng thống nhất cho KPI, thẻ cơ sở & badge menu để không lệch với trang Học sinh. */
+const hsActiveCount=ids=>demHS(OPS.hv.filter(h=>ids.includes(h.coSoId)&&hvActive(h)));
 function csStat(id){
   const g=GV.filter(x=>x.coSoId===id), l=LOP.filter(x=>x.coSoId===id);
   return {gv:g.length,lop:l.length,hs:hsActiveCount([id]),thu:l.reduce((s,x)=>s+(x.duthu||0),0)};
@@ -1402,13 +1414,14 @@ async function hsDownloadTemplate(lop){
     example:{tt:1,ten:'Nguyễn Văn An',lop:lopNames[0]||'',ns:'01/09/2015',ph:'Nguyễn Văn Ba',sdt:'0901234567',nhaphoc:isoVN(todayISO()),trangthai:'Đang học',hp:600000},
     filename:'Mau-hoc-sinh-'+csName(coSoId).replace(/[\\/:*?"<>|\s]+/g,'-')+'.xlsx',
     title:'DANH SÁCH HỌC SINH — '+csName(coSoId),
-    guide:['• Mẫu này dùng cho CẢ CƠ SỞ — nhập nhiều lớp trong một file.','• Điền mỗi học sinh 1 dòng, ngay dưới hàng tiêu đề màu xanh.','• Cột "TT" chỉ để đánh số cho dễ nhìn — không ảnh hưởng khi nhập.','• "Họ và tên" là bắt buộc; dòng để trống tên sẽ bị bỏ qua.','• Cột "Lớp": bấm vào ô sẽ hiện danh sách lớp của cơ sở — CHỌN lớp, KHÔNG gõ tay để tránh sai. Để trống thì hệ thống xếp vào lớp đang chọn trên web.','• Ngày sinh & Thời gian nhập học ghi dạng ngày/tháng/năm (VD: 01/09/2015). Chấp nhận cả 1/9/2015, 01-09-2015, 01.09.2015 hoặc ô đã định dạng Ngày trong Excel.','• QUAN TRỌNG — "Thời gian nhập học" là ngày các em ĐĂNG KÝ THẬT, không phải ngày up file. Lớp đăng ký từ tháng trước thì ghi đúng ngày tháng trước. Nếu để trống, khi nhập file web sẽ hỏi một ngày chung để áp cho các dòng trống — sửa lại đúng ngày rồi mới bấm Nhập.','• Cột "Trạng thái" chọn: Đang học / Hết khóa / Thôi học (để trống coi như Đang học).','• Học phí ghi cho CẢ KHÓA, dạng số không dấu chấm (VD: 600000).','• Học sinh đã có trên hệ thống (trùng họ tên trong cùng cơ sở) sẽ bị CHẶN, không bị nhập 2 lần — nên up lại file cũ cũng không sợ nhân đôi danh sách.','• Lưu file rồi vào web bấm "Nhập Excel".']});
+    guide:['• Mẫu này dùng cho CẢ CƠ SỞ — nhập nhiều lớp trong một file.','• Điền mỗi học sinh 1 dòng, ngay dưới hàng tiêu đề màu xanh.','• Cột "TT" chỉ để đánh số cho dễ nhìn — không ảnh hưởng khi nhập.','• "Họ và tên" là bắt buộc; dòng để trống tên sẽ bị bỏ qua.','• Cột "Lớp": bấm vào ô sẽ hiện danh sách lớp của cơ sở — CHỌN lớp, KHÔNG gõ tay để tránh sai. Để trống thì hệ thống xếp vào lớp đang chọn trên web.','• Ngày sinh & Thời gian nhập học ghi dạng ngày/tháng/năm (VD: 01/09/2015). Chấp nhận cả 1/9/2015, 01-09-2015, 01.09.2015 hoặc ô đã định dạng Ngày trong Excel.','• QUAN TRỌNG — "Thời gian nhập học" là ngày các em ĐĂNG KÝ THẬT, không phải ngày up file. Lớp đăng ký từ tháng trước thì ghi đúng ngày tháng trước. Nếu để trống, khi nhập file web sẽ hỏi một ngày chung để áp cho các dòng trống — sửa lại đúng ngày rồi mới bấm Nhập.','• Cột "Trạng thái" chọn: Đang học / Hết khóa / Thôi học (để trống coi như Đang học).','• Học phí ghi cho CẢ KHÓA, dạng số không dấu chấm (VD: 600000).','• Học sinh đã có TRONG CÙNG LỚP (trùng họ tên) sẽ bị CHẶN, không bị nhập 2 lần — nên up lại file cũ cũng không sợ nhân đôi danh sách.','• Em nào HỌC 2 LỚP thì ghi 2 dòng, mỗi dòng một lớp, cùng họ tên và cùng ngày sinh — hệ thống hiểu là một em học 2 lớp, KHÔNG báo trùng.','• Lưu file rồi vào web bấm "Nhập Excel".']});
 }
 function hsImportExcel(lop){
   const coSoId=lop.coSoId;
   const lopByName={}; LOP.filter(l=>l.coSoId===coSoId).forEach(l=>{lopByName[fold(String(l.lop)).toLowerCase().trim()]=l;});
-  // Học sinh ĐÃ CÓ trong cơ sở, gom theo tên → dùng để chặn nhập trùng
-  const daCo={}; OPS.hv.filter(h=>h.coSoId===coSoId).forEach(h=>{const k=nameKey(h.ten);(daCo[k]=daCo[k]||[]).push(h);});
+  // Học sinh ĐÃ CÓ trong cơ sở, gom theo TÊN + LỚP → chặn nhập trùng.
+  // Gom theo lớp chứ không gom theo tên suông: em học lớp thứ hai phải nhập được bình thường.
+  const daCo={}; OPS.hv.filter(h=>h.coSoId===coSoId).forEach(h=>{const k=h.lopId+'|'+nameKey(h.ten);(daCo[k]=daCo[k]||[]).push(h);});
   pickFile(async file=>{
     let rows; try{rows=await readSheet(file);}catch(e){avaAlert('Không đọc được file. Hãy dùng file .xlsx theo mẫu tải về.');return;}
     const r0=rows.firstRow||2;
@@ -1425,13 +1438,14 @@ function hsImportExcel(lop){
       if(tt.includes('het khoa')){thoi=true;lyDo='Hết khóa';}
       else if(tt.includes('thoi hoc')||tt==='thoi'){thoi=true;lyDo='Nghỉ hẳn';}
       const rec={ten,ns,ph:String(xlPick(r,['phu huynh','huynh','cha me'])).trim(),sdt:String(xlPick(r,['dien thoai','sdt','so dt','phone'])).trim(),hocPhi:Number(String(xlPick(r,['hoc phi','phi'])).replace(/\D/g,''))||0,daDong:false,lopId:lp.id,coSoId:lp.coSoId,mau:false,ngayNhapHoc:nh,ngayThoiHoc:thoi?todayISO():null,lyDo};
-      // Chặn trùng: cùng tên trong cùng cơ sở, và ngày sinh không mâu thuẫn (một bên trống cũng coi là trùng)
-      const k=nameKey(ten);
+      // Chặn trùng: cùng tên + CÙNG LỚP, và ngày sinh không mâu thuẫn (một bên trống cũng coi là trùng).
+      // Cùng tên nhưng KHÁC LỚP = em học thêm lớp nữa → nhập bình thường, không chặn.
+      const k=lp.id+'|'+nameKey(ten);
       const khop=o=>{const a=anyToIso(o.ns); return !a||!nsIso||a===nsIso;};
       const cu=(daCo[k]||[]).find(khop);
-      if(cu){dups.push({dong,ten,rec,note:'đã có ở lớp '+lopName(cu.lopId)});return;}
+      if(cu){dups.push({dong,ten,rec,note:'đã có trong lớp '+lopName(lp.id)});return;}
       const tf=(inFile[k]||[]).find(khop);
-      if(tf){dups.push({dong,ten,rec,note:'lặp lại trong file'});return;}
+      if(tf){dups.push({dong,ten,rec,note:'lặp lại trong file (cùng lớp '+lopName(lp.id)+')'});return;}
       (inFile[k]=inFile[k]||[]).push(rec);
       recs.push(rec);});
     const badText=(bad.length||badLop.length)?('Bỏ qua '+(bad.length+badLop.length)+' dòng'+(bad.length?': '+bad.length+' thiếu họ tên':'')+(badLop.length?((bad.length?'; ':': ')+badLop.length+' sai/không khớp tên lớp (dòng '+badLop.slice(0,15).join(', ')+(badLop.length>15?'…':'')+')'):'')+'.'):'';
@@ -1556,7 +1570,7 @@ const NAV=[
   {k:'gv',t:'Giáo viên',i:IC.gv,cnt:()=>inGV().length},
   {k:'coso',t:'Cơ sở',i:IC.coso,cnt:()=>COSO.length,adminOnly:true},
   {k:'lop',t:'Lớp học',i:IC.lop,cnt:()=>inLOP().length},
-  {k:'hocvien',t:'Học sinh',i:IC.hocvien,cnt:()=>inHV().filter(hvActive).length},
+  {k:'hocvien',t:'Học sinh',i:IC.hocvien,cnt:()=>demHS(inHV().filter(hvActive))},
   {k:'lichhoc',t:'Lịch học',i:IC.lichhoc,teach:true},
   {k:'ghidanh',t:'Ghi danh',i:IC.ghidanh,teach:true},
   {k:'diemdanh',t:'Điểm danh',i:IC.diemdanh,teach:true},
@@ -2029,7 +2043,7 @@ const HD_MENU_DESC={
   gv:'Hồ sơ giáo viên: thêm/sửa, ngày hợp đồng, tích chọn <b>lớp phụ trách</b>, tải mẫu &amp; nhập Excel.',
   coso:'Danh mục cơ sở của chuỗi; bấm vào một cơ sở để xem chi tiết lớp, học sinh, kinh phí học phí.',
   lop:'Danh sách lớp: sĩ số, giáo viên phụ trách, dự thu. Thêm / sửa / xóa lớp.',
-  hocvien:'Kho hồ sơ học sinh: tìm kiếm, lọc theo cơ sở – lớp – trạng thái – học phí; bấm <b>Hồ sơ</b> để sửa, ghi nhận đóng tiền, cho thôi học. Nhập trùng danh sách thì trang này hiện khung vàng <b>“Phát hiện N bản ghi trùng”</b> — bấm <b>Chọn N bản trùng để xóa</b> là dọn sạch bản dư, giữ bản gốc. Muốn xóa nhiều em bất kỳ: bấm <b>☑ Chọn nhiều</b> → tick từng em → <b>🗑 Xóa</b>.',
+  hocvien:'Kho hồ sơ học sinh: tìm kiếm, lọc theo cơ sở – lớp – trạng thái – học phí; bấm <b>Hồ sơ</b> để sửa, ghi nhận đóng tiền, cho thôi học. Em học nhiều lớp có nhãn tím <b>“Học N lớp”</b> và chỉ tính là <b>1 học sinh</b>. Nhập trùng danh sách thì trang này hiện khung vàng <b>“Phát hiện N bản ghi trùng”</b> (chỉ tính trùng khi <b>cùng lớp</b>) — bấm <b>Chọn N bản trùng để xóa</b> là dọn sạch bản dư, giữ bản gốc. Muốn xóa nhiều em bất kỳ: bấm <b>☑ Chọn nhiều</b> → tick từng em → <b>🗑 Xóa</b>.',
   lichhoc:'Khai <b>khung ca</b> của cơ sở (mặc định 5 ca, mỗi ca 2 giờ) và <b>lịch từng lớp</b> (học thứ mấy – ca nào – phòng nào). Có lưới lịch tuần, cảnh báo xếp trùng giáo viên/phòng và nút <b>🖶 In lịch tuần</b> khổ A4. Giáo viên chỉ xem lịch dạy của mình.',
   ghidanh:'Thêm học sinh vào lớp — nhập từng em hoặc nhập Excel cả cơ sở một lần.',
   diemdanh:'Điểm danh học sinh và chấm công giáo viên theo từng buổi; gửi đối soát / chốt ca ngay tại đây. Khai lịch rồi thì đầu trang hiện sẵn <b>các ca trong ngày</b> — bấm một ca là vào thẳng lớp đó. Nút <b>🖶 In danh sách</b> in bảng điểm danh khổ A4 có ô ký.',
@@ -2172,7 +2186,8 @@ const HD_HOWTO={
 };
 /* Cách hệ thống tính các con số — để mọi người đọc số liệu giống nhau */
 const HD_NUMBERS=[
-  ['Học sinh đang học','Là những em <b>chưa có ngày thôi học</b>. Em đã thôi học vẫn giữ hồ sơ nhưng không tính vào sĩ số, dự thu.'],
+  ['Học sinh đang học','Là những em <b>chưa có ngày thôi học</b>. Em đã thôi học vẫn giữ hồ sơ nhưng không tính vào sĩ số, dự thu. Đếm theo <b>đầu người</b>: em học 2 lớp vẫn là <b>1 học sinh</b>, nhưng tính đủ <b>2 sĩ số lớp</b> và <b>2 khoản học phí</b>.'],
+  ['Học sinh học nhiều lớp','Ghi danh em đó vào từng lớp như bình thường — mỗi lớp một lượt, có học phí và ngày nhập học riêng. Trang Học sinh gắn nhãn tím <b>“Học N lớp”</b>. Hệ thống chỉ báo <b>trùng</b> khi cùng tên + cùng ngày sinh + <b>cùng một lớp</b>.'],
   ['Dự thu học phí','Tổng <b>học phí cả khóa</b> của các học sinh đang học trong phạm vi đang xem.'],
   ['Đã thu học phí','Tổng <b>số tiền đã đóng</b> của các em — cộng từ <b>các đợt đóng</b> (mỗi đợt là một phiếu thu trong sổ quỹ), tối đa bằng học phí cả khóa của em đó.'],
   ['Số hiệu phiếu','Dạng <b>PT-02-2607-001</b>: PT = phiếu thu / PC = phiếu chi · <b>02</b> mã cơ sở · <b>2607</b> tháng 7 năm 2026 · <b>001</b> số thứ tự. Mỗi cơ sở một dãy riêng, đếm lại từ 001 mỗi tháng.'],
@@ -3502,11 +3517,13 @@ function renderHocVien(){
   let mauList=inHV();
   if(isAdmin && hvCs!=='all') mauList=mauList.filter(h=>h.coSoId===Number(hvCs));
   mauList=mauList.filter(h=>h.mau);
-  // Phát hiện bản GHI TRÙNG trong danh sách đang xem: cùng cơ sở + cùng tên + ngày sinh không mâu thuẫn.
+  // Phát hiện bản GHI TRÙNG: cùng cơ sở + CÙNG LỚP + cùng tên + ngày sinh không mâu thuẫn.
+  // ⚠ Phải có điều kiện CÙNG LỚP: một em học 2 lớp là chuyện bình thường (2 dòng, 2 lượt ghi danh),
+  //   không được coi là nhập trùng rồi rủ anh xóa mất.
   // Giữ lại bản "gốc" (ưu tiên bản đã đóng tiền, sau đó bản nhập trước = id nhỏ nhất); các bản còn lại là bản trùng.
   const dupIds=[]; {
     const nhom={};
-    list.forEach(h=>{const k=h.coSoId+'|'+nameKey(h.ten);(nhom[k]=nhom[k]||[]).push(h);});
+    list.forEach(h=>{const k=gdKey(h);(nhom[k]=nhom[k]||[]).push(h);});
     for(const k in nhom){ const g=nhom[k]; if(g.length<2)continue;
       // tách theo ngày sinh: các em có NS khác nhau rõ ràng thì KHÔNG coi là trùng
       const chuaXet=g.slice();
@@ -3534,14 +3551,15 @@ function renderHocVien(){
     <div class="search" style="flex:1;min-width:200px">${svg(IC.search,1.9)}<input id="hvq" placeholder="Tìm tên học sinh, phụ huynh, SĐT…" value="${esc(hvSearch)}" style="border:0;outline:0;background:none;flex:1;font-weight:600;font-size:.9rem"/></div>
     ${csSel}${lopSel}${sttSel}${paidSel}
   </div>
-  <div class="panel"><div class="phead"><div style="display:flex;align-items:baseline;gap:8px"><h3>Hồ sơ học sinh</h3><span class="sub">${list.length} học sinh</span></div>
+  <div class="panel"><div class="phead"><div style="display:flex;align-items:baseline;gap:8px"><h3>Hồ sơ học sinh</h3><span class="sub">${demHS(list)} học sinh${list.length>demHS(list)?' · '+list.length+' lượt ghi danh':''}</span></div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
       ${isAdmin&&list.length?`<button class="btn btn-sm ${hvSelMode?'btn-primary':'btn-light'}" id="hvPick" style="white-space:nowrap">${hvSelMode?'✕ Thoát chọn':'☑ Chọn nhiều'}</button>`:''}
       ${mauList.length?`<button class="btn btn-sm btn-light" id="hvClean" style="color:var(--rose);white-space:nowrap">🧹 Dọn ${mauList.length} HS mẫu</button>`:''}
     </div></div>
     <div class="pbody">
       <div class="ddsum">
-        <div class="p done"><b>${list.length}</b><span>học sinh</span></div>
+        <div class="p done"><b>${demHS(list)}</b><span>học sinh</span></div>
+        ${list.length>demHS(list)?`<div class="p" title="Em học nhiều lớp thì mỗi lớp là một lượt ghi danh"><b>${list.length}</b><span>lượt ghi danh</span></div>`:''}
         <div class="p co"><b>${nDa}</b><span>đã đóng HP</span></div>
         <div class="p muon"><b>${nChua}</b><span>chưa đóng</span></div>
         <div class="p"><b>${fmtShort(daThu)}</b><span>đã thu / ${fmtShort(tongHP)}</span></div>
@@ -3574,11 +3592,14 @@ function renderHocVien(){
       }
       const leftTag=left?`<span class="leftTag">Đã thôi học${v.ngayThoiHoc?' '+isoVN(v.ngayThoiHoc):''}${v.lyDo?' · '+esc(v.lyDo):''}</span>`:'';
       const dupTag=dupIds.includes(v.id)?`<span class="paidtag no" style="background:#fff2cf;color:#8a5a00;border-color:#f2c14e">Bản trùng</span>`:'';
+      // Em học nhiều lớp: gắn nhãn cho lễ tân khỏi tưởng là dữ liệu trùng
+      const dsLop=left?[]:lopCuaEm(v);
+      const nhieuTag=dsLop.length>1?`<span class="paidtag" style="background:var(--violet-soft);color:var(--violet);border-color:#d6c8f5" title="${esc(dsLop.map(x=>lopName(x.lopId)).join(', '))}">Học ${dsLop.length} lớp</span>`:'';
       h+=`<div class="ddrow${left?' hv-left':''}${hvSelMode&&hvSel.has(v.id)?' hv-picked':''}" ${hvSelMode?`data-pick="${v.id}" style="cursor:pointer"`:''}>
         ${hvSelMode
           ? `<input type="checkbox" ${hvSel.has(v.id)?'checked':''} style="width:21px;height:21px;flex:none;margin:0 3px;accent-color:var(--brand);pointer-events:none"/>`
           : `<div class="idx">${i+1}</div>`}
-        <div class="nm"><b>${esc(v.ten)}${dupTag}${paidTag}${leftTag}</b><small>${esc(info)||'—'}</small></div>
+        <div class="nm"><b>${esc(v.ten)}${dupTag}${nhieuTag}${paidTag}${leftTag}</b><small>${esc(info)||'—'}</small></div>
         ${hvSelMode?'':`<button class="btn btn-sm btn-mint" data-edit="${v.id}" style="flex:none">Hồ sơ</button>`}
       </div>`;
     });
@@ -3882,8 +3903,11 @@ function renderGhiDanh(){
     const nhIso=vnToIso(nhTxt)||todayISO(); gdNhapHoc=nhIso;   // giữ lại cho em tiếp theo
     const ns=$('#gd_ns').value.trim(), nsIso=vnToIso(ns);
     // Chặn trùng: cùng tên trong cùng cơ sở, ngày sinh không mâu thuẫn
-    const cu=OPS.hv.find(h=>h.coSoId===lop.coSoId&&nameKey(h.ten)===nameKey(ten)&&(()=>{const a=vnToIso(h.ns);return !a||!nsIso||a===nsIso;})());
-    if(cu&&!await avaConfirm('Học sinh "'+ten+'" đã có ở lớp '+lopName(cu.lopId)+' ('+csName(lop.coSoId)+').\nVẫn ghi danh thêm một em nữa cùng tên?',{okText:'Vẫn ghi danh'}))return;
+    // Chỉ cảnh báo khi trùng THẬT: cùng lớp + cùng tên + ngày sinh không mâu thuẫn.
+    // Cùng tên nhưng khác lớp = em học thêm lớp nữa → cho ghi danh thẳng, không hỏi han.
+    const hopNS=h=>{const a=vnToIso(h.ns);return !a||!nsIso||a===nsIso;};
+    const cu=OPS.hv.find(h=>h.lopId===lop.id&&nameKey(h.ten)===nameKey(ten)&&hopNS(h));
+    if(cu&&!await avaConfirm('Lớp '+lop.lop+' đã có học sinh tên "'+ten+'"'+(cu.ns?' (sinh '+cu.ns+')':'')+'.\n\nĐây có phải một em KHÁC trùng tên không?',{okText:'Đúng, vẫn ghi danh'}))return;
     const _hpEl=$('#gd_hp');
     const rec={ten,ns,ph:$('#gd_ph').value.trim(),sdt:$('#gd_sdt').value.trim(),hocPhi:_hpEl?Number(_hpEl.value.replace(/\D/g,''))||0:0,lopId:ghiLopId,coSoId:lop.coSoId,mau:false};
     const {data,error}=await SB.from('hoc_vien').insert(hvToDb(rec)).select().single();
