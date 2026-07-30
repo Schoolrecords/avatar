@@ -1866,6 +1866,11 @@ const IC={
 const svg=(p,sw=1.9)=>`<svg viewBox="0 0 24 24" fill="none" stroke-width="${sw}">${p}</svg>`;
 
 /* ============ NAV ============ */
+/* TẠM KHÓA Ghi danh với giáo viên (trung tâm đề xuất, anh Chung chốt 30/07/2026).
+   Giáo viên chủ yếu xem lịch dạy, điểm danh và đọc thông báo; việc thêm học sinh
+   để lễ tân làm. Muốn mở lại: đổi hằng này thành true, menu và quyền vào trang
+   tự bật lại (một chỗ duy nhất). */
+const GV_DUOC_GHI_DANH=false;
 const NAV=[
   {k:'dashboard',t:'Điều hành',i:IC.dashboard},
   {k:'gv',t:'Giáo viên',i:IC.gv,cnt:()=>inGV().length},
@@ -1874,7 +1879,7 @@ const NAV=[
   {k:'hocvien',t:'Học sinh',i:IC.hocvien,cnt:()=>demHS(inHV().filter(hvActive))},
   {k:'lichhoc',t:'Lịch học',i:IC.lichhoc,teach:true},
   {k:'thongbao',t:'Thông báo',i:IC.thongbao,teach:true,cnt:()=>tbChuaDoc()||'',viec:true},
-  {k:'ghidanh',t:'Ghi danh',i:IC.ghidanh,teach:true},
+  {k:'ghidanh',t:'Ghi danh',i:IC.ghidanh,teach:GV_DUOC_GHI_DANH},
   {k:'diemdanh',t:'Điểm danh',i:IC.diemdanh,teach:true},
   {k:'duyet',t:'Đối soát',i:IC.duyet,cnt:()=>duyetPending()||'',viec:true},
   {k:'baocao',t:'Báo cáo',i:IC.baocao},
@@ -1882,9 +1887,13 @@ const NAV=[
   {k:'taikhoan',t:'Tài khoản',i:IC.taikhoan,adminOnly:true},
   {k:'huongdan',t:'Hướng dẫn',i:IC.huongdan,teach:true},
 ];
+/* Thứ tự menu RIÊNG cho giáo viên, theo đúng việc họ làm hằng ngày:
+   xem lịch dạy → điểm danh → đọc thông báo. (Danh sách NAV ở trên xếp theo góc
+   nhìn quản trị nên không hợp với giáo viên.) */
+const NAV_GV_ORDER=['lichhoc','diemdanh','thongbao','ghidanh','huongdan'];
 // GV chỉ thấy các mục có teach:true; admin thấy tất cả; lễ tân thấy mọi mục trừ adminOnly
 const visibleNav=()=> USER.role==='teacher'
-  ? NAV.filter(n=>n.teach)
+  ? NAV.filter(n=>n.teach).sort((a,b)=>NAV_GV_ORDER.indexOf(a.k)-NAV_GV_ORDER.indexOf(b.k))
   : NAV.filter(n=>!n.adminOnly||USER.role==='admin');
 /* Tên menu đổi theo vai trò: giáo viên KHÔNG quản khung ca của trung tâm,
    họ chỉ xem lịch mình dạy → gọi "Lịch dạy" cho đúng việc của họ. */
@@ -1895,8 +1904,8 @@ const navTen=n=>(USER.role==='teacher'&&NAV_TEN_GV[n.k])||n.t;
 const BN_MAU={dashboard:'c-navy',diemdanh:'c-green',lichhoc:'c-sky',thongbao:'c-amber',
   ghidanh:'c-violet',duyet:'c-amber',thu:'c-rose',coso:'c-sky',huongdan:'c-slate'};
 function botNav(){
-  // Giáo viên dùng app hằng ngày để ĐIỂM DANH và ĐỌC THÔNG BÁO → cả hai phải nằm ở thanh dưới
-  const pick = USER.role==='teacher' ? ['diemdanh','lichhoc','thongbao','ghidanh','huongdan']
+  // Giáo viên: đúng thứ tự việc hằng ngày — xem lịch dạy, điểm danh, đọc thông báo
+  const pick = USER.role==='teacher' ? NAV_GV_ORDER.filter(k=>k!=='ghidanh'||GV_DUOC_GHI_DANH)
     : USER.role==='admin' ? ['dashboard','diemdanh','duyet','thu','coso']
     : ['dashboard','diemdanh','duyet','ghidanh','thu'];
   return pick.map(k=>NAV.find(n=>n.k===k)).filter(Boolean);
@@ -2189,7 +2198,8 @@ const TITLES_GV={
 function go(k){
   if(k==='coso'&&USER.role!=='admin')k='dashboard';
   if(k==='taikhoan'&&USER.role!=='admin')k='dashboard';
-  if(USER.role==='teacher' && !['ghidanh','diemdanh','lichhoc','thongbao','huongdan'].includes(k)) k='diemdanh';   // GV chỉ vào 5 mục này
+  // GV chỉ vào các mục dành cho mình; Ghi danh đang tạm khóa (xem GV_DUOC_GHI_DANH)
+  if(USER.role==='teacher' && !NAV_GV_ORDER.filter(x=>x!=='ghidanh'||GV_DUOC_GHI_DANH).includes(k)) k='diemdanh';
   if(k==='coso')csDetailId=null;
   VIEW=k;
   const scopeTxt=USER.role==='admin'?(scope==='all'?'Toàn hệ thống':csName(Number(scope))):csName(USER.coSoId);
@@ -2410,7 +2420,7 @@ const HD_MENU_DESC={
   hocvien:'Kho hồ sơ học sinh: tìm kiếm, lọc theo cơ sở – lớp – trạng thái – học phí; bấm <b>Hồ sơ</b> để sửa, ghi nhận đóng tiền, cho thôi học. Em học nhiều lớp có nhãn tím <b>“Học N lớp”</b> và chỉ tính là <b>1 học sinh</b>. Nhập trùng danh sách thì trang này hiện khung vàng <b>“Phát hiện N bản ghi trùng”</b> (chỉ tính trùng khi <b>cùng lớp</b>) — bấm <b>Chọn N bản trùng để xóa</b> là dọn sạch bản dư, giữ bản gốc. Muốn xóa nhiều em bất kỳ: bấm <b>☑ Chọn nhiều</b> → tick từng em → <b>🗑 Xóa</b>.',
   lichhoc:'Khai <b>khung ca</b> của cơ sở (mặc định 5 ca, mỗi ca 2 giờ — <b>sửa giờ được</b>, ngay trong cửa sổ khai lịch lớp cũng sửa được) và <b>lịch từng lớp</b> (học thứ mấy – ca nào – phòng nào). Có lưới lịch tuần, cảnh báo xếp trùng giáo viên/phòng và nút <b>🖶 In lịch tuần</b> khổ A4. Giáo viên chỉ xem lịch dạy của mình.',
   thongbao:'Thông báo của trung tâm gửi tới mọi người. Quản trị gửi <b>toàn chuỗi</b> hoặc từng cơ sở; Lễ tân gửi cho cơ sở mình. Chọn được <b>người nhận</b> (tất cả / chỉ giáo viên / chỉ lễ tân), <b>mức độ</b> (thường · quan trọng · khẩn), <b>ghim</b> lên đầu và <b>ngày hết hạn</b>. Tin quan trọng chưa đọc hiện thành băng nổi bật ngay đầu trang Điểm danh và Bảng điều hành.',
-  ghidanh:'Thêm học sinh vào lớp — nhập từng em hoặc nhập Excel cả cơ sở một lần.',
+  ghidanh:'Thêm học sinh vào lớp — nhập từng em hoặc nhập Excel cả cơ sở một lần. Do <b>Lễ tân</b> và <b>Quản trị</b> làm; giáo viên không dùng mục này.',
   diemdanh:'Điểm danh học sinh và chấm công giáo viên theo từng buổi; gửi đối soát / chốt ca ngay tại đây. Khai lịch rồi thì đầu trang hiện sẵn <b>các ca trong ngày</b> — bấm một ca là vào thẳng lớp đó. Nút <b>🖶 In danh sách</b> in bảng điểm danh khổ A4 có ô ký.',
   duyet:'Danh sách các ca dạy theo trạng thái: <b>Chờ đối soát → Đã đối soát → Đã chốt</b>, kèm nút xử lý theo vai trò.',
   baocao:'Chuyên cần học sinh, <b>công &amp; lương giáo viên theo ca</b> (nhập đơn giá → tự tính tiền, in Bảng thanh toán công giảng dạy A4), tổng hợp theo lớp, chi tiết từng buổi, giáo viên dạy mấy ca/ngày, nhật ký đối soát — xuất Excel 7 sheet khổ A4.',
@@ -2433,17 +2443,17 @@ const HD_START={
     ['Đối soát mỗi cuối ngày','Vào <b>Đối soát</b> → xem các ca <b>Chờ đối soát</b> giáo viên vừa gửi → bấm <b>✓ Chấp nhận</b>.']
   ],
   teacher:[
-    ['Vào Điểm danh','Đăng nhập là vào thẳng <b>Điểm danh</b>. Đầu trang hiện <b>các ca dạy của mình trong ngày</b> — bấm một ca là vào đúng lớp đó. Muốn xem ngày khác thì đổi ô <b>ngày</b>.'],
-    ['Xem lịch dạy','Menu <b>Lịch dạy</b> — trên cùng là <b>Hôm nay</b> (bấm một ca vào thẳng điểm danh), dưới là lịch cả tuần với cột hôm nay tô xanh.'],
-    ['Đọc thông báo','Tin của trung tâm hiện thành băng màu ở đầu trang Điểm danh, hoặc vào menu <b>Thông báo</b>.'],
+    ['Xem lịch dạy','Menu <b>Lịch dạy</b> — trên cùng là khung <b>Hôm nay</b>: các ca mình dạy kèm giờ và phòng. <b>Bấm một ca là vào thẳng điểm danh</b> lớp đó. Dưới là lịch cả tuần, cột hôm nay tô xanh.'],
     ['Điểm danh &amp; chấm công','Tích <b>Có / Muộn / Phép / Vắng</b> cho từng em (lưu ngay, không cần bấm Lưu) và chấm công buổi dạy của mình ở khung phía trên.'],
-    ['Gửi đối soát','Điểm danh xong bấm <b>✓ Gửi đối soát</b> để lễ tân kiểm tra. Cần thêm học sinh mới thì vào <b>Ghi danh</b>.']
+    ['Gửi đối soát','Điểm danh xong bấm <b>✓ Gửi đối soát</b> để lễ tân kiểm tra.'],
+    ['Đọc thông báo','Tin của trung tâm và lễ tân hiện thành băng màu ở đầu trang Điểm danh, hoặc vào menu <b>Thông báo</b>.'],
+    ['Cần thêm học sinh vào lớp','Báo <b>lễ tân cơ sở</b> — việc ghi danh do lễ tân làm, giáo viên không phải nhập.']
   ]
 };
 /* Sơ đồ một ca dạy đi qua các bước nào */
 const HD_FLOW=[
   ['Khai lịch','Lễ tân vào <b>Lịch học</b> khai lớp học <b>thứ mấy – ca nào – phòng nào</b>. Khai một lần dùng cả khóa.','Lễ tân / Quản trị'],
-  ['Ghi danh','Học sinh mới được thêm vào lớp (giáo viên hoặc lễ tân đều làm được).','GV / Lễ tân'],
+  ['Ghi danh','Lễ tân thêm học sinh mới vào lớp.','Lễ tân'],
   ['Điểm danh &amp; chấm công','Tích Có / Muộn / Phép / Vắng cho từng em và đánh dấu Lên lớp / Nghỉ / Dạy bù cho buổi dạy.','GV / Lễ tân'],
   ['Gửi đối soát','Bấm <b>✓ Gửi đối soát</b> — ca chuyển sang trạng thái <b>Chờ đối soát</b>.','Giáo viên'],
   ['Đối soát','Lễ tân kiểm tra rồi bấm <b>✓ Chấp nhận</b> — ca thành <b>Đã đối soát</b>.','Lễ tân'],
@@ -2609,10 +2619,10 @@ const HD_HOWTO={
       'Còn ở <b>Chờ đối soát</b> thì vẫn sửa điểm danh và bấm <b>↻ Gửi lại đối soát</b> được.',
       'Khi ca đã <b>Đã chốt</b> (🔒) thì không sửa được nữa — cần sửa hãy báo lễ tân/Quản trị mở khóa.'
     ]],
-    ['🎓','Ghi danh học sinh mới',[
-      'Vào <b>Ghi danh</b> → chọn lớp → nhập họ tên, ngày sinh, phụ huynh, điện thoại → <b>＋ Ghi danh vào lớp</b>.',
-      'Giáo viên <b>không nhập học phí</b> và không xóa được học sinh — phần đó do lễ tân / Quản trị làm.',
-      'Nhập sai tên một em: báo lễ tân sửa lại trong mục Học sinh.'
+    ['🎓','Lớp thiếu học sinh thì làm sao',[
+      'Việc <b>ghi danh học sinh do lễ tân cơ sở làm</b> — giáo viên không phải nhập.',
+      'Lớp chưa có em nào hoặc thiếu em: báo lễ tân thêm vào, chỉ vài phút là hiện trong danh sách điểm danh.',
+      'Nhập sai tên một em: cũng báo lễ tân sửa lại trong mục Học sinh.'
     ]],
     ['🔐','Tài khoản của tôi',[
       'Đăng nhập bằng tên ngắn được phát (ví dụ <b>gv12</b>) — hệ thống tự thêm đuôi @avatar.vn.',
@@ -4507,6 +4517,7 @@ function bindHpDot(h){
 /* ============ GHI DANH ============ */
 function renderGhiDanh(){
   const isTe=USER.role==='teacher';
+  if(isTe && !GV_DUOC_GHI_DANH){go('diemdanh');return;}   // đang tạm khóa với giáo viên
   const lops=inLOP().filter(lopDiemDanhDuoc);
   if(!lops.length){$('#view').innerHTML=`<div class="panel"><div class="pbody"><div class="empty">Chưa có lớp học trong phạm vi này</div></div></div>`;return;}
   if(!lops.find(l=>l.id===ghiLopId)) ghiLopId=lops[0].id;
@@ -4653,7 +4664,10 @@ function renderDiemDanh(){
   <div class="panel"><div class="phead"><h3>Điểm danh học sinh</h3><span class="savednote">✓ tự động lưu</span></div>
     <div class="pbody">`;
   if(!ds.length){
-    h+=`<div class="empty">${svg(IC.diemdanh,1.5)}Lớp này chưa có danh sách học sinh để điểm danh.<br/><button class="btn btn-sm btn-ghost" id="toGhi" style="margin-top:12px">→ Sang trang Ghi danh</button></div>`;
+    // GV không được ghi danh (đang tạm khóa) → chỉ dẫn báo lễ tân, đừng đưa nút dẫn tới trang họ không vào được
+    h+=`<div class="empty">${svg(IC.diemdanh,1.5)}Lớp này chưa có danh sách học sinh để điểm danh.${
+      (USER.role==='teacher'&&!GV_DUOC_GHI_DANH)?'<br/><span style="font-size:.85rem">Hãy báo lễ tân cơ sở thêm học sinh vào lớp.</span>'
+      :'<br/><button class="btn btn-sm btn-ghost" id="toGhi" style="margin-top:12px">→ Sang trang Ghi danh</button>'}</div>`;
   }else{
     h+=`<div class="ddsum">
       <div class="p co"><b>${cnt.co}</b><span>có mặt</span></div>
