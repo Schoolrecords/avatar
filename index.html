@@ -374,6 +374,7 @@ tbody tr:hover{background:var(--soft)}
 .leftTag{display:inline-block;font-size:.66rem;font-weight:800;padding:1px 7px;border-radius:99px;margin-left:5px;vertical-align:middle;background:#eef1f5;color:#6b7688}
 .ddrow.hv-left{opacity:.72}
 .ddrow.hv-left .nm b{color:#8a94a6}
+.ddrow.hv-picked{background:#eaf2ff;border-color:var(--brand)}
 
 /* ===== GHI DANH / ĐIỂM DANH ===== */
 .form2{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
@@ -1370,6 +1371,7 @@ function lopPickHTML(selId){
 let USER={role:'admin',coSoId:null}, VIEW='dashboard', scope='all';
 let gvSearch='',gvCs='all',gvMon='all', lopSearch='',lopCs='all', csSort='thu';
 let hvSearch='',hvCs='all',hvLop='all',hvPaid='all',hvStt='active';
+let hvSelMode=false, hvSel=new Set();   // chế độ chọn nhiều học sinh để xóa hàng loạt
 const LY_DO_THOI=['Hết khóa','Chuyển trường','Nghỉ hẳn','Khác'];
 let csDetailId=null;
 
@@ -1872,7 +1874,7 @@ const HD_MENU_DESC={
   gv:'Hồ sơ giáo viên: thêm/sửa, ngày hợp đồng, tích chọn <b>lớp phụ trách</b>, tải mẫu &amp; nhập Excel.',
   coso:'Danh mục cơ sở của chuỗi; bấm vào một cơ sở để xem chi tiết lớp, học sinh, kinh phí học phí.',
   lop:'Danh sách lớp: sĩ số, giáo viên phụ trách, dự thu. Thêm / sửa / xóa lớp.',
-  hocvien:'Kho hồ sơ học sinh: tìm kiếm, lọc theo cơ sở – lớp – trạng thái – học phí; bấm <b>Hồ sơ</b> để sửa, ghi nhận đóng tiền, cho thôi học.',
+  hocvien:'Kho hồ sơ học sinh: tìm kiếm, lọc theo cơ sở – lớp – trạng thái – học phí; bấm <b>Hồ sơ</b> để sửa, ghi nhận đóng tiền, cho thôi học. Nhập trùng danh sách thì trang này hiện khung vàng <b>“Phát hiện N bản ghi trùng”</b> — bấm <b>Chọn N bản trùng để xóa</b> là dọn sạch bản dư, giữ bản gốc. Muốn xóa nhiều em bất kỳ: bấm <b>☑ Chọn nhiều</b> → tick từng em → <b>🗑 Xóa</b>.',
   ghidanh:'Thêm học sinh vào lớp — nhập từng em hoặc nhập Excel cả cơ sở một lần.',
   diemdanh:'Điểm danh học sinh và chấm công giáo viên theo từng buổi; gửi đối soát / chốt ca ngay tại đây.',
   duyet:'Danh sách các ca dạy theo trạng thái: <b>Chờ đối soát → Đã đối soát → Đã chốt</b>, kèm nút xử lý theo vai trò.',
@@ -3342,6 +3344,26 @@ function renderHocVien(){
   let mauList=inHV();
   if(isAdmin && hvCs!=='all') mauList=mauList.filter(h=>h.coSoId===Number(hvCs));
   mauList=mauList.filter(h=>h.mau);
+  // Phát hiện bản GHI TRÙNG trong danh sách đang xem: cùng cơ sở + cùng tên + ngày sinh không mâu thuẫn.
+  // Giữ lại bản "gốc" (ưu tiên bản đã đóng tiền, sau đó bản nhập trước = id nhỏ nhất); các bản còn lại là bản trùng.
+  const dupIds=[]; {
+    const nhom={};
+    list.forEach(h=>{const k=h.coSoId+'|'+nameKey(h.ten);(nhom[k]=nhom[k]||[]).push(h);});
+    for(const k in nhom){ const g=nhom[k]; if(g.length<2)continue;
+      // tách theo ngày sinh: các em có NS khác nhau rõ ràng thì KHÔNG coi là trùng
+      const chuaXet=g.slice();
+      while(chuaXet.length){
+        const a=chuaXet.shift(), nsA=vnToIso(a.ns);
+        const cung=[a];
+        for(let i=chuaXet.length-1;i>=0;i--){const b=chuaXet[i],nsB=vnToIso(b.ns);
+          if(!nsA||!nsB||nsA===nsB){cung.unshift(b);chuaXet.splice(i,1);}}
+        if(cung.length<2)continue;
+        cung.sort((x,y)=>((Number(y.soTienDong)||0)>0)-((Number(x.soTienDong)||0)>0)||x.id-y.id);
+        cung.slice(1).forEach(h=>dupIds.push(h.id));   // bỏ bản đầu (gốc), còn lại là trùng
+      }
+    }
+  }
+  hvSel=new Set([...hvSel].filter(id=>list.some(h=>h.id===id)));   // bỏ chọn những em không còn trong phạm vi lọc
 
   const csSel=isAdmin?`<select class="fsel" id="hvCsSel"><option value="all">Tất cả cơ sở</option>${COSO.map(c=>`<option value="${c.id}" ${hvCs===String(c.id)?'selected':''}>${esc(c.ten)}</option>`).join('')}</select>`:'';
   const lopPool=inLOP().filter(l=>(isAdmin&&hvCs!=='all')?l.coSoId===Number(hvCs):true).filter(l=>hvOfLop(l.id).length)
@@ -3354,14 +3376,30 @@ function renderHocVien(){
     <div class="search" style="flex:1;min-width:200px">${svg(IC.search,1.9)}<input id="hvq" placeholder="Tìm tên học sinh, phụ huynh, SĐT…" value="${esc(hvSearch)}" style="border:0;outline:0;background:none;flex:1;font-weight:600;font-size:.9rem"/></div>
     ${csSel}${lopSel}${sttSel}${paidSel}
   </div>
-  <div class="panel"><div class="phead"><div style="display:flex;align-items:baseline;gap:8px"><h3>Hồ sơ học sinh</h3><span class="sub">${list.length} học sinh</span></div>${mauList.length?`<button class="btn btn-sm btn-light" id="hvClean" style="color:var(--rose);white-space:nowrap">🧹 Dọn ${mauList.length} HS mẫu</button>`:''}</div>
+  <div class="panel"><div class="phead"><div style="display:flex;align-items:baseline;gap:8px"><h3>Hồ sơ học sinh</h3><span class="sub">${list.length} học sinh</span></div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
+      ${isAdmin&&list.length?`<button class="btn btn-sm ${hvSelMode?'btn-primary':'btn-light'}" id="hvPick" style="white-space:nowrap">${hvSelMode?'✕ Thoát chọn':'☑ Chọn nhiều'}</button>`:''}
+      ${mauList.length?`<button class="btn btn-sm btn-light" id="hvClean" style="color:var(--rose);white-space:nowrap">🧹 Dọn ${mauList.length} HS mẫu</button>`:''}
+    </div></div>
     <div class="pbody">
       <div class="ddsum">
         <div class="p done"><b>${list.length}</b><span>học sinh</span></div>
         <div class="p co"><b>${nDa}</b><span>đã đóng HP</span></div>
         <div class="p muon"><b>${nChua}</b><span>chưa đóng</span></div>
         <div class="p"><b>${fmtShort(daThu)}</b><span>đã thu / ${fmtShort(tongHP)}</span></div>
-      </div>`;
+      </div>
+      ${(isAdmin&&!hvSelMode&&dupIds.length)?`<div style="margin-top:10px;padding:11px 12px;border:1.5px solid #f2c14e;background:#fff9e8;border-radius:12px">
+        <b style="font-size:.85rem;color:#8a5a00">⚠ Phát hiện ${dupIds.length} bản ghi trùng</b>
+        <div class="muted" style="font-size:.76rem;line-height:1.5;margin-top:4px">Có ${dupIds.length} em bị nhập 2 lần trở lên trong phạm vi đang xem. Bấm <b>Chọn nhiều</b> rồi bấm <b>Chọn ${dupIds.length} bản trùng</b> để xóa các bản dư, giữ lại bản gốc.</div>
+        <button class="btn btn-sm btn-primary" id="hvFixDup" style="margin-top:9px">☑ Chọn ${dupIds.length} bản trùng để xóa</button>
+      </div>`:''}
+      ${hvSelMode?`<div style="margin-top:10px;padding:10px 11px;border:1.5px solid var(--line);background:var(--soft);border-radius:12px;display:flex;flex-wrap:wrap;gap:7px;align-items:center">
+        <b style="font-size:.85rem;flex:1;min-width:110px">Đã chọn ${hvSel.size} / ${list.length} em</b>
+        <button class="btn btn-sm btn-light" id="hvSelAll">Chọn hết</button>
+        <button class="btn btn-sm btn-light" id="hvSelNone">Bỏ chọn</button>
+        ${dupIds.length?`<button class="btn btn-sm btn-light" id="hvSelDup" style="color:#8a5a00">🔎 Chọn ${dupIds.length} bản trùng</button>`:''}
+        <button class="btn btn-sm btn-primary" id="hvDel" ${hvSel.size?'':'disabled'} style="background:var(--rose);border-color:var(--rose)">🗑 Xóa ${hvSel.size} em</button>
+      </div>`:''}`;
   if(!list.length){
     h+=`<div class="empty">${svg(IC.hocvien,1.5)}Chưa có học sinh nào trong phạm vi này.<br/><button class="btn btn-sm btn-ghost" id="toGhi2" style="margin-top:12px">→ Sang trang Ghi danh</button></div>`;
   }else{
@@ -3377,9 +3415,13 @@ function renderHocVien(){
         else paidTag=`<span class="paidtag yes">Đã đóng đủ${v.ngayDong?' '+isoVN(v.ngayDong):''}</span>`;
       }
       const leftTag=left?`<span class="leftTag">Đã thôi học${v.ngayThoiHoc?' '+isoVN(v.ngayThoiHoc):''}${v.lyDo?' · '+esc(v.lyDo):''}</span>`:'';
-      h+=`<div class="ddrow${left?' hv-left':''}"><div class="idx">${i+1}</div>
-        <div class="nm"><b>${esc(v.ten)}${paidTag}${leftTag}</b><small>${esc(info)||'—'}</small></div>
-        <button class="btn btn-sm btn-mint" data-edit="${v.id}" style="flex:none">Hồ sơ</button>
+      const dupTag=dupIds.includes(v.id)?`<span class="paidtag no" style="background:#fff2cf;color:#8a5a00;border-color:#f2c14e">Bản trùng</span>`:'';
+      h+=`<div class="ddrow${left?' hv-left':''}${hvSelMode&&hvSel.has(v.id)?' hv-picked':''}" ${hvSelMode?`data-pick="${v.id}" style="cursor:pointer"`:''}>
+        ${hvSelMode
+          ? `<input type="checkbox" ${hvSel.has(v.id)?'checked':''} style="width:21px;height:21px;flex:none;margin:0 3px;accent-color:var(--brand);pointer-events:none"/>`
+          : `<div class="idx">${i+1}</div>`}
+        <div class="nm"><b>${esc(v.ten)}${dupTag}${paidTag}${leftTag}</b><small>${esc(info)||'—'}</small></div>
+        ${hvSelMode?'':`<button class="btn btn-sm btn-mint" data-edit="${v.id}" style="flex:none">Hồ sơ</button>`}
       </div>`;
     });
     h+=`</div>`;
@@ -3394,6 +3436,46 @@ function renderHocVien(){
   const tg=$('#toGhi2'); if(tg)tg.onclick=()=>go('ghidanh');
   const cl=$('#hvClean'); if(cl)cl.onclick=()=>cleanMauHV(mauList);
   $$('#view [data-edit]').forEach(b=>b.onclick=()=>{const hv=OPS.hv.find(x=>x.id===Number(b.dataset.edit));if(hv)openHvEdit(hv);});
+  /* ----- chọn nhiều học sinh để xóa hàng loạt ----- */
+  const pk=$('#hvPick'); if(pk)pk.onclick=()=>{hvSelMode=!hvSelMode;if(!hvSelMode)hvSel.clear();renderHocVien();};
+  const fx=$('#hvFixDup'); if(fx)fx.onclick=()=>{hvSelMode=true;hvSel=new Set(dupIds);renderHocVien();};
+  const sa=$('#hvSelAll'); if(sa)sa.onclick=()=>{hvSel=new Set(list.map(h=>h.id));renderHocVien();};
+  const sn=$('#hvSelNone'); if(sn)sn.onclick=()=>{hvSel.clear();renderHocVien();};
+  const sd=$('#hvSelDup'); if(sd)sd.onclick=()=>{hvSel=new Set(dupIds);renderHocVien();};
+  $$('#view [data-pick]').forEach(r=>r.onclick=()=>{const id=Number(r.dataset.pick);
+    if(hvSel.has(id))hvSel.delete(id);else hvSel.add(id);renderHocVien();});
+  const dl=$('#hvDel'); if(dl)dl.onclick=()=>xoaHvBulk([...hvSel]);
+}
+/* Xóa hàng loạt học sinh: xóa luôn điểm danh và phiếu thu học phí gắn với các em đó */
+async function xoaHvBulk(ids){
+  ids=[...new Set(ids)].filter(id=>OPS.hv.some(h=>h.id===id));
+  if(!ids.length){avaAlert('Chưa chọn học sinh nào.');return;}
+  const ems=ids.map(id=>OPS.hv.find(h=>h.id===id));
+  const coTien=ems.filter(h=>(Number(h.soTienDong)||0)>0);
+  const ten=ems.slice(0,8).map(h=>h.ten+' — '+lopName(h.lopId)).join('\n');
+  let msg='Xóa vĩnh viễn '+ems.length+' học sinh:\n'+ten+(ems.length>8?'\n… và '+(ems.length-8)+' em nữa':'')
+        +'\n\nXóa luôn điểm danh và phiếu thu học phí của các em này.';
+  if(coTien.length) msg+='\n\n⚠ CẢNH BÁO: '+coTien.length+' em ĐÃ ĐÓNG TIỀN ('+coTien.slice(0,5).map(h=>h.ten).join(', ')+(coTien.length>5?'…':'')
+        +'). Xóa là mất luôn phiếu thu — tổng thu của sổ quỹ sẽ giảm theo. Anh kiểm tra kỹ trước khi xóa.';
+  msg+='\n\nThao tác KHÔNG THỂ hoàn tác.';
+  if(!await avaConfirm(msg,{danger:true,okText:'Xóa '+ems.length+' em'}))return;
+  const done=new Set(); let fail=0, emsg='', soQuyConLai=0;
+  for(let i=0;i<ids.length;i+=100){
+    const chunk=ids.slice(i,i+100);
+    await SB.from('so_quy').delete().in('hv_id',chunk);         // phiếu thu học phí tự sinh của các em
+    await SB.from('diem_danh_hv').delete().in('hv_id',chunk);   // điểm danh của các em
+    // phiếu thu của KỲ ĐÃ CHỐT sẽ không xóa được (khóa kế toán) → đếm lại để báo anh
+    const {count}=await SB.from('so_quy').select('id',{count:'exact',head:true}).in('hv_id',chunk);
+    soQuyConLai+=(count||0);
+    const {error}=await SB.from('hoc_vien').delete().in('id',chunk);
+    if(error){fail+=chunk.length;emsg=error.message;} else chunk.forEach(id=>done.add(id));
+  }
+  hvSel.clear(); if(done.size) await loadCloud();
+  hvSelMode=false; renderHocVien(); renderNavCounts();
+  let out=fail?('Đã xóa '+done.size+' em. Còn '+fail+' em không xóa được'+(emsg?': '+emsg:'')+'.')
+              :('Đã xóa xong '+done.size+' học sinh.');
+  if(soQuyConLai) out+='\n\n⚠ Còn '+soQuyConLai+' phiếu thu học phí chưa xóa được vì thuộc kỳ ĐÃ CHỐT SỔ. Muốn xóa hẳn, anh vào Sổ quỹ → Mở khóa kỳ đó rồi xóa phiếu bằng tay.';
+  avaAlert(out,{title:'Xóa học sinh'});
 }
 
 /* Dọn học sinh mẫu cũ (mau=true) hàng loạt — xóa theo lô, RLS tự chặn ngoài quyền */
