@@ -481,6 +481,8 @@ tbody tr:hover{background:var(--soft)}
 .tkb .tkitem b{display:block;font-size:.76rem;font-weight:800}
 .tkb .tkitem small{display:block;color:var(--muted);font-size:.68rem;font-weight:600}
 .tkb .tkitem.dup{border-left-color:var(--rose);background:var(--rose-soft)}
+.cs-chinh{display:inline-block;font-size:.66rem;font-weight:800;color:#a06a00;background:#fdf0d0;
+  border:1px solid #f0d79a;border-radius:99px;padding:1px 8px;margin-left:7px;vertical-align:middle;white-space:nowrap}
 .lwarn{background:#fffaf0;border:1.5px solid #f0d79a;border-radius:14px;padding:13px 15px;font-size:.82rem;font-weight:600;margin-bottom:14px}
 .lwarn>b{display:block;margin-bottom:6px;font-size:.95rem;color:#8a5a00}
 .lw-giai{font-weight:600;line-height:1.65;color:#6b5322;background:#fff;border:1px solid #f2e3bf;border-radius:11px;padding:10px 12px;margin-bottom:11px}
@@ -1101,10 +1103,15 @@ async function loadCloud(){
   csLive = !csR.error && (csR.data||[]).length>0;
   if(csLive){
     COSO.length=0;
-    (csR.data||[]).slice().sort((a,b)=>(a.thu_tu??a.id)-(b.thu_tu??b.id))
-      .forEach(r=>COSO.push({id:r.id,ten:r.ten,dc:r.dc||'',build:!!r.build,thuTu:r.thu_tu??r.id}));
+    // CƠ SỞ CHÍNH luôn đứng đầu mọi danh sách, rồi mới tới thứ tự thường
+    // Chưa chạy SQL Giai đoạn 10 (chưa có cột "chinh") → dùng cơ sở chính mặc định
+    const coCotChinh = 'chinh' in ((csR.data||[])[0]||{});
+    (csR.data||[]).map(r=>({...r,chinh: coCotChinh ? !!r.chinh : r.id===CS_CHINH_MAC_DINH}))
+      .sort((a,b)=>(b.chinh?1:0)-(a.chinh?1:0)||(a.thu_tu??a.id)-(b.thu_tu??b.id))
+      .forEach(r=>COSO.push({id:r.id,ten:r.ten,dc:r.dc||'',build:!!r.build,thuTu:r.thu_tu??r.id,chinh:r.chinh}));
     tinhCsAbbr();                       // tên đổi → viết tắt phải tính lại
   }
+  tinhCsRank();                         // vị trí hiển thị của từng cơ sở
   OPS.hv=(hv.data||[]).map(hvFromDb);
   OPS.gd=(gd.data||[]).map(gdFromDb);
   // Bỏ qua bản ghi điểm danh MỒ CÔI: học sinh đã bị xóa nhưng điểm danh còn sót lại.
@@ -1245,7 +1252,11 @@ const csPastel=id=>{const p=CS_PASTEL[((id%CS_PASTEL.length)+CS_PASTEL.length)%C
 
 /* ============ DATA ============ */
 const DATA=window.AVATAR_DATA;
-const COSO=DATA.map(c=>({id:c.id,ten:c.ten,build:!!c.trong}));
+/* CS_CHINH_MAC_DINH: cơ sở chính khi CSDL chưa có cột "chinh" (chưa chạy SQL Giai đoạn 10).
+   Diễn Đồng là điểm chính của chuỗi nên luôn đứng đầu mọi danh sách. */
+const CS_CHINH_MAC_DINH=8;
+const COSO=DATA.map(c=>({id:c.id,ten:c.ten,build:!!c.trong,chinh:c.id===CS_CHINH_MAC_DINH}))
+  .sort((a,b)=>(b.chinh?1:0)-(a.chinh?1:0)||a.id-b.id);
 /* viết tắt cơ sở, tự tách khi trùng (Diễn Hạnh/Diễn Hồng đều "DH").
    Tính lại mỗi khi danh sách cơ sở đổi (thêm/sửa cơ sở trên app). */
 const fold=s=>String(s).normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/đ/g,'d').replace(/Đ/g,'D');
@@ -1260,6 +1271,15 @@ function tinhCsAbbr(){
 }
 tinhCsAbbr();
 const csAbbr=id=>CS_ABBR[id]||'?';
+/* ===== THỨ TỰ HIỂN THỊ CƠ SỞ =====
+   Cơ sở CHÍNH (Diễn Đồng) luôn đứng đầu mọi danh sách. Mọi chỗ sắp xếp theo cơ sở
+   phải dùng csRank() thay vì so mã số — mã số chỉ là định danh, không phải thứ tự. */
+let CS_RANK={};
+function tinhCsRank(){ CS_RANK={}; COSO.forEach((c,i)=>{CS_RANK[c.id]=i;}); }
+tinhCsRank();
+const csRank=id=>CS_RANK[id]??999;
+const csCmp=(a,b)=>csRank(a)-csRank(b);        // dùng cho .sort((x,y)=>csCmp(x.coSoId,y.coSoId)||…)
+const csChinh=()=>COSO.find(c=>c.chinh)||null;
 let GV=[],LOP=[];
 DATA.forEach(c=>{(c.gv||[]).forEach(g=>GV.push({...g,coSoId:c.id})); (c.lop||[]).forEach(l=>LOP.push({...l,coSoId:c.id}));});
 const csName=id=>COSO.find(c=>c.id===id)?.ten||'—';
@@ -1807,7 +1827,7 @@ let gdNhapHoc='';   // ngày nhập học đang dùng ở form ghi danh — gi�
    (lớp mới khai lịch mà chưa ghi danh em nào vẫn phải bấm vào được từ danh sách ca). */
 const lopDiemDanhDuoc=l=>l.siso>0||hvOfLop(l.id).length>0||lichOfLop(l.id).length>0;
 function lopPickHTML(selId){
-  return inLOP().filter(lopDiemDanhDuoc).slice().sort((a,b)=>a.coSoId-b.coSoId)
+  return inLOP().filter(lopDiemDanhDuoc).slice().sort((a,b)=>csCmp(a.coSoId,b.coSoId))
     .map(l=>`<option value="${l.id}" ${l.id===selId?'selected':''}>${USER.role==='admin'?csAbbr(l.coSoId)+' · ':''}${esc(l.lop)} — ${esc(l.gv||'?')}</option>`).join('');
 }
 
@@ -2371,7 +2391,7 @@ const hdNavFor=r=> r==='teacher'?NAV.filter(n=>n.teach):NAV.filter(n=>!n.adminOn
 const HD_MENU_DESC={
   dashboard:'Toàn cảnh: dự thu – đã thu học phí, học sinh đang học, số lớp, chuyên cần 30 ngày, buổi đã điểm danh hôm nay, cảnh báo điều hành và hoạt động gần đây.',
   gv:'Hồ sơ giáo viên: thêm/sửa, ngày hợp đồng, tích chọn <b>lớp phụ trách</b>, tải mẫu &amp; nhập Excel.',
-  coso:'Danh mục cơ sở của chuỗi; bấm vào một cơ sở để xem chi tiết lớp, học sinh, kinh phí học phí. Quản trị <b>tự thêm/sửa/xóa cơ sở</b> ngay tại đây.',
+  coso:'Danh mục cơ sở của chuỗi; bấm vào một cơ sở để xem chi tiết lớp, học sinh, kinh phí học phí. Quản trị <b>tự thêm/sửa/xóa cơ sở</b> ngay tại đây, và đánh dấu <b>★ Cơ sở chính</b> — cơ sở này luôn đứng đầu mọi danh sách toàn hệ thống.',
   lop:'Danh sách lớp: sĩ số, giáo viên phụ trách, dự thu. Thêm / sửa / xóa lớp.',
   hocvien:'Kho hồ sơ học sinh: tìm kiếm, lọc theo cơ sở – lớp – trạng thái – học phí; bấm <b>Hồ sơ</b> để sửa, ghi nhận đóng tiền, cho thôi học. Em học nhiều lớp có nhãn tím <b>“Học N lớp”</b> và chỉ tính là <b>1 học sinh</b>. Nhập trùng danh sách thì trang này hiện khung vàng <b>“Phát hiện N bản ghi trùng”</b> (chỉ tính trùng khi <b>cùng lớp</b>) — bấm <b>Chọn N bản trùng để xóa</b> là dọn sạch bản dư, giữ bản gốc. Muốn xóa nhiều em bất kỳ: bấm <b>☑ Chọn nhiều</b> → tick từng em → <b>🗑 Xóa</b>.',
   lichhoc:'Khai <b>khung ca</b> của cơ sở (mặc định 5 ca, mỗi ca 2 giờ — <b>sửa giờ được</b>, ngay trong cửa sổ khai lịch lớp cũng sửa được) và <b>lịch từng lớp</b> (học thứ mấy – ca nào – phòng nào). Có lưới lịch tuần, cảnh báo xếp trùng giáo viên/phòng và nút <b>🖶 In lịch tuần</b> khổ A4. Giáo viên chỉ xem lịch dạy của mình.',
@@ -2475,6 +2495,7 @@ const HD_HOWTO={
     ['🏫','Mở thêm cơ sở mới',[
       'Vào <b>Cơ sở</b> → <b>＋ Thêm cơ sở</b> → nhập tên, địa chỉ → <b>Thêm cơ sở</b>. Không phải nhờ kỹ thuật sửa code nữa.',
       'Cơ sở chưa hoạt động thì tích <b>Đang xây dựng</b> — vẫn hiện trong danh sách nhưng không tính vào thống kê toàn chuỗi.',
+      '<b>★ Cơ sở chính</b>: cơ sở được tích sẽ <b>luôn đứng đầu</b> mọi danh sách (ô Phạm vi, trang Cơ sở, Lịch học, Lớp học, Học sinh, Giáo viên, Báo cáo…) và được <b>chọn sẵn</b> khi mở các trang có ô chọn cơ sở. Hiện đang là <b>Diễn Đồng</b>. Chỉ một cơ sở được đánh dấu — tích cơ sở khác thì cơ sở cũ tự bỏ dấu.',
       'Sửa tên hoặc địa chỉ: bấm vào thẻ cơ sở → <b>✏️ Sửa cơ sở</b>.',
       'Chỉ xóa được cơ sở <b>đang trống</b> (không còn lớp, giáo viên, học sinh) — để không mất dữ liệu.',
       'Cơ sở mới xong nhớ tạo tài khoản lễ tân cho cơ sở đó (hiện phải nhờ kỹ thuật tạo trong Supabase).'
@@ -2901,7 +2922,7 @@ function renderGV(){
   if(USER.role==='admin'&&gvCs!=='all') list=list.filter(g=>g.coSoId===Number(gvCs));
   if(gvMon!=='all') list=list.filter(g=>g.mon===gvMon);
   if(gvSearch.trim()){const q=gvSearch.trim().toLowerCase();list=list.filter(g=>(g.ten+' '+g.sdt+' '+g.dc).toLowerCase().includes(q));}
-  list=list.slice().sort((a,b)=>a.coSoId-b.coSoId||a.ten.localeCompare(b.ten,'vi'));
+  list=list.slice().sort((a,b)=>csCmp(a.coSoId,b.coSoId)||a.ten.localeCompare(b.ten,'vi'));
 
   h+=`<div class="panel"><div class="phead"><h3>Danh sách giáo viên</h3><span class="sub">${list.length} người</span></div>
     <div class="twrap"><table><thead><tr>
@@ -3095,7 +3116,8 @@ function renderCoso(){
   const totDu=hpStat(scopeIds()).du;
   const rows=list.map(c=>({c,...csStat(c.id),du:hpStat([c.id]).du}));
   rows.sort((a,b)=>{
-    if(a.c.build!==b.c.build) return a.c.build?1:-1;   // đang XD xuống cuối
+    if(!!a.c.chinh!==!!b.c.chinh) return a.c.chinh?-1:1;   // CƠ SỞ CHÍNH luôn trên cùng
+    if(a.c.build!==b.c.build) return a.c.build?1:-1;       // đang XD xuống cuối
     if(csSort==='ten') return a.c.ten.localeCompare(b.c.ten,'vi');
     const key=csSort==='thu'?'du':csSort;
     return b[key]-a[key];
@@ -3130,7 +3152,7 @@ function renderCoso(){
     h+=`<div class="cscard" data-cs="${c.id}" style="background:${csPastel(c.id)};border-left:4px solid ${avaColor(c.ten)}">
       <span class="cs-deco" style="background:${avaColor(c.ten)}"></span>
       <div class="cs-top"><div class="cs-logo">AVATAR</div>
-        <div class="cs-head"><h4>${esc(c.ten)}${warn}</h4><div class="cs-sub">${lop} lớp · ${hs} học sinh</div></div></div>
+        <div class="cs-head"><h4>${esc(c.ten)}${c.chinh?'<span class="cs-chinh">★ Cơ sở chính</span>':''}${warn}</h4><div class="cs-sub">${lop} lớp · ${hs} học sinh</div></div></div>
       <div class="cs-stats">
         <div class="cs-stat"><b>${gv}</b><span>Giáo viên</span></div>
         <div class="cs-stat"><b>${hs}</b><span>Học sinh</span></div>
@@ -3166,6 +3188,9 @@ function openCoSo(c){
       <div class="fld full"><label style="display:flex;gap:8px;align-items:flex-start;cursor:pointer;font-weight:600">
         <input type="checkbox" id="cs_build" ${(!them&&c.build)?'checked':''} style="margin-top:3px;width:17px;height:17px;accent-color:var(--brand)"/>
         <span>Đang xây dựng <span class="muted" style="font-weight:600">— chưa hoạt động, không tính vào thống kê toàn chuỗi</span></span></label></div>
+      <div class="fld full"><label style="display:flex;gap:8px;align-items:flex-start;cursor:pointer;font-weight:600">
+        <input type="checkbox" id="cs_chinh" ${(!them&&c.chinh)?'checked':''} style="margin-top:3px;width:17px;height:17px;accent-color:var(--brand)"/>
+        <span>★ Cơ sở chính <span class="muted" style="font-weight:600">— luôn đứng đầu mọi danh sách và được chọn sẵn khi mở các trang. Chỉ một cơ sở được đánh dấu; tích ở đây thì cơ sở cũ tự bỏ dấu.</span></span></label></div>
       <div id="cs_err" class="fld full" style="display:none;color:#c0392b;font-size:.84rem;font-weight:600;padding:0"></div>
       <div class="fld full" style="display:flex;gap:8px">
         ${them?'':`<button class="btn btn-light" id="cs_del" style="color:var(--rose)">Xóa</button>`}
@@ -3178,8 +3203,15 @@ function openCoSo(c){
     const ten=$('#cs_ten').value.trim();
     if(!ten){err('Vui lòng nhập tên cơ sở.');$('#cs_ten').focus();return;}
     if(COSO.some(x=>nameKey(x.ten)===nameKey(ten)&&(them||x.id!==c.id))){err('Đã có cơ sở tên này rồi.');return;}
-    const rec={ten,dc:$('#cs_dc').value.trim(),build:$('#cs_build').checked};
+    const laChinh=$('#cs_chinh').checked;
+    const rec={ten,dc:$('#cs_dc').value.trim(),build:$('#cs_build').checked,chinh:laChinh};
     const btn=$('#cs_save'); btn.disabled=true; btn.textContent='Đang lưu…'; err('');
+    // Chỉ MỘT cơ sở chính: bỏ dấu ở cơ sở cũ trước
+    if(laChinh){
+      const cu=COSO.filter(x=>x.chinh&&(them||x.id!==c.id));
+      if(cu.length){ await SB.from('co_so').update({chinh:false}).in('id',cu.map(x=>x.id));
+        cu.forEach(x=>{x.chinh=false;}); }
+    }
     let r;
     if(them){
       const id=COSO.length?Math.max(...COSO.map(x=>x.id))+1:0;    // mã mới = mã lớn nhất + 1, không tái dùng mã cũ
@@ -3191,7 +3223,9 @@ function openCoSo(c){
     }
     btn.disabled=false; btn.textContent=them?'＋ Thêm cơ sở':'💾 Lưu';
     if(r.error){err('Lỗi lưu: '+r.error.message);return;}
-    tinhCsAbbr(); buildScope(); closeModal(); csDetailId=null; renderCoso(); renderNavCounts();
+    // Cơ sở chính luôn đứng đầu → xếp lại danh sách rồi tính lại vị trí hiển thị
+    COSO.sort((a,b)=>(b.chinh?1:0)-(a.chinh?1:0)||(a.thuTu??a.id)-(b.thuTu??b.id));
+    tinhCsAbbr(); tinhCsRank(); buildScope(); closeModal(); csDetailId=null; renderCoso(); renderNavCounts();
   };
   const bd=$('#cs_del');
   if(bd)bd.onclick=async()=>{
@@ -3204,7 +3238,7 @@ function openCoSo(c){
     const {error}=await SB.from('co_so').delete().eq('id',c.id);
     if(error){err('Lỗi xóa: '+error.message);return;}
     const i=COSO.findIndex(x=>x.id===c.id); if(i>=0)COSO.splice(i,1);
-    tinhCsAbbr(); buildScope(); closeModal(); csDetailId=null; renderCoso(); renderNavCounts();
+    tinhCsAbbr(); tinhCsRank(); buildScope(); closeModal(); csDetailId=null; renderCoso(); renderNavCounts();
   };
 }
 function renderCosoDetail(id){
@@ -3266,7 +3300,7 @@ function renderLop(){
   let list=inLOP();
   if(USER.role==='admin'&&lopCs!=='all') list=list.filter(l=>l.coSoId===Number(lopCs));
   if(lopSearch.trim()){const q=lopSearch.trim().toLowerCase();list=list.filter(l=>((l.lop||'')+' '+(l.gv||'')).toLowerCase().includes(q));}
-  list=list.slice().sort((a,b)=>a.coSoId-b.coSoId);
+  list=list.slice().sort((a,b)=>csCmp(a.coSoId,b.coSoId));
   const hs=list.reduce((s,l)=>s+hvOfLop(l.id).filter(hvActive).length,0), thu=list.reduce((s,l)=>s+lopHP(l.id),0);
 
   let h=`<div class="toolbar">
@@ -4064,7 +4098,7 @@ function renderHocVien(){
   else if(hvPaid==='no') list=list.filter(h=>!h.daDong);
   const q=fold(hvSearch).toLowerCase().trim();
   if(q) list=list.filter(h=>fold(h.ten+' '+h.ph+' '+h.sdt).toLowerCase().includes(q));
-  list=list.slice().sort((a,b)=>(a.coSoId-b.coSoId)||String(a.ten).localeCompare(String(b.ten),'vi'));
+  list=list.slice().sort((a,b)=>csCmp(a.coSoId,b.coSoId)||String(a.ten).localeCompare(String(b.ten),'vi'));
   const tongHP=list.filter(hvActive).reduce((s,h)=>s+(h.hocPhi||0),0);
   const daThu=list.filter(hvActive).reduce((s,h)=>s+Math.min(Number(h.soTienDong)||0,h.hocPhi||0),0);
   const nDa=list.filter(h=>hvActive(h)&&(Number(h.soTienDong)||0)>0).length, nChua=list.filter(hvActive).length-nDa;
@@ -4105,7 +4139,7 @@ function renderHocVien(){
 
   const csSel=isAdmin?`<select class="fsel" id="hvCsSel"><option value="all">Tất cả cơ sở</option>${COSO.map(c=>`<option value="${c.id}" ${hvCs===String(c.id)?'selected':''}>${esc(c.ten)}</option>`).join('')}</select>`:'';
   const lopPool=inLOP().filter(l=>(isAdmin&&hvCs!=='all')?l.coSoId===Number(hvCs):true).filter(l=>hvOfLop(l.id).length)
-    .slice().sort((a,b)=>a.coSoId-b.coSoId);
+    .slice().sort((a,b)=>csCmp(a.coSoId,b.coSoId));
   const lopSel=`<select class="fsel" id="hvLopSel"><option value="all">Tất cả lớp</option>${lopPool.map(l=>`<option value="${l.id}" ${hvLop===String(l.id)?'selected':''}>${isAdmin?csAbbr(l.coSoId)+' · ':''}${esc(l.lop)}</option>`).join('')}</select>`;
   const paidSel=`<select class="fsel" id="hvPaidSel">${[['all','Học phí: tất cả'],['yes','Đã đóng'],['no','Chưa đóng']].map(([k,t])=>`<option value="${k}" ${hvPaid===k?'selected':''}>${t}</option>`).join('')}</select>`;
   const sttSel=`<select class="fsel" id="hvSttSel">${[['active','Đang học'+(nActive?' ('+nActive+')':'')],['left','Đã thôi học'+(nLeft?' ('+nLeft+')':'')],['all','Tất cả trạng thái']].map(([k,t])=>`<option value="${k}" ${hvStt===k?'selected':''}>${t}</option>`).join('')}</select>`;
@@ -5384,7 +5418,7 @@ function bcCollect(){
       csTen:[...g.cs].map(csName).join(', '), soLop:g.lops.size}))
     .sort((a,b)=>b.ca-a.ca||String(a.name).localeCompare(b.name,'vi'));
   const lopRows=Object.values(lopMap).map(l=>({lop:l.lop.lop,coSoId:l.lop.coSoId,buoi:l.buoi.size,co:l.co,tot:l.tot,pct:l.tot?Math.round(l.co/l.tot*100):0}))
-    .sort((a,b)=>a.coSoId-b.coSoId||String(a.lop).localeCompare(b.lop,'vi'));
+    .sort((a,b)=>csCmp(a.coSoId,b.coSoId)||String(a.lop).localeCompare(b.lop,'vi'));
   const bySort=(a,b)=> a.ngay<b.ngay?1:a.ngay>b.ngay?-1: String(a.lop.lop).localeCompare(b.lop.lop,'vi');
   buoiRows.sort(bySort);
   roster.sort((a,b)=> bySort(a,b)||String(a.hsName).localeCompare(b.hsName,'vi'));
@@ -5409,7 +5443,7 @@ function renderBaoCao(){
   if(canBu && !ddLoading) loadDiemDanhTu(bcFrom).then(ok=>{if(ok&&VIEW==='baocao')renderBaoCao();});
   const D=bcCollect();
   const anyData=D.hsRows.length||D.gvRows.length||D.lopRows.length||D.duky.length;
-  const lopOpts=LOP.filter(l=>ids.includes(l.coSoId)).slice().sort((a,b)=>a.coSoId-b.coSoId||String(a.lop).localeCompare(b.lop,'vi'));
+  const lopOpts=LOP.filter(l=>ids.includes(l.coSoId)).slice().sort((a,b)=>csCmp(a.coSoId,b.coSoId)||String(a.lop).localeCompare(b.lop,'vi'));
   const lb='font-size:.68rem;font-weight:800;color:var(--muted);letter-spacing:.04em';
   const ccPct=D.luotTot?Math.round(D.luotCo/D.luotTot*100):0;
   let h=`<div class="toolbar">
