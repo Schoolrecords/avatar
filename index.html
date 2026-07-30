@@ -788,11 +788,30 @@ td.chi{color:var(--rose);font-weight:800}
   .scope{width:100%}
   .scope small{white-space:nowrap}
   .scope select{max-width:none;flex:1}
-  .botnav{display:flex;position:fixed;bottom:0;left:0;right:0;z-index:50;background:#fff;border-top:1px solid var(--line);padding:7px 6px calc(7px + env(safe-area-inset-bottom));justify-content:space-around;box-shadow:0 -10px 30px -20px rgba(9,42,38,.5)}
-  .botnav button{display:grid;justify-items:center;gap:3px;color:var(--faint);font-size:.62rem;font-weight:700;padding:5px 9px;border-radius:11px;flex:1}
-  .botnav button svg{width:22px;height:22px;stroke:currentColor}
-  .botnav button.on{color:var(--brand-600)}
-  .botnav button.on svg{stroke:var(--brand-600)}
+  /* Thanh dưới cùng — giáo viên dùng hằng ngày nên phải NHÌN LÀ THẤY:
+     mục đang mở có nền navy bo tròn + chữ trắng, icon to hơn ~10%, chữ đậm hơn. */
+  .botnav{display:flex;position:fixed;bottom:0;left:0;right:0;z-index:50;background:#fff;
+    border-top:1px solid var(--line);padding:6px 5px calc(6px + env(safe-area-inset-bottom));
+    justify-content:space-around;box-shadow:0 -12px 34px -18px rgba(9,42,38,.55)}
+  .botnav button{display:grid;justify-items:center;gap:3px;color:#7d879c;font-size:.66rem;font-weight:800;
+    padding:6px 4px 5px;border-radius:14px;flex:1;min-width:0;transition:.16s}
+  .botnav button span:last-child{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+  .botnav button .bi{position:relative;display:grid;place-items:center;width:34px;height:28px;border-radius:10px;transition:.16s}
+  .botnav button svg{width:24px;height:24px;stroke:currentColor}
+  .botnav button:active{transform:scale(.94)}
+  .botnav button.on{color:#fff;background:var(--brand-700);box-shadow:0 6px 16px -8px var(--brand-700)}
+  .botnav button.on svg{stroke:#fff}
+  .botnav button.on .bi{background:rgba(255,255,255,.16)}
+  /* chấm số tin chưa đọc / việc cần xử lý */
+  .botnav .bdot{position:absolute;top:-3px;right:-6px;min-width:17px;height:17px;padding:0 4px;border-radius:99px;
+    background:var(--rose);color:#fff;font-style:normal;font-size:.6rem;font-weight:900;line-height:17px;text-align:center;
+    box-shadow:0 0 0 2px #fff}
+  .botnav button.on .bdot{box-shadow:0 0 0 2px var(--brand-700)}
+}
+@media(max-width:400px){
+  .botnav button{font-size:.6rem;padding:6px 2px 5px}
+  .botnav button svg{width:22px;height:22px}
+  .botnav button .bi{width:30px}
 }
 @media(max-width:480px){
   .kpis{grid-template-columns:1fr 1fr;gap:10px}
@@ -1783,8 +1802,13 @@ const NAV=[
 const visibleNav=()=> USER.role==='teacher'
   ? NAV.filter(n=>n.teach)
   : NAV.filter(n=>!n.adminOnly||USER.role==='admin');
+/* Tên menu đổi theo vai trò: giáo viên KHÔNG quản khung ca của trung tâm,
+   họ chỉ xem lịch mình dạy → gọi "Lịch dạy" cho đúng việc của họ. */
+const NAV_TEN_GV={lichhoc:'Lịch dạy'};
+const navTen=n=>(USER.role==='teacher'&&NAV_TEN_GV[n.k])||n.t;
 function botNav(){
-  const pick = USER.role==='teacher' ? ['diemdanh','lichhoc','ghidanh','huongdan']
+  // Giáo viên dùng app hằng ngày để ĐIỂM DANH và ĐỌC THÔNG BÁO → cả hai phải nằm ở thanh dưới
+  const pick = USER.role==='teacher' ? ['diemdanh','lichhoc','thongbao','ghidanh','huongdan']
     : USER.role==='admin' ? ['dashboard','diemdanh','duyet','thu','coso']
     : ['dashboard','diemdanh','duyet','ghidanh','thu'];
   return pick.map(k=>NAV.find(n=>n.k===k)).filter(Boolean);
@@ -2020,9 +2044,10 @@ function buildScope(){
 /* ============ NAV RENDER ============ */
 function renderNav(){
   const vis=visibleNav();
-  $('#nav').innerHTML=vis.map(n=>`<button data-k="${n.k}" class="${n.k===VIEW?'on':''}">${svg(n.i)}<span>${n.t}</span>${n.cnt?`<span class="cnt">${n.cnt()}</span>`:''}</button>`).join('');
+  $('#nav').innerHTML=vis.map(n=>`<button data-k="${n.k}" class="${n.k===VIEW?'on':''}">${svg(n.i)}<span>${navTen(n)}</span>${n.cnt?`<span class="cnt">${n.cnt()}</span>`:''}</button>`).join('');
   $$('#nav button').forEach(b=>b.onclick=()=>{go(b.dataset.k);closeSide();});
-  $('#botnav').innerHTML=botNav().map(n=>`<button data-k="${n.k}" class="${n.k===VIEW?'on':''}">${svg(n.i,1.9)}<span>${n.t}</span></button>`).join('');
+  $('#botnav').innerHTML=botNav().map(n=>{const c=n.cnt?n.cnt():'';
+    return `<button data-k="${n.k}" class="${n.k===VIEW?'on':''}"><span class="bi">${svg(n.i,1.9)}${c?`<i class="bdot">${c}</i>`:''}</span><span>${navTen(n)}</span></button>`;}).join('');
   $$('#botnav button').forEach(b=>b.onclick=()=>go(b.dataset.k));
 }
 function syncNav(){
@@ -2032,7 +2057,14 @@ function syncNav(){
   $('#nav .cnt')&&renderNavCounts();
 }
 function renderNavCounts(){
-  NAV.forEach(n=>{if(!n.cnt)return;const b=$(`#nav button[data-k="${n.k}"] .cnt`);if(b)b.textContent=n.cnt();});
+  NAV.forEach(n=>{if(!n.cnt)return;
+    const b=$(`#nav button[data-k="${n.k}"] .cnt`); if(b)b.textContent=n.cnt();
+    // chấm số trên thanh dưới (điện thoại) — có tin mới thì hiện, hết thì ẩn hẳn
+    const w=$(`#botnav button[data-k="${n.k}"] .bi`);
+    if(w){ const c=n.cnt(); let d=w.querySelector('.bdot');
+      if(c){ if(!d){d=document.createElement('i');d.className='bdot';w.appendChild(d);} d.textContent=c; }
+      else if(d) d.remove(); }
+  });
 }
 
 /* sidebar mobile */
@@ -2042,6 +2074,13 @@ $('#burger').onclick=openSide; $('#scrim').onclick=closeSide;
 
 /* ============ ROUTER ============ */
 const TITLES={dashboard:['Bảng điều hành','Toàn cảnh điều hành'],gv:['Giáo viên','Danh sách & hồ sơ giáo viên'],coso:['Cơ sở','Mạng lưới các trung tâm'],lop:['Lớp học','Lớp học & sĩ số'],hocvien:['Học sinh','Hồ sơ học sinh toàn hệ thống'],lichhoc:['Lịch học','Khung ca & lịch dạy từng lớp'],thongbao:['Thông báo','Thông báo của trung tâm'],ghidanh:['Ghi danh','Đăng ký học sinh vào lớp'],diemdanh:['Điểm danh','Điểm danh học sinh & chấm công GV'],duyet:['Đối soát điểm danh','Kiểm tra & chốt số liệu ca dạy'],baocao:['Báo cáo điểm danh','Chuyên cần, công giáo viên & lưu vết đối soát'],thu:['Sổ quỹ thu – chi','Kế toán thu chi & tồn quỹ'],taikhoan:['Tài khoản giáo viên','Tạo & quản lý tài khoản đăng nhập cho GV'],huongdan:['Hướng dẫn sử dụng','Tính năng & cách dùng hệ thống']};
+/* Giáo viên nhìn hệ thống theo góc của mình: không quản khung ca, không ghi danh thay lễ tân */
+const TITLES_GV={
+  lichhoc:['Lịch dạy','Ca dạy hôm nay & lịch cả tuần của tôi'],
+  diemdanh:['Điểm danh','Điểm danh học sinh & chấm công của tôi'],
+  thongbao:['Thông báo','Thông báo từ trung tâm'],
+  ghidanh:['Ghi danh','Thêm học sinh mới vào lớp']
+};
 function go(k){
   if(k==='coso'&&USER.role!=='admin')k='dashboard';
   if(k==='taikhoan'&&USER.role!=='admin')k='dashboard';
@@ -2049,8 +2088,10 @@ function go(k){
   if(k==='coso')csDetailId=null;
   VIEW=k;
   const scopeTxt=USER.role==='admin'?(scope==='all'?'Toàn hệ thống':csName(Number(scope))):csName(USER.coSoId);
-  $('#pgTitle').textContent=TITLES[k][0];
-  $('#pgSub').textContent=TITLES[k][1]+' · '+scopeTxt;
+  // Giáo viên: đổi tiêu đề vài trang cho đúng việc của họ (không quản khung ca, chỉ xem lịch mình dạy)
+  const tt = (USER.role==='teacher' && TITLES_GV[k]) || TITLES[k];
+  $('#pgTitle').textContent=tt[0];
+  $('#pgSub').textContent=tt[1]+' · '+scopeTxt;
   syncNav(); renderNavCounts();
   ({dashboard:renderDash,gv:renderGV,coso:renderCoso,lop:renderLop,hocvien:renderHocVien,lichhoc:renderLichHoc,thongbao:renderThongBao,ghidanh:renderGhiDanh,diemdanh:renderDiemDanh,duyet:renderDuyet,baocao:renderBaoCao,thu:renderThu,taikhoan:renderTaiKhoan,huongdan:renderHuongDan}[k])();
   window.scrollTo(0,0);
@@ -2288,7 +2329,7 @@ const HD_START={
   ],
   teacher:[
     ['Vào Điểm danh','Đăng nhập là vào thẳng <b>Điểm danh</b>. Đầu trang hiện <b>các ca dạy của mình trong ngày</b> — bấm một ca là vào đúng lớp đó. Muốn xem ngày khác thì đổi ô <b>ngày</b>.'],
-    ['Xem lịch dạy','Menu <b>Lịch học</b> — trên cùng là <b>Hôm nay</b> (bấm một ca vào thẳng điểm danh), dưới là lịch cả tuần với cột hôm nay tô xanh.'],
+    ['Xem lịch dạy','Menu <b>Lịch dạy</b> — trên cùng là <b>Hôm nay</b> (bấm một ca vào thẳng điểm danh), dưới là lịch cả tuần với cột hôm nay tô xanh.'],
     ['Đọc thông báo','Tin của trung tâm hiện thành băng màu ở đầu trang Điểm danh, hoặc vào menu <b>Thông báo</b>.'],
     ['Điểm danh &amp; chấm công','Tích <b>Có / Muộn / Phép / Vắng</b> cho từng em (lưu ngay, không cần bấm Lưu) và chấm công buổi dạy của mình ở khung phía trên.'],
     ['Gửi đối soát','Điểm danh xong bấm <b>✓ Gửi đối soát</b> để lễ tân kiểm tra. Cần thêm học sinh mới thì vào <b>Ghi danh</b>.']
@@ -2441,14 +2482,14 @@ const HD_HOWTO={
       'Khung <b>Chấm công giáo viên</b> phía trên: chọn <b>Lên lớp</b>, <b>Nghỉ</b> hoặc <b>Dạy bù</b> cho buổi dạy của mình.'
     ]],
     ['📅','Xem lịch dạy của tôi',[
-      'Vào menu <b>Lịch học</b> — trên cùng là khung <b>Hôm nay</b>: các ca mình dạy trong ngày kèm giờ, phòng, đã điểm danh mấy em. <b>Bấm một ca là vào thẳng điểm danh lớp đó.</b>',
+      'Vào menu <b>Lịch dạy</b> (trên điện thoại là nút thứ hai ở thanh dưới cùng) — trên cùng là khung <b>Hôm nay</b>: các ca mình dạy trong ngày kèm giờ, phòng, đã điểm danh mấy em. <b>Bấm một ca là vào thẳng điểm danh lớp đó.</b>',
       'Dưới đó là <b>Lịch dạy cả tuần</b>: hàng là <b>ca</b> (kèm giờ), cột là <b>thứ</b>, cột hôm nay được <b>tô xanh</b> cho dễ nhìn.',
       'Cuối trang liệt kê từng lớp kèm lịch dạng gọn, ví dụ <i>“T3, T5, T7 · Ca 1 · Phòng 3”</i>.',
       'Giáo viên chỉ <b>xem</b>, không sửa lịch. Lịch sai thì báo lễ tân cơ sở sửa lại.'
     ]],
     ['📣','Đọc thông báo của trung tâm',[
       'Tin mới hiện thành <b>băng màu ngay đầu trang Điểm danh</b> — bấm vào là mở ra đọc.',
-      'Hoặc vào menu <b>Thông báo</b>; số bên cạnh tên menu là số tin <b>chưa đọc</b>.',
+      'Hoặc bấm nút <b>Thông báo</b> ở thanh dưới cùng — có <b>chấm đỏ kèm số</b> là đang có tin chưa đọc.',
       'Màu viền cho biết mức độ: <b>xanh</b> = thông báo thường, <b>vàng</b> = quan trọng, <b>đỏ</b> = khẩn. Tin có 📌 là tin được ghim, luôn nằm trên đầu.',
       'Mở trang Thông báo là các tin đang hiện được đánh dấu đã đọc. Muốn xem lại tin cũ thì đổi ô lọc sang <b>Tất cả</b>.'
     ]],
@@ -2515,6 +2556,7 @@ const HD_FAQ=[
 ];
 const HD_TIPS=[
   ['📲','Cài lên màn hình chính điện thoại (chọn “Thêm vào Màn hình chính”) để dùng như một ứng dụng riêng, mở nhanh hơn.'],
+  ['👇','Trên điện thoại, <b>thanh nút dưới cùng</b> là lối đi nhanh tới các việc làm hằng ngày. Nút <b>đang mở</b> có nền xanh navy; nút nào có <b>chấm đỏ kèm số</b> là đang có việc chờ mình (tin chưa đọc, ca chờ đối soát). Các mục còn lại nằm trong menu ☰ góc trái.'],
   ['💡','Sau khi hệ thống được cập nhật, hãy tải lại trang (máy tính bấm Ctrl+F5, điện thoại kéo xuống làm mới) để nhận bản mới nhất.'],
   ['🔔','Chuông ở góc trên báo học sinh mới ghi danh và các khoản thu – chi mới. Bấm <b>“Đánh dấu đã đọc”</b> một lần cho gọn.'],
   ['🖶','Trang Hướng dẫn này bấm <b>In / lưu PDF</b> được — in ra phát cho lễ tân và giáo viên rất tiện.'],
@@ -4721,8 +4763,8 @@ function renderLichHoc(){
   h+=`</tbody></table></div></div>`;
   // ----- Danh sách lớp + lịch từng lớp -----
   const chuaKhai=lops.filter(l=>!lichOfLop(l.id).length).length;
-  h+=`<div class="panel"><div class="phead"><h3>Lịch từng lớp</h3>
-      <span class="sub">${lops.length} lớp${chuaKhai?' · '+chuaKhai+' lớp chưa khai lịch':''}${canSua?' · bấm để sửa':''}</span></div>
+  h+=`<div class="panel"><div class="phead"><h3>${isTe?'Các lớp tôi phụ trách':'Lịch từng lớp'}</h3>
+      <span class="sub">${lops.length} lớp${chuaKhai?' · '+chuaKhai+' lớp chưa khai lịch'+(isTe?' (báo lễ tân)':''):''}${canSua?' · bấm để sửa':''}</span></div>
     <div class="twrap"><table><thead><tr><th>Lớp</th><th>Giáo viên</th><th>Lịch học</th></tr></thead><tbody>`;
   if(!lops.length) h+=`<tr><td colspan="3"><div class="empty">Chưa có lớp học trong phạm vi này</div></td></tr>`;
   else lops.slice().sort((a,b)=>String(a.lop).localeCompare(String(b.lop),'vi')).forEach(l=>{
