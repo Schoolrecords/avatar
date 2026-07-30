@@ -475,6 +475,38 @@ tbody tr:hover{background:var(--soft)}
 .lwarn{background:var(--amber-soft);border:1px solid #f0d79a;border-radius:12px;padding:10px 12px;font-size:.8rem;font-weight:600;margin-bottom:12px}
 .lwarn b{display:block;margin-bottom:3px}
 .lwarn ul{margin:4px 0 0;padding-left:18px}
+/* ===== THÔNG BÁO CỦA TRUNG TÂM ===== */
+.tbcard{border:1.6px solid var(--line);border-left-width:5px;border-radius:14px;background:#fff;padding:13px 15px;margin-bottom:11px;transition:.14s}
+.tbcard:hover{box-shadow:var(--shadow-sm)}
+.tbcard.m-thuong{border-left-color:var(--brand)}
+.tbcard.m-quan_trong{border-left-color:var(--amber);background:#fffdf7}
+.tbcard.m-khan{border-left-color:var(--rose);background:#fff8f8}
+.tbcard.chuadoc{box-shadow:0 0 0 2px var(--brand-soft)}
+.tbhead{display:flex;align-items:flex-start;gap:9px;flex-wrap:wrap}
+.tbhead h4{margin:0;font-size:1rem;font-weight:800;flex:1;min-width:150px;line-height:1.35}
+.tbnd{font-size:.88rem;line-height:1.6;margin-top:7px;white-space:pre-wrap;word-break:break-word}
+.tbmeta{display:flex;gap:6px 14px;flex-wrap:wrap;margin-top:9px;font-size:.75rem;color:var(--muted);font-weight:600;align-items:center}
+.tbtag{font-size:.7rem;font-weight:800;padding:2px 9px;border-radius:99px;white-space:nowrap}
+.tbtag.m-thuong{background:var(--brand-soft);color:var(--brand)}
+.tbtag.m-quan_trong{background:var(--amber-soft);color:var(--amber)}
+.tbtag.m-khan{background:var(--rose-soft);color:var(--rose)}
+.tbtag.moi{background:#e8f6ee;color:#12a150}
+.tbtag.ghim{background:var(--violet-soft);color:var(--violet)}
+.tbtag.het{background:#eef1f6;color:#7a8699}
+/* băng thông báo nổi bật ở đầu trang Điểm danh / Bảng điều hành */
+.tbbar{display:flex;gap:11px;align-items:flex-start;padding:13px 15px;border-radius:14px;margin-bottom:14px;
+  background:var(--navy-900);background-image:var(--dots);background-size:9px 9px;color:#fff;cursor:pointer}
+.tbbar.m-khan{background:#8d2b31;background-image:var(--dots)}
+.tbbar.m-quan_trong{background:#8a5a00;background-image:var(--dots)}
+.tbbar .tbb-ic{font-size:1.25rem;line-height:1.2;flex:none}
+.tbbar b{display:block;font-size:.94rem;font-weight:800}
+.tbbar small{display:block;font-size:.78rem;opacity:.85;margin-top:2px}
+.tbbar .tbb-go{flex:none;font-size:.75rem;font-weight:800;background:rgba(255,255,255,.18);padding:5px 11px;border-radius:99px;white-space:nowrap}
+/* cột hôm nay trên lưới lịch tuần */
+.tkb th.homnay{background:var(--brand);color:#fff}
+.tkb td.homnay{background:#f3f7ff}
+.tkb td.cah.homnay{background:#f3f7ff}
+
 /* bảng điểm danh in giấy A4 DỌC — bề rộng lấy theo .vpaper (186mm vùng in) */
 .ddtbl{width:100%;table-layout:fixed;border-collapse:collapse;font-size:13px;margin-top:8px}
 .ddtbl th,.ddtbl td{border:1px solid #333;padding:5px 6px;overflow-wrap:break-word;word-break:break-word}
@@ -971,6 +1003,7 @@ let gvLive=false;   // true khi đã chạy SQL Giai đoạn 2 (GV/Lớp lấy t
 let caLive=false;   // true khi đã chạy SQL Giai đoạn 6 (khung ca + lịch lớp)
 let ccLive=false;   // true khi đã chạy SQL Giai đoạn 7 (chấm công có cột gv_id — ai thực dạy)
 let csLive=false;   // true khi đã chạy SQL Giai đoạn 7 (danh sách cơ sở lấy từ Supabase)
+let tbLive=false;   // true khi đã chạy SQL Giai đoạn 8 (bảng thông báo)
 /* ===== TẢI DỮ LIỆU LỚN AN TOÀN =====
    Supabase cắt mỗi truy vấn ở ~1000 dòng. Với 341 lớp (vài nghìn học sinh) mà
    không phân trang thì app hiện THIẾU dữ liệu mà KHÔNG báo lỗi. fetchAll() tải
@@ -997,7 +1030,7 @@ let ddFromWanted='';               // mốc sớm nhất CẦN tải (nới ra k
 async function loadCloud(){
   const mocMacDinh=isoCongNgay(todayISO(),-DD_SO_NGAY);
   ddFrom=(ddFromWanted && ddFromWanted<mocMacDinh) ? ddFromWanted : mocMacDinh;
-  const [hv,gd,dd,cc,ge,gvR,lopR,dz,cs,caR,liR,csR]=await Promise.all([
+  const [hv,gd,dd,cc,ge,gvR,lopR,dz,cs,caR,liR,csR,tbR]=await Promise.all([
     fetchAll(()=>SB.from('hoc_vien').select('*')),
     fetchAll(()=>SB.from('so_quy').select('*')),          // sổ quỹ tải đủ: tồn quỹ tính lũy kế từ đầu
     fetchAll(()=>SB.from('diem_danh_hv').select('*').gte('ngay',ddFrom)),
@@ -1009,7 +1042,8 @@ async function loadCloud(){
     fetchAll(()=>SB.from('chot_so_quy').select('*')),
     fetchAll(()=>SB.from('ca_hoc').select('*')),
     fetchAll(()=>SB.from('lich_lop').select('*')),
-    fetchAll(()=>SB.from('co_so').select('*'))
+    fetchAll(()=>SB.from('co_so').select('*')),
+    fetchAll(()=>SB.from('thong_bao').select('*'))
   ]);
   if(hv.error||gd.error||dd.error||cc.error) throw (hv.error||gd.error||dd.error||cc.error);
   // Danh sách cơ sở SỐNG (Giai đoạn 7). Chưa chạy SQL → giữ nguyên danh sách tĩnh trong data.js.
@@ -1041,6 +1075,11 @@ async function loadCloud(){
   OPS.ca={}; if(!caR.error)(caR.data||[]).forEach(r=>{(OPS.ca[r.coso_id]=OPS.ca[r.coso_id]||[]).push({id:r.id,ma:r.ma,ten:r.ten||('Ca '+r.ma),bd:r.gio_bd||'',kt:r.gio_kt||''});});
   for(const k in OPS.ca) OPS.ca[k].sort((a,b)=>a.ma-b.ma);
   OPS.lich = liR.error ? [] : (liR.data||[]).map(r=>({id:r.id,lopId:r.lop_id,coSoId:r.coso_id,thu:r.thu,caMa:r.ca_ma,phong:r.phong||''}));
+  // Thông báo của trung tâm (Giai đoạn 8). Chưa chạy SQL → tbLive=false, menu Thông báo báo cách bật.
+  tbLive = !tbR.error;
+  OPS.tb = tbR.error ? [] : (tbR.data||[]).map(r=>({id:r.id,tieuDe:r.tieu_de,noiDung:r.noi_dung||'',mucDo:r.muc_do||'thuong',
+    coSoId:(r.coso_id==null?null:r.coso_id),vaiTro:r.vai_tro||'all',ghim:!!r.ghim,hetHan:r.het_han||null,
+    nguoiDang:r.nguoi_dang||'',createdAt:r.created_at||null,updatedAt:r.updated_at||null}));
   sqLive5 = (gd.data||[]).length===0 ? sqLive5 : ('so_phieu' in (gd.data[0]||{}));   // đã có cột mới chưa
   // GV giảng dạy: RLS chỉ trả lớp mình phụ trách → LOP = đúng các lớp đó (GV có thể rỗng)
   if(USER.role==='teacher'){
@@ -1250,6 +1289,58 @@ function ddToday(ids){
 }
 const DOW=['Chủ nhật','Thứ hai','Thứ ba','Thứ tư','Thứ năm','Thứ sáu','Thứ bảy'];
 
+/* ===== THÔNG BÁO CỦA TRUNG TÂM (Giai đoạn 8) =====
+   Quản trị gửi toàn chuỗi; Lễ tân gửi cho cơ sở mình. RLS đã lọc sẵn ở CSDL,
+   phần lọc dưới đây chỉ để giao diện hiển thị đúng (nhất là với Quản trị — vai
+   trò này thấy hết mọi tin để quản lý). */
+const TB_MUC={thuong:'Thông báo',quan_trong:'Quan trọng',khan:'Khẩn'};
+const TB_IC={thuong:'📣',quan_trong:'⚠️',khan:'🔴'};
+const TB_AI={all:'Tất cả',teacher:'Giáo viên',owner:'Lễ tân'};
+const tbHetHan=t=>!!(t.hetHan && t.hetHan<todayISO());
+/* Tin còn hiệu lực mà MÌNH là người nhận */
+function tbCuaToi(){
+  const r=USER.role;
+  return OPS.tb.filter(t=>{
+    if(tbHetHan(t))return false;
+    if(t.coSoId!=null && r!=='admin' && t.coSoId!==USER.coSoId)return false;
+    if(t.vaiTro!=='all' && t.vaiTro!==r)return false;
+    return true;
+  });
+}
+/* Tin MÌNH QUẢN LÝ được (sửa/xóa): Quản trị mọi tin; Lễ tân tin của cơ sở mình.
+   Tách khỏi tbCuaToi vì tin gửi RIÊNG cho giáo viên thì người đăng không phải người nhận,
+   nhưng vẫn phải thấy lại trong danh sách để sửa. */
+const tbQuanLy=()=>USER.role==='admin'?OPS.tb.slice():USER.role==='owner'?OPS.tb.filter(t=>t.coSoId===USER.coSoId):[];
+/* Danh sách hiện trên trang Thông báo = tin mình nhận + tin mình quản lý (còn hạn) */
+function tbHienThi(){
+  const m=new Map();
+  tbCuaToi().forEach(t=>m.set(t.id,t));
+  tbQuanLy().filter(t=>!tbHetHan(t)).forEach(t=>m.set(t.id,t));
+  return [...m.values()];
+}
+/* Sắp xếp: ghim lên đầu, rồi mới nhất trước */
+const tbSort=a=>a.slice().sort((x,y)=>(y.ghim?1:0)-(x.ghim?1:0)||Date.parse(y.createdAt||0)-Date.parse(x.createdAt||0));
+/* Đánh dấu đã đọc: lưu danh sách mã tin trên máy này, theo từng tài khoản */
+const tbDocKey=()=>'avatar_tb_doc_'+((USER&&USER.email)||'x');
+function tbDaDoc(){ try{return new Set(JSON.parse(localStorage.getItem(tbDocKey())||'[]'));}catch(e){return new Set();} }
+function tbGhiDoc(ids){ try{const s=tbDaDoc(); ids.forEach(i=>s.add(i)); localStorage.setItem(tbDocKey(),JSON.stringify([...s].slice(-500)));}catch(e){} }
+const tbChuaDoc=()=>{ if(!tbLive||!USER)return 0; const d=tbDaDoc(); return tbCuaToi().filter(t=>!d.has(t.id)).length; };
+/* Tin chưa đọc đáng để hiện băng nổi bật ở đầu trang (khẩn / quan trọng / đang ghim) */
+function tbNoiBat(){
+  const d=tbDaDoc();
+  return tbSort(tbCuaToi().filter(t=>!d.has(t.id)&&(t.mucDo!=='thuong'||t.ghim)))[0]||null;
+}
+/* Băng thông báo đặt ở đầu màn Điểm danh & Bảng điều hành */
+function tbBarHTML(){
+  const t=tbNoiBat(); if(!t)return '';
+  return `<div class="tbbar m-${t.mucDo}" id="tbBar">
+    <span class="tbb-ic">${TB_IC[t.mucDo]}</span>
+    <div style="flex:1;min-width:0"><b>${esc(t.tieuDe)}</b>
+      <small>${esc((t.noiDung||'').split('\n')[0].slice(0,110))}${(t.noiDung||'').length>110?'…':''}</small></div>
+    <span class="tbb-go">Xem →</span></div>`;
+}
+const tbBarBind=()=>{const b=$('#tbBar'); if(b)b.onclick=()=>go('thongbao');};
+
 /* ===== LỊCH DẠY THEO CA (Giai đoạn 6) =====
    Quy ước "thứ": 2..7 = Thứ Hai..Thứ Bảy, 8 = Chủ nhật (khớp cột thu của bảng lich_lop).
    Khung ca khai theo TỪNG CƠ SỞ vì trung tâm 5 ca × 2 giờ, mầm non 4 ca × 55 phút,
@@ -1341,7 +1432,7 @@ function duyetPending(){
 
 /* ===== NGHIỆP VỤ: ghi danh & điểm danh — lưu trên Supabase (đồng bộ mọi máy) ===== */
 /* OPS là bộ nhớ đệm trong trình duyệt; nạp bằng loadCloud() sau khi đăng nhập. */
-let OPS={hv:[],ddHV:{},ccGV:{},ccGvId:{},gd:[],duyet:{},chot:{},ca:{},lich:[]};
+let OPS={hv:[],ddHV:{},ccGV:{},ccGvId:{},gd:[],duyet:{},chot:{},ca:{},lich:[],tb:[]};
 /* ===== CHỐT SỔ QUỸ THEO THÁNG (Giai đoạn 5) =====
    Kỳ đã chốt = khóa với MỌI vai trò (khác chốt ca dạy: admin vẫn sửa được).
    Muốn sửa phiếu trong kỳ đã chốt thì Quản trị phải Mở khóa kỳ đó trước. */
@@ -1666,7 +1757,8 @@ const IC={
   taikhoan:'<circle cx="9" cy="8" r="3.4"/><path d="M3.5 19c0-3 2.6-4.7 5.5-4.7s5.5 1.7 5.5 4.7"/><circle cx="17.5" cy="9" r="2.6"/><path d="M17.5 3.8v1.4M17.5 12.8v1.4M21.7 8.2l-1.2.7M14.5 8.2l1.2.7M20.6 11.6l-.8-1.1M14.4 6.4l.8 1.1"/>',
   duyet:'<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1"/><path d="M8.5 12.5l2.2 2.2 4.3-4.4"/>',
   baocao:'<path d="M3 3v18h18"/><rect x="7" y="11" width="3" height="6"/><rect x="12" y="7" width="3" height="10"/><rect x="17" y="14" width="3" height="3"/>',
-  lichhoc:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/><circle cx="12" cy="15.5" r="2.6"/><path d="M12 14v1.6l1.1.8"/>'
+  lichhoc:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/><circle cx="12" cy="15.5" r="2.6"/><path d="M12 14v1.6l1.1.8"/>',
+  thongbao:'<path d="M3 8.5A2.5 2.5 0 0 1 5.5 6H15l6-3v15l-6-3H5.5A2.5 2.5 0 0 1 3 12.5z"/><path d="M7 15v4a1.5 1.5 0 0 0 3 0v-4"/>'
 };
 const svg=(p,sw=1.9)=>`<svg viewBox="0 0 24 24" fill="none" stroke-width="${sw}">${p}</svg>`;
 
@@ -1678,6 +1770,7 @@ const NAV=[
   {k:'lop',t:'Lớp học',i:IC.lop,cnt:()=>inLOP().length},
   {k:'hocvien',t:'Học sinh',i:IC.hocvien,cnt:()=>demHS(inHV().filter(hvActive))},
   {k:'lichhoc',t:'Lịch học',i:IC.lichhoc,teach:true},
+  {k:'thongbao',t:'Thông báo',i:IC.thongbao,teach:true,cnt:()=>tbChuaDoc()||''},
   {k:'ghidanh',t:'Ghi danh',i:IC.ghidanh,teach:true},
   {k:'diemdanh',t:'Điểm danh',i:IC.diemdanh,teach:true},
   {k:'duyet',t:'Đối soát',i:IC.duyet,cnt:()=>duyetPending()||''},
@@ -1752,7 +1845,7 @@ function startApp(){
 /* ===== REALTIME: tự cập nhật khi bất kỳ cơ sở nào lưu thay đổi ===== */
 let rtChannel=null;
 function renderCurrent(){
-  ({dashboard:renderDash,gv:renderGV,coso:renderCoso,lop:renderLop,hocvien:renderHocVien,lichhoc:renderLichHoc,ghidanh:renderGhiDanh,diemdanh:renderDiemDanh,duyet:renderDuyet,baocao:renderBaoCao,thu:renderThu,taikhoan:renderTaiKhoan,huongdan:renderHuongDan}[VIEW]||renderDash)();
+  ({dashboard:renderDash,gv:renderGV,coso:renderCoso,lop:renderLop,hocvien:renderHocVien,lichhoc:renderLichHoc,thongbao:renderThongBao,ghidanh:renderGhiDanh,diemdanh:renderDiemDanh,duyet:renderDuyet,baocao:renderBaoCao,thu:renderThu,taikhoan:renderTaiKhoan,huongdan:renderHuongDan}[VIEW]||renderDash)();
   renderNavCounts(); renderBell();
 }
 function subscribeRealtime(){
@@ -1767,7 +1860,7 @@ function subscribeRealtime(){
     try{ await loadCloud(); if(busy()) renderBell(); else renderCurrent(); }catch(e){}
   },1800); };
   rtChannel=SB.channel('avatar-rt');
-  ['hoc_vien','so_quy','diem_danh_hv','cham_cong_gv','gv_edits','giao_vien','lop_hoc','duyet_diem_danh','chot_so_quy','ca_hoc','lich_lop','co_so'].forEach(t=>
+  ['hoc_vien','so_quy','diem_danh_hv','cham_cong_gv','gv_edits','giao_vien','lop_hoc','duyet_diem_danh','chot_so_quy','ca_hoc','lich_lop','co_so','thong_bao'].forEach(t=>
     rtChannel.on('postgres_changes',{event:'*',schema:'public',table:t},bump));
   rtChannel.subscribe();
 }
@@ -1802,6 +1895,10 @@ function buildNotifs(){
       sub:[g.hangMuc||'Khoản thu',co].filter(Boolean).join(' · ')});
     else out.push({ts:g.createdAt, ic:'🧾', cls:'n-chi', title:'Chi '+fmtVND(g.soTien),
       sub:[g.hangMuc||'Khoản chi',co].filter(Boolean).join(' · ')}); });
+  // Thông báo của trung tâm — luôn để ý nhất, ai cũng nhận
+  tbCuaToi().forEach(t=>{ if(!t.createdAt)return;
+    out.push({ts:t.createdAt, ic:TB_IC[t.mucDo], cls:t.mucDo==='thuong'?'n-hs':'n-cc',
+      title:t.tieuDe, sub:[TB_MUC[t.mucDo],t.coSoId==null?'Toàn chuỗi':csName(t.coSoId)].join(' · '), view:'thongbao'}); });
   // Ca dạy CẦN MÌNH XỬ LÝ — báo theo vai trò, mỗi ca 1 dòng nên không nhiễu.
   // (Cố ý KHÔNG báo từng lượt điểm danh học sinh: mỗi em mỗi buổi một dòng thì loạn chuông.)
   const ids=scopeIds();
@@ -1944,18 +2041,18 @@ function closeSide(){$('#side').classList.remove('open');$('#scrim').classList.r
 $('#burger').onclick=openSide; $('#scrim').onclick=closeSide;
 
 /* ============ ROUTER ============ */
-const TITLES={dashboard:['Bảng điều hành','Toàn cảnh điều hành'],gv:['Giáo viên','Danh sách & hồ sơ giáo viên'],coso:['Cơ sở','Mạng lưới các trung tâm'],lop:['Lớp học','Lớp học & sĩ số'],hocvien:['Học sinh','Hồ sơ học sinh toàn hệ thống'],lichhoc:['Lịch học','Khung ca & lịch dạy từng lớp'],ghidanh:['Ghi danh','Đăng ký học sinh vào lớp'],diemdanh:['Điểm danh','Điểm danh học sinh & chấm công GV'],duyet:['Đối soát điểm danh','Kiểm tra & chốt số liệu ca dạy'],baocao:['Báo cáo điểm danh','Chuyên cần, công giáo viên & lưu vết đối soát'],thu:['Sổ quỹ thu – chi','Kế toán thu chi & tồn quỹ'],taikhoan:['Tài khoản giáo viên','Tạo & quản lý tài khoản đăng nhập cho GV'],huongdan:['Hướng dẫn sử dụng','Tính năng & cách dùng hệ thống']};
+const TITLES={dashboard:['Bảng điều hành','Toàn cảnh điều hành'],gv:['Giáo viên','Danh sách & hồ sơ giáo viên'],coso:['Cơ sở','Mạng lưới các trung tâm'],lop:['Lớp học','Lớp học & sĩ số'],hocvien:['Học sinh','Hồ sơ học sinh toàn hệ thống'],lichhoc:['Lịch học','Khung ca & lịch dạy từng lớp'],thongbao:['Thông báo','Thông báo của trung tâm'],ghidanh:['Ghi danh','Đăng ký học sinh vào lớp'],diemdanh:['Điểm danh','Điểm danh học sinh & chấm công GV'],duyet:['Đối soát điểm danh','Kiểm tra & chốt số liệu ca dạy'],baocao:['Báo cáo điểm danh','Chuyên cần, công giáo viên & lưu vết đối soát'],thu:['Sổ quỹ thu – chi','Kế toán thu chi & tồn quỹ'],taikhoan:['Tài khoản giáo viên','Tạo & quản lý tài khoản đăng nhập cho GV'],huongdan:['Hướng dẫn sử dụng','Tính năng & cách dùng hệ thống']};
 function go(k){
   if(k==='coso'&&USER.role!=='admin')k='dashboard';
   if(k==='taikhoan'&&USER.role!=='admin')k='dashboard';
-  if(USER.role==='teacher' && !['ghidanh','diemdanh','lichhoc','huongdan'].includes(k)) k='diemdanh';   // GV chỉ vào 4 mục này
+  if(USER.role==='teacher' && !['ghidanh','diemdanh','lichhoc','thongbao','huongdan'].includes(k)) k='diemdanh';   // GV chỉ vào 5 mục này
   if(k==='coso')csDetailId=null;
   VIEW=k;
   const scopeTxt=USER.role==='admin'?(scope==='all'?'Toàn hệ thống':csName(Number(scope))):csName(USER.coSoId);
   $('#pgTitle').textContent=TITLES[k][0];
   $('#pgSub').textContent=TITLES[k][1]+' · '+scopeTxt;
   syncNav(); renderNavCounts();
-  ({dashboard:renderDash,gv:renderGV,coso:renderCoso,lop:renderLop,hocvien:renderHocVien,lichhoc:renderLichHoc,ghidanh:renderGhiDanh,diemdanh:renderDiemDanh,duyet:renderDuyet,baocao:renderBaoCao,thu:renderThu,taikhoan:renderTaiKhoan,huongdan:renderHuongDan}[k])();
+  ({dashboard:renderDash,gv:renderGV,coso:renderCoso,lop:renderLop,hocvien:renderHocVien,lichhoc:renderLichHoc,thongbao:renderThongBao,ghidanh:renderGhiDanh,diemdanh:renderDiemDanh,duyet:renderDuyet,baocao:renderBaoCao,thu:renderThu,taikhoan:renderTaiKhoan,huongdan:renderHuongDan}[k])();
   window.scrollTo(0,0);
 }
 
@@ -2166,6 +2263,7 @@ const HD_MENU_DESC={
   lop:'Danh sách lớp: sĩ số, giáo viên phụ trách, dự thu. Thêm / sửa / xóa lớp.',
   hocvien:'Kho hồ sơ học sinh: tìm kiếm, lọc theo cơ sở – lớp – trạng thái – học phí; bấm <b>Hồ sơ</b> để sửa, ghi nhận đóng tiền, cho thôi học. Em học nhiều lớp có nhãn tím <b>“Học N lớp”</b> và chỉ tính là <b>1 học sinh</b>. Nhập trùng danh sách thì trang này hiện khung vàng <b>“Phát hiện N bản ghi trùng”</b> (chỉ tính trùng khi <b>cùng lớp</b>) — bấm <b>Chọn N bản trùng để xóa</b> là dọn sạch bản dư, giữ bản gốc. Muốn xóa nhiều em bất kỳ: bấm <b>☑ Chọn nhiều</b> → tick từng em → <b>🗑 Xóa</b>.',
   lichhoc:'Khai <b>khung ca</b> của cơ sở (mặc định 5 ca, mỗi ca 2 giờ — <b>sửa giờ được</b>, ngay trong cửa sổ khai lịch lớp cũng sửa được) và <b>lịch từng lớp</b> (học thứ mấy – ca nào – phòng nào). Có lưới lịch tuần, cảnh báo xếp trùng giáo viên/phòng và nút <b>🖶 In lịch tuần</b> khổ A4. Giáo viên chỉ xem lịch dạy của mình.',
+  thongbao:'Thông báo của trung tâm gửi tới mọi người. Quản trị gửi <b>toàn chuỗi</b> hoặc từng cơ sở; Lễ tân gửi cho cơ sở mình. Chọn được <b>người nhận</b> (tất cả / chỉ giáo viên / chỉ lễ tân), <b>mức độ</b> (thường · quan trọng · khẩn), <b>ghim</b> lên đầu và <b>ngày hết hạn</b>. Tin quan trọng chưa đọc hiện thành băng nổi bật ngay đầu trang Điểm danh và Bảng điều hành.',
   ghidanh:'Thêm học sinh vào lớp — nhập từng em hoặc nhập Excel cả cơ sở một lần.',
   diemdanh:'Điểm danh học sinh và chấm công giáo viên theo từng buổi; gửi đối soát / chốt ca ngay tại đây. Khai lịch rồi thì đầu trang hiện sẵn <b>các ca trong ngày</b> — bấm một ca là vào thẳng lớp đó. Nút <b>🖶 In danh sách</b> in bảng điểm danh khổ A4 có ô ký.',
   duyet:'Danh sách các ca dạy theo trạng thái: <b>Chờ đối soát → Đã đối soát → Đã chốt</b>, kèm nút xử lý theo vai trò.',
@@ -2190,7 +2288,8 @@ const HD_START={
   ],
   teacher:[
     ['Vào Điểm danh','Đăng nhập là vào thẳng <b>Điểm danh</b>. Đầu trang hiện <b>các ca dạy của mình trong ngày</b> — bấm một ca là vào đúng lớp đó. Muốn xem ngày khác thì đổi ô <b>ngày</b>.'],
-    ['Xem lịch dạy','Menu <b>Lịch học</b> hiện lịch tuần của riêng mình: ca mấy giờ, lớp nào, phòng nào.'],
+    ['Xem lịch dạy','Menu <b>Lịch học</b> — trên cùng là <b>Hôm nay</b> (bấm một ca vào thẳng điểm danh), dưới là lịch cả tuần với cột hôm nay tô xanh.'],
+    ['Đọc thông báo','Tin của trung tâm hiện thành băng màu ở đầu trang Điểm danh, hoặc vào menu <b>Thông báo</b>.'],
     ['Điểm danh &amp; chấm công','Tích <b>Có / Muộn / Phép / Vắng</b> cho từng em (lưu ngay, không cần bấm Lưu) và chấm công buổi dạy của mình ở khung phía trên.'],
     ['Gửi đối soát','Điểm danh xong bấm <b>✓ Gửi đối soát</b> để lễ tân kiểm tra. Cần thêm học sinh mới thì vào <b>Ghi danh</b>.']
   ]
@@ -2251,6 +2350,13 @@ const HD_HOWTO={
       'Cột <b>Ca thực dạy</b> = lên lớp + dạy bù. Cột <b>Dạy thay</b> cho biết trong đó có mấy buổi là dạy thay lớp của người khác.',
       'Bấm <b>🖶 In bảng lương</b> để in <b>Bảng thanh toán công giảng dạy</b> khổ A4 ngang, có tổng tiền bằng chữ và khối ký. Hoặc <b>⬇ Xuất Excel</b> — bảng lương là một sheet riêng.',
       '⚠ Số ca lấy từ chấm công thực tế, nên hãy <b>chốt điểm danh xong</b> rồi mới lập bảng lương.'
+    ]],
+    ['📣','Gửi thông báo cho giáo viên & lễ tân',[
+      'Vào <b>Thông báo</b> → <b>＋ Soạn thông báo</b>: nhập tiêu đề, nội dung.',
+      '<b>Mức độ</b>: Thông báo (viền xanh) · Quan trọng (viền vàng) · Khẩn (viền đỏ). Tin <b>quan trọng</b> và <b>khẩn</b> hiện thành băng nổi bật ở đầu trang Điểm danh và Bảng điều hành cho tới khi người nhận đọc.',
+      '<b>Gửi cho</b>: Tất cả / chỉ Giáo viên / chỉ Lễ tân. <b>Phạm vi</b>: toàn chuỗi hoặc một cơ sở (Lễ tân chỉ gửi được cho cơ sở mình).',
+      'Tích <b>📌 Ghim lên đầu</b> cho tin cần đọc lâu dài (nội quy, lịch nghỉ lễ). Đặt <b>Hiển thị đến ngày</b> cho tin có thời hạn — quá ngày đó tin tự ẩn.',
+      'Sửa hoặc xóa: bấm <b>✏️ Sửa</b> ở góc dưới mỗi tin. Tin đã hết hạn xem lại ở ô lọc <b>Đã hết hạn</b>.'
     ]],
     ['🏫','Mở thêm cơ sở mới',[
       'Vào <b>Cơ sở</b> → <b>＋ Thêm cơ sở</b> → nhập tên, địa chỉ → <b>Thêm cơ sở</b>. Không phải nhờ kỹ thuật sửa code nữa.',
@@ -2335,9 +2441,16 @@ const HD_HOWTO={
       'Khung <b>Chấm công giáo viên</b> phía trên: chọn <b>Lên lớp</b>, <b>Nghỉ</b> hoặc <b>Dạy bù</b> cho buổi dạy của mình.'
     ]],
     ['📅','Xem lịch dạy của tôi',[
-      'Vào menu <b>Lịch học</b> — bảng <b>Lịch dạy của tôi</b> hiện cả tuần: hàng là <b>ca</b> (kèm giờ), cột là <b>thứ</b>, ô là lớp mình dạy và phòng.',
-      'Bảng phía dưới liệt kê từng lớp kèm lịch dạng gọn, ví dụ <i>“T3, T5, T7 · Ca 1 · Phòng 3”</i>.',
+      'Vào menu <b>Lịch học</b> — trên cùng là khung <b>Hôm nay</b>: các ca mình dạy trong ngày kèm giờ, phòng, đã điểm danh mấy em. <b>Bấm một ca là vào thẳng điểm danh lớp đó.</b>',
+      'Dưới đó là <b>Lịch dạy cả tuần</b>: hàng là <b>ca</b> (kèm giờ), cột là <b>thứ</b>, cột hôm nay được <b>tô xanh</b> cho dễ nhìn.',
+      'Cuối trang liệt kê từng lớp kèm lịch dạng gọn, ví dụ <i>“T3, T5, T7 · Ca 1 · Phòng 3”</i>.',
       'Giáo viên chỉ <b>xem</b>, không sửa lịch. Lịch sai thì báo lễ tân cơ sở sửa lại.'
+    ]],
+    ['📣','Đọc thông báo của trung tâm',[
+      'Tin mới hiện thành <b>băng màu ngay đầu trang Điểm danh</b> — bấm vào là mở ra đọc.',
+      'Hoặc vào menu <b>Thông báo</b>; số bên cạnh tên menu là số tin <b>chưa đọc</b>.',
+      'Màu viền cho biết mức độ: <b>xanh</b> = thông báo thường, <b>vàng</b> = quan trọng, <b>đỏ</b> = khẩn. Tin có 📌 là tin được ghim, luôn nằm trên đầu.',
+      'Mở trang Thông báo là các tin đang hiện được đánh dấu đã đọc. Muốn xem lại tin cũ thì đổi ô lọc sang <b>Tất cả</b>.'
     ]],
     ['✅','Gửi đối soát',[
       'Điểm danh xong, bấm <b>✓ Gửi đối soát</b> ở khung <b>Ca dạy</b> phía trên.',
@@ -2382,6 +2495,8 @@ const HD_FAQ=[
   ['Không thấy lớp trong ô chọn lớp của Ghi danh / Điểm danh','Lớp đó chưa có <b>sĩ số dự kiến</b>, chưa có học sinh nào và cũng <b>chưa khai lịch</b>. Vào <b>Lớp học</b> nhập sĩ số dự kiến, hoặc vào <b>Lịch học</b> khai lịch cho lớp đó.'],
   ['Khung “Ca trong ngày” báo hôm nay không có lớp nào','Các lớp chưa được khai lịch, hoặc hôm đó đúng là không có lớp nào học. Vào <b>Lịch học</b> → bấm từng lớp → tích thứ và ca. Vẫn điểm danh được bằng cách chọn lớp ở ô <b>LỚP</b> (sẽ có nhãn <i>ngoài lịch</i>).'],
   ['Không thấy menu “Lịch học”','Quản trị chưa chạy file <b>sql-giai-doan-6-ca.sql</b> trong Supabase → SQL Editor. Chạy xong tải lại trang (Ctrl+F5).'],
+  ['Menu Thông báo báo “Chưa bật tính năng”','Quản trị chưa chạy file <b>sql-giai-doan-8-thong-bao.sql</b>. Chạy xong tải lại trang (Ctrl+F5).'],
+  ['Giáo viên không thấy thông báo vừa gửi','Kiểm tra lại 2 ô khi soạn tin: <b>Gửi cho</b> phải là <i>Tất cả</i> hoặc <i>Giáo viên</i>; <b>Phạm vi</b> phải là <i>Toàn chuỗi</i> hoặc đúng cơ sở của giáo viên đó. Cũng kiểm tra <b>Hiển thị đến ngày</b> đã qua chưa.'],
   ['Lịch báo khung vàng “xếp trùng”','Một giáo viên bị xếp hai lớp cùng ca, hoặc một phòng bị xếp hai lớp cùng giờ. Ô bị trùng được tô đỏ trên bảng lịch tuần — mở lớp đó sửa lại ca hoặc phòng.'],
   ['Một em học 2 lớp có bị coi là nhập trùng không?','Không. Trùng chỉ tính khi <b>cùng họ tên + cùng ngày sinh + cùng một lớp</b>. Em học 2 lớp có nhãn tím <b>“Học 2 lớp”</b>, được đếm là <b>1 học sinh</b> nhưng vẫn tính <b>2 sĩ số lớp</b> và <b>2 khoản học phí</b>.'],
   ['Một em bị đếm thành 2 học sinh','Hai lượt ghi danh của em đó ghi <b>khác ngày sinh</b> hoặc <b>khác số điện thoại</b> nên hệ thống tưởng là hai em. Mở <b>Hồ sơ</b> từng lượt, sửa cho hai thông tin đó giống nhau — sửa xong hệ thống tự gộp lại.'],
@@ -2508,7 +2623,8 @@ function renderDash(){
   const now=new Date(), gio=now.getHours();
   const scopeTxt=USER.role==='admin'?(scope==='all'?'toàn hệ thống':csName(Number(scope))):csName(USER.coSoId);
 
-  let h=`<div class="hello">
+  let h=`${tbBarHTML()}
+  <div class="hello">
     <div class="hi"><small class="hmiss">✦ SỨ MỆNH AVATAR</small><h2>Chắp cánh ước mơ · Vươn tầm tiếng Anh</h2><p>Tình hình ${esc(scopeTxt)} · cập nhật lúc ${String(gio).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}</p></div>
     <div class="date"><b>${now.getDate()}/${now.getMonth()+1}</b><span>${DOW[now.getDay()]}</span></div>
   </div>`;
@@ -2613,6 +2729,7 @@ function renderDash(){
       ${actCatCard('🧾','n-chi','Chi tiêu gần đây',chiItems,chiAll.length,CAP,'ah-rose')}
     </div></div>`;
   $('#view').innerHTML=h;
+  tbBarBind();
   // Bấm "… và N mục nữa" để mở rộng / thu gọn thẻ
   $$('#view [data-more]').forEach(b=>b.onclick=()=>{const c=b.closest('.actcard'); const open=c.classList.toggle('open'); b.textContent=open?'Thu gọn ▲':('… và '+b.dataset.n+' mục nữa');});
 }
@@ -4295,7 +4412,8 @@ function renderDiemDanh(){
     return {id,ten,thay,chonDuoc,opts};
   })();
 
-  let h=`<div class="toolbar">
+  let h=`${tbBarHTML()}
+  <div class="toolbar">
     <div style="display:grid;gap:6px"><label style="font-size:.68rem;font-weight:800;color:var(--muted);letter-spacing:.04em">NGÀY ĐIỂM DANH</label>
       <input type="date" class="fsel" id="ddDate" value="${ddDate}"/></div>
     <div style="display:grid;gap:6px;flex:1;min-width:180px"><label style="font-size:.68rem;font-weight:800;color:var(--muted);letter-spacing:.04em">LỚP</label>
@@ -4341,6 +4459,7 @@ function renderDiemDanh(){
   }
   h+='</div></div>';
   $('#view').innerHTML=h;
+  tbBarBind();
   $('#ddDate').onchange=e=>{ddDate=e.target.value;renderDiemDanh();};
   $('#ddLop').onchange=e=>{ddLopId=Number(e.target.value);renderDiemDanh();};
   const tg=$('#toGhi'); if(tg)tg.onclick=()=>{ghiLopId=ddLopId;go('ghidanh');};
@@ -4565,18 +4684,37 @@ function renderLichHoc(){
       h+=`<div class="lwarn"><b>⚠️ Lịch đang bị xếp trùng (${li.length} chỗ)</b><ul>${li.map(t=>'<li>'+t+'</li>').join('')}</ul></div>`;
     }
   }
+  // ----- Hôm nay dạy gì (giáo viên mở app là thấy ngay) -----
+  const thuNay=thuOf(todayISO());
+  const homNay=caNgay(todayISO(),isTe?scopeIds():[coSoId]);
+  if(isTe){
+    h+=`${tbBarHTML()}
+      <div class="panel"><div class="phead"><h3>Hôm nay</h3>
+        <span class="sub">${THU_DAI[thuNay]||''} · ${isoVN(todayISO())} · ${homNay.length} ca</span></div>
+      <div class="pbody">${homNay.length?`<div class="calist">${homNay.map(x=>{
+        const gio=caGio(x.coSoId,x.caMa), c=caOf(x.lop.id,todayISO());
+        const m=OPS.ddHV[x.lop.id+'|'+todayISO()]||{}, da=Object.keys(m).length;
+        const tong=hvOfLop(x.lop.id).filter(hvActive).length;
+        return `<div class="carow" data-golop="${x.lop.id}">
+          <div class="cabad">${x.caMa}</div>
+          <div class="cainf"><b>${esc(x.lop.lop)}</b><small>${da}/${tong} đã điểm danh</small></div>
+          <div class="cast">${gio?`<span class="cagio">${esc(gio)}</span>`:''}${x.phong?`<span class="caphong">${esc(x.phong)}</span>`:''}
+            ${c?`<span class="castat ${CA_CLS[c.st]}">${CA_LABEL[c.st]}</span>`:''}</div></div>`;}).join('')}</div>`
+        :`<div class="empty">${svg(IC.lichhoc,1.5)}Hôm nay (${THU_DAI[thuNay]}) bạn không có ca dạy nào theo lịch.</div>`}
+      </div></div>`;
+  }
   // ----- Thời khóa biểu tuần -----
   const cell={};        // "thu|ca" → mảng lớp
   lops.forEach(l=>lichOfLop(l.id).forEach(x=>{(cell[x.thu+'|'+x.caMa]=cell[x.thu+'|'+x.caMa]||[]).push({lop:l,phong:x.phong});}));
   const soBuoi=Object.values(cell).reduce((s,a)=>s+a.length,0);
-  h+=`<div class="panel"><div class="phead"><h3>${isTe?'Lịch dạy của tôi':'Lịch tuần · '+esc(csName(coSoId))}</h3>
-      <span class="sub">${soBuoi} buổi/tuần · ${cas.length} ca/ngày</span></div>
-    <div class="twrap"><table class="tkb"><thead><tr><th class="cah">CA</th>${THU_LIST.map(t=>`<th>${THU_NGAN[t]}</th>`).join('')}</tr></thead><tbody>`;
+  h+=`<div class="panel"><div class="phead"><h3>${isTe?'Lịch dạy cả tuần':'Lịch tuần · '+esc(csName(coSoId))}</h3>
+      <span class="sub">${soBuoi} buổi/tuần · ${cas.length} ca/ngày${isTe?'':' · cột xanh là hôm nay'}</span></div>
+    <div class="twrap"><table class="tkb"><thead><tr><th class="cah">CA</th>${THU_LIST.map(t=>`<th class="${t===thuNay?'homnay':''}">${THU_NGAN[t]}</th>`).join('')}</tr></thead><tbody>`;
   cas.forEach(c=>{
     h+=`<tr><td class="cah">${esc(c.ten)}<small>${esc(c.bd&&c.kt?c.bd+' – '+c.kt:'chưa đặt giờ')}</small></td>`;
     THU_LIST.forEach(t=>{
       const a=cell[t+'|'+c.ma]||[];
-      h+=`<td>${a.map(o=>`<div class="tkitem ${tr.dup.has(o.lop.id)?'dup':''}"><b>${esc(o.lop.lop)}</b><small>${esc(o.lop.gv||'—')}${o.phong?' · '+esc(o.phong):''}</small></div>`).join('')}</td>`;
+      h+=`<td class="${t===thuNay?'homnay':''}">${a.map(o=>`<div class="tkitem ${tr.dup.has(o.lop.id)?'dup':''}"><b>${esc(o.lop.lop)}</b><small>${esc(o.lop.gv||'—')}${o.phong?' · '+esc(o.phong):''}</small></div>`).join('')}</td>`;
     });
     h+=`</tr>`;
   });
@@ -4596,6 +4734,8 @@ function renderLichHoc(){
   });
   h+=`</tbody></table></div></div>`;
   $('#view').innerHTML=h;
+  tbBarBind();
+  $$('#view .carow[data-golop]').forEach(r=>r.onclick=()=>{ddLopId=Number(r.dataset.golop);ddDate=todayISO();go('diemdanh');});
   const sel=$('#lhcs'); if(sel)sel.onchange=e=>{lhCs=e.target.value;renderLichHoc();};
   const bc=$('#lhCa'); if(bc)bc.onclick=()=>openKhungCa(coSoId);
   const bp=$('#lhPrint'); if(bp)bp.onclick=()=>inLichTuan(coSoId,lops);
@@ -4725,6 +4865,136 @@ function openLopLich(l){
     }
     OPS.lich=OPS.lich.filter(x=>x.lopId!==l.id).concat(chon.map(x=>({id:0,lopId:l.id,coSoId:l.coSoId,thu:x.thu,caMa:x.caMa,phong:ph})));
     caLive=true; closeModal(); renderLichHoc();
+  };
+}
+
+/* ============ THÔNG BÁO CỦA TRUNG TÂM ============ */
+let tbLoc='moi';        // moi | tatca | cuatoi (tin do mình đăng)
+function renderThongBao(){
+  const soanDuoc = USER.role==='admin'||USER.role==='owner';
+  if(!tbLive){
+    $('#view').innerHTML=`<div class="panel"><div class="pbody"><div class="empty">${svg(IC.thongbao,1.5)}
+      <b>Chưa bật tính năng Thông báo.</b><br/>Quản trị cần chạy file <b>sql-giai-doan-8-thong-bao.sql</b> trên Supabase một lần,<br/>sau đó tải lại trang (Ctrl+F5).</div></div></div>`;
+    return;
+  }
+  const daDoc=tbDaDoc();
+  const cuaToi=tbHienThi();                       // tin mình nhận + tin mình quản lý
+  const chuaDoc=tbCuaToi().filter(t=>!daDoc.has(t.id));   // "chưa đọc" chỉ tính tin GỬI CHO MÌNH
+  // Quản trị/Lễ tân xem thêm được cả tin đã hết hạn để dọn
+  const hetHan=tbQuanLy().filter(tbHetHan);
+  let ds = tbLoc==='moi' ? chuaDoc : tbLoc==='hethan' ? hetHan : cuaToi;
+  ds = tbSort(ds);
+
+  const fopts=[['moi','Chưa đọc ('+chuaDoc.length+')'],['tatca','Tất cả ('+cuaToi.length+')']];
+  if(soanDuoc&&hetHan.length)fopts.push(['hethan','Đã hết hạn ('+hetHan.length+')']);
+  let h=`<div class="toolbar">
+    <select class="fsel" id="tbLoc" style="flex:1;min-width:170px;max-width:100%">${fopts.map(([k,t])=>`<option value="${k}" ${tbLoc===k?'selected':''}>${t}</option>`).join('')}</select>
+    ${chuaDoc.length?`<button class="btn btn-sm btn-ghost" id="tbDocHet" style="white-space:nowrap">✓ Đánh dấu đã đọc</button>`:''}
+    ${soanDuoc?`<button class="btn btn-sm btn-primary" id="tbNew" style="white-space:nowrap">＋ Soạn thông báo</button>`:''}
+  </div>`;
+  if(!ds.length){
+    h+=`<div class="panel"><div class="pbody"><div class="empty">${svg(IC.thongbao,1.5)}
+      ${tbLoc==='moi'?'Không có thông báo mới.<br/>Chọn <b>Tất cả</b> để xem lại các tin trước đó.':'Chưa có thông báo nào.'}
+      ${soanDuoc?'<br/><button class="btn btn-sm btn-ghost" id="tbNew2" style="margin-top:12px">＋ Soạn thông báo đầu tiên</button>':''}</div></div></div>`;
+  }else{
+    ds.forEach(t=>{
+      const moi=!daDoc.has(t.id), het=tbHetHan(t);
+      const nhan=[t.coSoId==null?'Toàn chuỗi':csName(t.coSoId), TB_AI[t.vaiTro]||'Tất cả'].join(' · ');
+      h+=`<div class="tbcard m-${t.mucDo}${moi?' chuadoc':''}">
+        <div class="tbhead">
+          <h4>${TB_IC[t.mucDo]} ${esc(t.tieuDe)}</h4>
+          ${moi?'<span class="tbtag moi">Mới</span>':''}
+          ${t.ghim?'<span class="tbtag ghim">📌 Ghim</span>':''}
+          ${het?'<span class="tbtag het">Hết hạn</span>':''}
+          <span class="tbtag m-${t.mucDo}">${TB_MUC[t.mucDo]}</span>
+        </div>
+        ${t.noiDung?`<div class="tbnd">${esc(t.noiDung)}</div>`:''}
+        <div class="tbmeta">
+          <span>👥 ${esc(nhan)}</span>
+          <span>🕒 ${relTime(t.createdAt)||isoVN(String(t.createdAt||'').slice(0,10))}</span>
+          ${t.nguoiDang?`<span>✍️ ${esc(t.nguoiDang)}</span>`:''}
+          ${t.hetHan?`<span>⏳ đến ${isoVN(t.hetHan)}</span>`:''}
+          <div style="flex:1"></div>
+          ${tbSuaDuoc(t)?`<button class="btn btn-sm btn-light" data-tbedit="${t.id}">✏️ Sửa</button>`:''}
+        </div>
+      </div>`;
+    });
+  }
+  $('#view').innerHTML=h;
+  $('#tbLoc').onchange=e=>{tbLoc=e.target.value;renderThongBao();};
+  const bn=$('#tbNew')||$('#tbNew2'); if(bn)bn.onclick=()=>openThongBao(null);
+  const bn2=$('#tbNew2'); if(bn2)bn2.onclick=()=>openThongBao(null);
+  const bd=$('#tbDocHet'); if(bd)bd.onclick=()=>{tbGhiDoc(chuaDoc.map(t=>t.id));renderThongBao();renderNavCounts();renderBell();};
+  $$('#view [data-tbedit]').forEach(b=>b.onclick=()=>{const t=OPS.tb.find(x=>x.id===Number(b.dataset.tbedit));if(t)openThongBao(t);});
+  // Mở trang này coi như đã đọc các tin đang hiện (trừ khi đang xem mục Hết hạn)
+  if(tbLoc!=='hethan'&&ds.length){ setTimeout(()=>{tbGhiDoc(ds.map(t=>t.id));renderNavCounts();renderBell();},1200); }
+  renderNavCounts();
+}
+/* Quản trị sửa mọi tin; Lễ tân chỉ sửa tin của cơ sở mình (khớp với RLS) */
+const tbSuaDuoc=t=>USER.role==='admin'||(USER.role==='owner'&&t.coSoId===USER.coSoId);
+/* Soạn / sửa / xóa một thông báo */
+function openThongBao(t){
+  const them=!t, isAdm=USER.role==='admin';
+  if(!them&&!tbSuaDuoc(t)){avaAlert('Bạn không sửa được thông báo này.');return;}
+  const csOpts=(isAdm?`<option value="">Toàn chuỗi — mọi cơ sở</option>`:'')
+    +inCOSO().filter(c=>!c.build).map(c=>`<option value="${c.id}" ${(!them&&t.coSoId===c.id)||(them&&!isAdm&&c.id===USER.coSoId)?'selected':''}>${esc(c.ten)}</option>`).join('');
+  $('#mcard').innerHTML=`
+    <div class="mhead"><div class="mava">${them?'📣':'✏️'}</div>
+      <div style="flex:1"><h3>${them?'Soạn thông báo':'Sửa thông báo'}</h3>
+        <p>${isAdm?'Gửi toàn chuỗi hoặc một cơ sở':'Gửi cho cơ sở '+esc(csName(USER.coSoId))}</p></div>
+      <button class="mclose" onclick="closeModal()">${svg('<path d="M6 6l12 12M18 6L6 18"/>')}</button></div>
+    <div class="mbody"><div class="form2">
+      <div class="fld full"><label>Tiêu đề *</label><input id="tb_td" value="${them?'':esc(t.tieuDe)}" placeholder="VD: Lịch nghỉ Tết Dương lịch"/></div>
+      <div class="fld full"><label>Nội dung</label>
+        <textarea id="tb_nd" rows="5" placeholder="Nội dung chi tiết…" style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:11px;font-family:inherit;font-size:.9rem;font-weight:600;line-height:1.55;resize:vertical">${them?'':esc(t.noiDung)}</textarea></div>
+      <div class="fld"><label>Mức độ</label><select id="tb_muc">${Object.entries(TB_MUC).map(([k,v])=>`<option value="${k}" ${(!them&&t.mucDo===k)||(them&&k==='thuong')?'selected':''}>${TB_IC[k]} ${v}</option>`).join('')}</select></div>
+      <div class="fld"><label>Gửi cho</label><select id="tb_ai">${Object.entries(TB_AI).map(([k,v])=>`<option value="${k}" ${(!them&&t.vaiTro===k)||(them&&k==='all')?'selected':''}>${v}</option>`).join('')}</select></div>
+      <div class="fld full"><label>Phạm vi</label><select id="tb_cs" ${isAdm?'':'disabled'}>${csOpts}</select></div>
+      <div class="fld"><label>Hiển thị đến ngày <span class="muted" style="font-weight:600">(để trống = mãi)</span></label>
+        <input id="tb_han" placeholder="dd/mm/yyyy" value="${(!them&&t.hetHan)?isoVN(t.hetHan):''}"/></div>
+      <div class="fld"><label>&nbsp;</label>
+        <label style="display:flex;gap:8px;align-items:center;font-weight:600;font-size:.85rem;cursor:pointer;padding:9px 0">
+          <input type="checkbox" id="tb_ghim" ${(!them&&t.ghim)?'checked':''} style="width:17px;height:17px;accent-color:var(--brand)"/>
+          📌 Ghim lên đầu</label></div>
+      <div id="tb_err" class="fld full" style="display:none;color:#c0392b;font-size:.84rem;font-weight:600;padding:0"></div>
+      <div class="fld full" style="display:flex;gap:8px">
+        ${them?'':`<button class="btn btn-light" id="tb_del" style="color:var(--rose)">Xóa</button>`}
+        <button class="btn btn-light" style="flex:1" onclick="closeModal()">Hủy</button>
+        <button class="btn btn-primary" style="flex:2" id="tb_save">${them?'📣 Đăng thông báo':'💾 Lưu'}</button>
+      </div></div></div>`;
+  $('#modal').classList.add('on');
+  attachDateFormat($('#tb_han'));
+  const err=m=>{const e=$('#tb_err');e.textContent=m||'';e.style.display=m?'block':'none';};
+  $('#tb_save').onclick=async()=>{
+    const td=$('#tb_td').value.trim();
+    if(!td){err('Vui lòng nhập tiêu đề.');$('#tb_td').focus();return;}
+    const hanTxt=$('#tb_han').value.trim();
+    if(hanTxt&&!vnToIso(hanTxt)){err('Ngày hết hạn chưa đúng dạng ngày/tháng/năm.');return;}
+    const csv=$('#tb_cs').value;
+    const rec={tieu_de:td,noi_dung:$('#tb_nd').value.trim(),muc_do:$('#tb_muc').value,
+      vai_tro:$('#tb_ai').value,ghim:$('#tb_ghim').checked,het_han:hanTxt?vnToIso(hanTxt):null,
+      coso_id: isAdm ? (csv===''?null:Number(csv)) : USER.coSoId,
+      nguoi_dang: USER.role==='admin'?'Quản trị':csName(USER.coSoId),
+      updated_at:new Date().toISOString()};
+    const btn=$('#tb_save'); btn.disabled=true; btn.textContent='Đang lưu…'; err('');
+    let r;
+    if(them) r=await SB.from('thong_bao').insert(rec).select().single();
+    else     r=await SB.from('thong_bao').update(rec).eq('id',t.id).select().single();
+    btn.disabled=false; btn.textContent=them?'📣 Đăng thông báo':'💾 Lưu';
+    if(r.error){err('Lỗi lưu: '+r.error.message);return;}
+    const d=r.data, obj={id:d.id,tieuDe:d.tieu_de,noiDung:d.noi_dung||'',mucDo:d.muc_do,coSoId:(d.coso_id==null?null:d.coso_id),
+      vaiTro:d.vai_tro,ghim:!!d.ghim,hetHan:d.het_han||null,nguoiDang:d.nguoi_dang||'',createdAt:d.created_at,updatedAt:d.updated_at};
+    if(them){OPS.tb.push(obj);tbGhiDoc([obj.id]);}      // người đăng coi như đã đọc tin của mình
+    else Object.assign(t,obj);
+    closeModal(); tbLoc='tatca'; renderThongBao(); renderBell();
+  };
+  const bd=$('#tb_del');
+  if(bd)bd.onclick=async()=>{
+    if(!await avaConfirm('Xóa thông báo "'+t.tieuDe+'"?\n\nMọi người sẽ không còn thấy tin này.',{danger:true,okText:'Xóa'}))return;
+    const {error}=await SB.from('thong_bao').delete().eq('id',t.id);
+    if(error){err('Lỗi xóa: '+error.message);return;}
+    OPS.tb=OPS.tb.filter(x=>x.id!==t.id);
+    closeModal(); renderThongBao(); renderBell();
   };
 }
 
