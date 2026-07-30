@@ -470,17 +470,14 @@ tbody tr:hover{background:var(--soft)}
 .lwarn{background:var(--amber-soft);border:1px solid #f0d79a;border-radius:12px;padding:10px 12px;font-size:.8rem;font-weight:600;margin-bottom:12px}
 .lwarn b{display:block;margin-bottom:3px}
 .lwarn ul{margin:4px 0 0;padding-left:18px}
-/* bảng điểm danh in giấy A4 */
-.ddpaper{max-width:840px}
-.ddtbl{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}
-.ddtbl th,.ddtbl td{border:1px solid #333;padding:5px 6px}
+/* bảng điểm danh in giấy A4 DỌC — bề rộng lấy theo .vpaper (186mm vùng in) */
+.ddtbl{width:100%;table-layout:fixed;border-collapse:collapse;font-size:13px;margin-top:8px}
+.ddtbl th,.ddtbl td{border:1px solid #333;padding:5px 6px;overflow-wrap:break-word;word-break:break-word}
 .ddtbl th{background:#e8eefa;font-weight:700;text-align:center;font-size:12px}
-.ddtbl td.c{text-align:center;white-space:nowrap}
+.ddtbl td.c{text-align:center}
 .ddmeta{display:flex;flex-wrap:wrap;gap:4px 26px;font-size:13px;margin-top:6px}
-@page ddport{size:A4 portrait;margin:12mm}
 @media print{
   .voucher.dd{padding:0}
-  .ddpaper{max-width:100%;padding:0;box-shadow:none;page:ddport}
   .ddtbl{font-size:11.5px}
   .ddtbl thead{display:table-header-group}
   .ddtbl tr{page-break-inside:avoid}
@@ -501,8 +498,15 @@ td.chi{color:var(--rose);font-weight:800}
 /* ===== PHIẾU THU/CHI ===== */
 .voucher{position:fixed;inset:0;z-index:80;background:rgba(9,32,29,.6);backdrop-filter:blur(3px);display:none;overflow-y:auto;padding:18px}
 .voucher.on{display:block}
-.vbar{max-width:720px;margin:0 auto 12px;display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
-.vpaper{max-width:720px;margin:0 auto;background:#fff;border-radius:6px;padding:34px 40px 30px;font-family:"Times New Roman",Georgia,serif;color:#000;line-height:1.55;box-shadow:0 30px 70px -30px #000}
+.vbar{width:210mm;max-width:100%;margin:0 auto 12px;display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+.voucher.sq .vbar{width:297mm}     /* thanh nút rộng bằng tờ giấy để nút nằm đúng mép phải */
+/* ===== KHỔ GIẤY A4 THẬT =====
+   Trang xem trước đo bằng MILIMÉT đúng bằng khổ giấy, không dùng pixel nữa —
+   nhìn trên màn hình thế nào thì in ra đúng thế ấy.
+   Dọc  : giấy 210mm, lề 12mm  → vùng in 186mm
+   Ngang: giấy 297mm, lề 10mm  → vùng in 277mm
+   Khi in, phần lề do @page lo nên trang xem trước bỏ padding đi. */
+.vpaper{box-sizing:content-box;width:186mm;margin:0 auto;background:#fff;border-radius:6px;padding:12mm;font-family:"Times New Roman",Georgia,serif;color:#000;line-height:1.55;box-shadow:0 30px 70px -30px #000}
 .vtop{display:flex;justify-content:space-between;gap:16px;font-size:.9rem}
 .vtop b{font-size:.95rem}
 .vmau{text-align:right;font-size:.82rem}
@@ -518,29 +522,32 @@ td.chi{color:var(--rose);font-weight:800}
 .vsign b{display:block;font-size:.9rem}
 .vsign small{display:block;font-style:italic;color:#333;font-size:.76rem;margin-top:2px}
 .vsign::before{content:"";}
-/* Sổ quỹ in trên giấy A4 NẰM NGANG — bảng kẻ ô, chữ nhỏ hơn phiếu thu/chi */
-.sqpaper{max-width:1120px;padding:26px 30px 24px}
-.sqtbl{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:6px}
-.sqtbl th,.sqtbl td{border:1px solid #333;padding:4px 6px;vertical-align:middle}
+/* Sổ quỹ & lịch tuần in trên giấy A4 NẰM NGANG — bảng kẻ ô, chữ nhỏ hơn phiếu thu/chi */
+.sqpaper{width:277mm;padding:10mm}
+/* table-layout:fixed — BẮT BUỘC: nếu không, bảng tự nong rộng theo nội dung
+   và cột cuối (Người lập / Chủ nhật) bị tràn ra ngoài mép giấy. */
+.sqtbl{width:100%;table-layout:fixed;border-collapse:collapse;font-size:12.5px;margin-top:6px}
+.sqtbl th,.sqtbl td{border:1px solid #333;padding:4px 6px;vertical-align:middle;overflow-wrap:break-word;word-break:break-word}
 .sqtbl th{background:#e8eefa;font-weight:700;text-align:center;font-size:12px}
-.sqtbl td.c{text-align:center;white-space:nowrap}
+.sqtbl td.c{text-align:center}
 .sqtbl td.r{text-align:right;white-space:nowrap}
 .sqtbl tr.sum td{background:#f2f5fb;font-weight:700}
 .sqtbl tbody tr:nth-child(even) td{background:#fbfcfe}
 .sqtbl tbody tr.sum:nth-child(even) td{background:#f2f5fb}
-@page sqland{size:A4 landscape;margin:10mm}         /* chỉ sổ quỹ in ngang, phiếu thu/chi vẫn in dọc */
+@media(max-width:1140px){.voucher{overflow:auto}}   /* màn hình hẹp: cuộn ngang xem trang giấy, bản in không đổi */
+@page vport{size:A4 portrait;margin:12mm}
+@page sqland{size:A4 landscape;margin:10mm}         /* sổ quỹ & lịch tuần in ngang, phiếu thu/chi in dọc */
 @media print{
+  body>*{display:none!important}
+  #voucher{display:block!important;position:static;background:#fff;padding:0;backdrop-filter:none;overflow:visible}
+  .vbar{display:none!important}
+  /* Lề đã do @page lo → trang giấy bỏ padding, chỉ giữ đúng bề rộng vùng in */
+  .vpaper{box-shadow:none;border-radius:0;padding:0;width:186mm;page:vport}
   .voucher.sq{padding:0}
-  .sqpaper{max-width:100%;padding:0;box-shadow:none;page:sqland}
+  .vpaper.sqpaper{width:277mm;padding:0;page:sqland}
   .sqtbl{font-size:10.5px}
   .sqtbl thead{display:table-header-group}          /* lặp tiêu đề bảng ở mỗi trang in */
   .sqtbl tr{page-break-inside:avoid}
-}
-@media print{
-  body>*{display:none!important}
-  #voucher{display:block!important;position:static;background:#fff;padding:0;backdrop-filter:none}
-  .vbar{display:none!important}
-  .vpaper{box-shadow:none;max-width:100%;padding:10px 6px}
   /* In trang Hướng dẫn (body.print-guide): chỉ in phần nội dung */
   body.print-guide #voucher{display:none!important}
   body.print-guide #app{display:block!important}
@@ -3449,8 +3456,18 @@ function inSoQuy(list,t){
       <td class="r">${g.loai==='chi'?Math.round(g.soTien).toLocaleString('vi-VN'):''}</td>
       ${motLoai?'':`<td class="r">${Math.round(ton).toLocaleString('vi-VN')}</td>`}
       <td>${esc(g.nguoiLap||'')}</td></tr>`;}).join('');
-  const nCot=(adm?10:9)-(motLoai?1:0);
-  const truocTien=(adm?7:6);        // số cột trước cột Thu (để gộp ô các dòng tổng)
+  // Cột sổ quỹ + tỉ lệ bề rộng (tự chuẩn hóa về 100%). Khai MỘT chỗ rồi sinh ra cả
+  // <colgroup> lẫn <thead> và các con số gộp ô — trước đây đếm tay nên bị lệch 1 cột.
+  const cot=[['STT',4],['NGÀY',7],['SỐ PHIẾU',11],['HẠNG MỤC',12],['DIỄN GIẢI',19],['NGƯỜI NỘP/NHẬN',12]];
+  if(adm)cot.push(['CƠ SỞ',10]);
+  const truocTien=cot.length;       // số cột đứng trước cột Thu (để gộp ô ở các dòng tổng)
+  cot.push(['THU',8],['CHI',8]);
+  if(!motLoai)cot.push(['TỒN QUỸ',9]);
+  cot.push(['NGƯỜI LẬP',9]);
+  const nCot=cot.length;
+  const tongW=cot.reduce((s,c)=>s+c[1],0);
+  const sqColgroup=`<colgroup>${cot.map(c=>`<col style="width:${(c[1]*100/tongW).toFixed(2)}%"/>`).join('')}</colgroup>`;
+  const sqThead=`<thead><tr>${cot.map(c=>`<th>${c[0]}</th>`).join('')}</tr></thead>`;
   $('#voucher').innerHTML=`<div class="vbar">
       <button class="btn btn-sm btn-light" id="sqPrint">🖶 In / lưu PDF</button>
       <button class="btn btn-sm btn-light" id="sqClose">Đóng</button>
@@ -3464,10 +3481,8 @@ function inSoQuy(list,t){
       <div class="vdate">Kỳ: ${esc(kyTxt)} · Phạm vi: ${esc(phamvi)}</div>
       <div style="text-align:right;font-style:italic;font-size:12px;margin-bottom:4px">Đơn vị tính: đồng</div>
       <table class="sqtbl">
-        <thead><tr>
-          <th>STT</th><th>Ngày</th><th>Số phiếu</th><th>Hạng mục</th><th>Diễn giải</th><th>Người nộp/nhận</th>
-          ${adm?'<th>Cơ sở</th>':''}<th>Thu</th><th>Chi</th>${motLoai?'':'<th>Tồn quỹ</th>'}<th>Người lập</th>
-        </tr></thead>
+        ${sqColgroup}
+        ${sqThead}
         <tbody>
           ${motLoai?'':`<tr class="sum"><td colspan="${truocTien}" class="r">SỐ DƯ ĐẦU KỲ</td><td></td><td></td><td class="r">${Math.round(duDau).toLocaleString('vi-VN')}</td><td></td></tr>`}
           ${body||`<tr><td colspan="${nCot}" style="text-align:center;font-style:italic;padding:14px">Không có phiếu nào trong kỳ này.</td></tr>`}
@@ -4457,8 +4472,9 @@ function inDiemDanh(lopId,iso){
       <div class="vtitle">DANH SÁCH ĐIỂM DANH</div>
       <div class="ddmeta">${meta.map(([k,v])=>`<div><b>${esc(k)}:</b> ${esc(v)}</div>`).join('')}</div>
       <table class="ddtbl">
-        <thead><tr><th style="width:38px">TT</th><th>Họ và tên học sinh</th><th style="width:86px">Ngày sinh</th>
-          <th style="width:46px">Có mặt</th><th style="width:46px">Muộn</th><th style="width:46px">Phép</th><th style="width:46px">Vắng</th><th style="width:96px">Ghi chú</th></tr></thead>
+        <colgroup><col style="width:6%"/><col style="width:30%"/><col style="width:13%"/><col style="width:8%"/><col style="width:8%"/><col style="width:8%"/><col style="width:8%"/><col style="width:19%"/></colgroup>
+        <thead><tr><th>TT</th><th>Họ và tên học sinh</th><th>Ngày sinh</th>
+          <th>Có mặt</th><th>Muộn</th><th>Phép</th><th>Vắng</th><th>Ghi chú</th></tr></thead>
         <tbody>${rows||`<tr><td colspan="8" style="text-align:center;font-style:italic;padding:14px">Lớp chưa có học sinh.</td></tr>`}</tbody>
       </table>
       <div style="font-size:12.5px;margin-top:6px"><b>Tổng hợp:</b> sĩ số ${ds.length} · có mặt ${dem.co} · muộn ${dem.muon} · phép ${dem.phep} · vắng ${dem.vang} · chưa điểm ${ds.length-(dem.co+dem.muon+dem.phep+dem.vang)}</div>
@@ -4489,7 +4505,9 @@ function inLichTuan(coSoId,lops){
       <div class="vtop"><div><b>TRUNG TÂM ANH NGỮ AVATAR</b><br/><span>Cơ sở: ${esc(csName(coSoId))}</span></div></div>
       <div class="vtitle">LỊCH DẠY THEO CA</div>
       <div class="vdate">Áp dụng từ ngày ${isoVN(todayISO())}</div>
-      <table class="sqtbl"><thead><tr><th style="width:92px">CA</th>${THU_LIST.map(t=>`<th>${THU_DAI[t]}</th>`).join('')}</tr></thead>
+      <table class="sqtbl">
+        <colgroup><col style="width:11%"/>${THU_LIST.map(()=>`<col style="width:${(89/THU_LIST.length).toFixed(2)}%"/>`).join('')}</colgroup>
+        <thead><tr><th>CA</th>${THU_LIST.map(t=>`<th>${THU_DAI[t]}</th>`).join('')}</tr></thead>
         <tbody>${body}</tbody></table>
       <div style="text-align:right;font-style:italic;font-size:12.5px;margin-top:10px">Nghệ An, ngày ${now.getDate()} tháng ${now.getMonth()+1} năm ${now.getFullYear()}</div>
       <div class="vsign" style="margin-top:6px">
