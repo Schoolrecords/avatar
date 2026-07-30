@@ -1800,10 +1800,10 @@ const NAV=[
   {k:'lop',t:'Lớp học',i:IC.lop,cnt:()=>inLOP().length},
   {k:'hocvien',t:'Học sinh',i:IC.hocvien,cnt:()=>demHS(inHV().filter(hvActive))},
   {k:'lichhoc',t:'Lịch học',i:IC.lichhoc,teach:true},
-  {k:'thongbao',t:'Thông báo',i:IC.thongbao,teach:true,cnt:()=>tbChuaDoc()||''},
+  {k:'thongbao',t:'Thông báo',i:IC.thongbao,teach:true,cnt:()=>tbChuaDoc()||'',viec:true},
   {k:'ghidanh',t:'Ghi danh',i:IC.ghidanh,teach:true},
   {k:'diemdanh',t:'Điểm danh',i:IC.diemdanh,teach:true},
-  {k:'duyet',t:'Đối soát',i:IC.duyet,cnt:()=>duyetPending()||''},
+  {k:'duyet',t:'Đối soát',i:IC.duyet,cnt:()=>duyetPending()||'',viec:true},
   {k:'baocao',t:'Báo cáo',i:IC.baocao},
   {k:'thu',t:'Thu – Chi',i:IC.thu},
   {k:'taikhoan',t:'Tài khoản',i:IC.taikhoan,adminOnly:true},
@@ -2061,7 +2061,10 @@ function renderNav(){
   const vis=visibleNav();
   $('#nav').innerHTML=vis.map(n=>`<button data-k="${n.k}" class="${n.k===VIEW?'on':''}">${svg(n.i)}<span>${navTen(n)}</span>${n.cnt?`<span class="cnt">${n.cnt()}</span>`:''}</button>`).join('');
   $$('#nav button').forEach(b=>b.onclick=()=>{go(b.dataset.k);closeSide();});
-  $('#botnav').innerHTML=botNav().map(n=>{const c=n.cnt?n.cnt():'';
+  // Chấm ĐỎ trên thanh dưới CHỈ dành cho VIỆC CẦN XỬ LÝ (viec:true) — ca chờ đối soát,
+  // tin chưa đọc. Các con số chỉ là SỐ LƯỢNG (14 cơ sở, 340 lớp…) không được dùng chấm đỏ,
+  // vì nhìn giống báo có tin mới trên chuông.
+  $('#botnav').innerHTML=botNav().map(n=>{const c=(n.viec&&n.cnt)?n.cnt():'';
     return `<button data-k="${n.k}" class="${BN_MAU[n.k]||'c-slate'}${n.k===VIEW?' on':''}"><span class="bi">${svg(n.i,1.9)}${c?`<i class="bdot">${c}</i>`:''}</span><span>${navTen(n)}</span></button>`;}).join('');
   $$('#botnav button').forEach(b=>b.onclick=()=>go(b.dataset.k));
 }
@@ -2074,8 +2077,8 @@ function syncNav(){
 function renderNavCounts(){
   NAV.forEach(n=>{if(!n.cnt)return;
     const b=$(`#nav button[data-k="${n.k}"] .cnt`); if(b)b.textContent=n.cnt();
-    // chấm số trên thanh dưới (điện thoại) — có tin mới thì hiện, hết thì ẩn hẳn
-    const w=$(`#botnav button[data-k="${n.k}"] .bi`);
+    // chấm số trên thanh dưới (điện thoại) — CHỈ cho việc cần xử lý, có thì hiện, hết thì ẩn hẳn
+    const w=n.viec?$(`#botnav button[data-k="${n.k}"] .bi`):null;
     if(w){ const c=n.cnt(); let d=w.querySelector('.bdot');
       if(c){ if(!d){d=document.createElement('i');d.className='bdot';w.appendChild(d);} d.textContent=c; }
       else if(d) d.remove(); }
