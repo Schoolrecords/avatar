@@ -4018,7 +4018,7 @@ async function exportSoQuy(list,t){
   const now=new Date();
   ws.mergeCells(r,nC-3,r,nC);
   const rNgay=xlSetRow(ws,r,[]);
-  rNgay.getCell(nC-3).value='Nghệ An, ngày '+now.getDate()+' tháng '+(now.getMonth()+1)+' năm '+now.getFullYear();
+  rNgay.getCell(nC-3).value='Quảng Châu, ngày '+now.getDate()+' tháng '+(now.getMonth()+1)+' năm '+now.getFullYear();
   rNgay.getCell(nC-3).font={italic:true,size:10.5}; rNgay.getCell(nC-3).alignment={horizontal:'center'}; r++;
   const wKy=Math.floor(nC/3);                                   // 3 khối ký đều nhau, không chồng cột
   const kyCols=[[1,'NGƯỜI LẬP BIỂU'],[wKy+1,'KẾ TOÁN'],[nC-wKy+1,'GIÁM ĐỐC']];
@@ -4141,7 +4141,7 @@ function inSoQuy(list,t){
       </table>
       <div class="vfoot">
       ${motLoai?'':`<div style="font-style:italic;font-size:12.5px;margin-top:6px">Số dư cuối kỳ bằng chữ: ${docSoVN(Math.abs(ton))}${ton<0?' (âm)':''}</div>`}
-      <div style="text-align:right;font-style:italic;font-size:12.5px;margin-top:10px">Nghệ An, ngày ${now.getDate()} tháng ${now.getMonth()+1} năm ${now.getFullYear()}</div>
+      <div style="text-align:right;font-style:italic;font-size:12.5px;margin-top:10px">Quảng Châu, ngày ${now.getDate()} tháng ${now.getMonth()+1} năm ${now.getFullYear()}</div>
       <div class="vsign" style="margin-top:6px">
         <div><b>Người lập biểu</b><small>(Ký, họ tên)</small><div style="height:48px"></div></div>
         <div><b>Kế toán</b><small>(Ký, họ tên)</small><div style="height:48px"></div></div>
@@ -5449,7 +5449,7 @@ function inDiemDanh(lopId,iso){
       </table>
       <div class="vfoot">
       <div style="font-size:12.5px;margin-top:6px"><b>Tổng hợp:</b> sĩ số ${ds.length} · có mặt ${dem.co} · muộn ${dem.muon} · phép ${dem.phep} · vắng ${dem.vang} · chưa điểm ${ds.length-(dem.co+dem.muon+dem.phep+dem.vang)}</div>
-      <div style="text-align:right;font-style:italic;font-size:12.5px;margin-top:10px">Nghệ An, ngày ${now.getDate()} tháng ${now.getMonth()+1} năm ${now.getFullYear()}</div>
+      <div style="text-align:right;font-style:italic;font-size:12.5px;margin-top:10px">Quảng Châu, ngày ${now.getDate()} tháng ${now.getMonth()+1} năm ${now.getFullYear()}</div>
       <div class="vsign" style="margin-top:6px">
         <div><b>Giáo viên</b><small>(Ký, họ tên)</small><div style="height:48px"></div></div>
         <div><b>Lễ tân đối soát</b><small>(Ký, họ tên)</small><div style="height:48px"></div></div>
@@ -5484,7 +5484,7 @@ function inLichTuan(coSoId,lops){
         <thead>${PGPAD(THU_LIST.length+1)}<tr><th>CA</th>${THU_LIST.map(t=>`<th>${THU_DAI[t]}</th>`).join('')}</tr></thead>${PGFOOT(THU_LIST.length+1)}
         <tbody>${body}</tbody></table>
       <div class="vfoot">
-      <div style="text-align:right;font-style:italic;font-size:12.5px;margin-top:10px">Nghệ An, ngày ${now.getDate()} tháng ${now.getMonth()+1} năm ${now.getFullYear()}</div>
+      <div style="text-align:right;font-style:italic;font-size:12.5px;margin-top:10px">Quảng Châu, ngày ${now.getDate()} tháng ${now.getMonth()+1} năm ${now.getFullYear()}</div>
       <div class="vsign" style="margin-top:6px">
         <div><b>Người lập biểu</b><small>(Ký, họ tên)</small><div style="height:48px"></div></div>
         <div><b>Giám đốc</b><small>(Ký, họ tên)</small><div style="height:48px"></div></div></div></div>
@@ -5723,7 +5723,7 @@ function inBangLuong(){
       <div class="vfoot">
       <div style="font-style:italic;font-size:12.5px;margin-top:6px">Tổng số tiền bằng chữ: ${docSoVN(tongTien)}</div>
       <div style="font-size:12px;margin-top:4px">Ca thực dạy = lên lớp + dạy bù (không tính buổi nghỉ). Buổi dạy thay được tính công cho người thực dạy.</div>
-      <div style="text-align:right;font-style:italic;font-size:12.5px;margin-top:10px">Nghệ An, ngày ${now.getDate()} tháng ${now.getMonth()+1} năm ${now.getFullYear()}</div>
+      <div style="text-align:right;font-style:italic;font-size:12.5px;margin-top:10px">Quảng Châu, ngày ${now.getDate()} tháng ${now.getMonth()+1} năm ${now.getFullYear()}</div>
       <div class="vsign" style="margin-top:6px">
         <div><b>Người lập biểu</b><small>(Ký, họ tên)</small><div style="height:48px"></div></div>
         <div><b>Kế toán</b><small>(Ký, họ tên)</small><div style="height:48px"></div></div>
