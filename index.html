@@ -1061,10 +1061,25 @@ let sqLive5=true;      // false khi chưa chạy sql-giai-doan-5-thu-chi.sql (th
 /* Thêm 1 phiếu vào sổ quỹ. Tự thử cột mới trước, thiếu cột thì lùi về bản tối thiểu
    và báo rõ cho người dùng biết cần chạy SQL — không "bỏ qua êm" như trước. */
 const thieuCot=e=>/column .* does not exist|schema cache/i.test((e&&e.message)||'');
+/* Phiên đăng nhập để lâu (nhất là trên điện thoại: khóa màn hình, tab ngủ) có thể hết hạn
+   mà giao diện vẫn hiện đủ số liệu cũ → mọi lệnh GHI bị máy chủ từ chối bằng lỗi "khóa hàng".
+   Hàm này xin cấp lại phiên; trả về true nếu lấy lại được để lệnh ghi thử lại luôn,
+   người dùng khỏi phải nhập lại từ đầu. */
+async function lamMoiPhien(){
+  try{
+    const {data}=await SB.auth.getSession();
+    if(data&&data.session) return false;             // vẫn còn phiên → không phải nguyên nhân này
+    const r=await SB.auth.refreshSession();
+    return !!(r&&r.data&&r.data.session);
+  }catch(e){ return false; }
+}
 async function insertPhieu(rec){
   const hv=(rec.hvId!=null?{hv_id:rec.hvId}:{});
+  const ghi=()=>SB.from('so_quy').insert({...gdToDb(rec),...gdToDb5(rec),...hv}).select().single();
   if(sqLive5){
-    const r=await SB.from('so_quy').insert({...gdToDb(rec),...gdToDb5(rec),...hv}).select().single();
+    let r=await ghi();
+    if(!r.error) return r;
+    if(laLoiQuyen(r.error) && await lamMoiPhien()) r=await ghi();   // hết hạn phiên → lấy lại rồi ghi lại
     if(!r.error) return r;
     if(!thieuCot(r.error)) return r;                 // lỗi thật (RLS, kỳ đã chốt…) → trả về nguyên trạng
     sqLive5=false;
@@ -1094,7 +1109,7 @@ async function themDotDong(h,{soTien,ngay,nguoiNop,hinhThuc}){
   const rec={ngay:ngay||todayISO(),loai:'thu',hangMuc:'Học phí',coSoId:h.coSoId,soTien:sd,noiDung:noi,
     nguoiLap:USER.role==='admin'?'Quản trị':csName(USER.coSoId),nguoiNop:nguoiNop||h.ph||'',hinhThuc:hinhThuc||'tien_mat',hvId:h.id};
   const {data,error}=await insertPhieu(rec);
-  if(error) return {error:error.message};
+  if(error) return {error:error.message,loi:error};      // giữ cả lỗi gốc để còn chẩn đoán nguyên nhân
   OPS.gd.push(gdFromDb(data));
   await capNhatTongDong(h);
   return {data};
@@ -1610,6 +1625,72 @@ async function chanKyChot(coSoId,ngay,viec){
   await avaAlert('Sổ quỹ '+csName(coSoId)+' kỳ tháng '+(+kyCua(ngay).split('-')[1])+'/'+kyCua(ngay).split('-')[0]
     +' đã được CHỐT nên không '+(viec||'thay đổi')+' được.\n\nMuốn sửa, Quản trị vào Thu – Chi → chọn đúng kỳ và cơ sở → bấm 🔓 Mở khóa kỳ.');
   return true;
+}
+/* ===== CHẨN ĐOÁN LỖI "KHÓA HÀNG" (RLS) KHI GHI SỔ QUỸ =====
+   Máy chủ chỉ trả một câu tiếng Anh khó hiểu: "new row violates row-level
+   security policy for table so_quy". Câu đó ĐÚNG cho 4 tình huống rất khác nhau:
+     1) phiên đăng nhập đã hết hạn (số liệu trên màn hình vẫn là bản tải từ trước
+        nên nhìn như bình thường, nhưng mọi lệnh GHI đều bị từ chối);
+     2) tài khoản sai vai trò (không phải admin/owner/teacher);
+     3) tài khoản là lễ tân cơ sở A nhưng phiếu lại thuộc cơ sở B;
+     4) kỳ sổ quỹ vừa được chốt ở máy khác.
+   Hàm dưới hỏi lại máy chủ để biết ĐÚNG nguyên nhân rồi nói bằng tiếng Việt
+   kèm cách xử lý — thay vì bắt người dùng đoán. */
+const laLoiQuyen=e=>{const m=(e&&(e.message||e))||''; return (e&&e.code==='42501')||/row-level security/i.test(String(m));};
+async function chanDoanGhiSo(coSoId,ngay){
+  // 1) Còn phiên đăng nhập không? Hết hạn thì thử tự làm mới trước khi kết luận.
+  let uid=null;
+  try{
+    const {data}=await SB.auth.getSession();
+    uid=(data&&data.session&&data.session.user)?data.session.user.id:null;
+    if(!uid){ const r=await SB.auth.refreshSession(); uid=(r&&r.data&&r.data.session)?r.data.session.user.id:null; }
+  }catch(e){}
+  if(!uid) return {ly:'phien',lamMoi:false,
+    msg:'Phiên đăng nhập đã hết hạn nên máy chủ từ chối ghi (số liệu đang xem là bản tải từ trước).\n\nHãy tải lại trang (kéo màn hình xuống để làm mới, hoặc Ctrl+F5 trên máy tính), đăng nhập lại rồi ghi nhận lại khoản này.'};
+  // 2) Hồ sơ phân quyền THẬT trên máy chủ (không lấy từ bộ nhớ máy này)
+  const {data:prof,error:pe}=await SB.from('profiles').select('role,coso_id,ho_ten').eq('id',uid).maybeSingle();
+  if(pe||!prof) return {ly:'hoso',
+    msg:'Không đọc được hồ sơ phân quyền của tài khoản đang đăng nhập'+(pe?(': '+pe.message):'.')
+       +'\n\nHãy đăng nhập lại. Nếu vẫn lỗi, báo Quản trị kiểm tra tài khoản này trong Supabase → bảng profiles.'};
+  if(prof.role==='teacher') return {ly:'gv',
+    msg:'Tài khoản giáo viên không được phép thu tiền / ghi sổ quỹ.\n\nViệc thu học phí do lễ tân cơ sở hoặc Quản trị làm.'};
+  if(prof.role!=='admin'&&prof.role!=='owner') return {ly:'vaitro',
+    msg:'Tài khoản đang có vai trò "'+(prof.role||'(để trống)')+'" — không thuộc 3 vai trò hợp lệ (admin · owner · teacher) nên bị chặn ghi.\n\nQuản trị vào Supabase → bảng profiles → sửa cột role của tài khoản này thành owner (lễ tân cơ sở).'};
+  if(prof.role==='owner'&&Number(prof.coso_id)!==Number(coSoId)) return {ly:'coso',
+    msg:'Tài khoản này chỉ được ghi sổ cho cơ sở '+(csName(prof.coso_id)||'(chưa gắn cơ sở)')+' (mã '+(prof.coso_id==null?'trống':prof.coso_id)+'), '
+       +'trong khi khoản đang ghi lại thuộc cơ sở '+(csName(coSoId)||'(không rõ)')+' (mã '+(coSoId==null?'trống':coSoId)+').\n\n'
+       +'Cách xử lý: nếu em học ở '+(csName(prof.coso_id)||'cơ sở của tài khoản này')+' thì sửa lại cơ sở của em trong hồ sơ; '
+       +'nếu đúng là cơ sở khác thì để lễ tân cơ sở đó (hoặc Quản trị) ghi nhận.'};
+  // 3) Kỳ sổ quỹ vừa bị chốt ở máy khác?
+  const ky=kyCua(ngay);
+  const {data:ck}=await SB.from('chot_so_quy').select('id').eq('coso_id',coSoId).eq('ky',ky).maybeSingle();
+  if(ck){
+    OPS.chot[coSoId+'|'+ky]=OPS.chot[coSoId+'|'+ky]||{id:ck.id,ky,coSoId,tongThu:0,tongChi:0,tonCuoi:0,chotAt:null,ghiChu:''};
+    return {ly:'chot',
+      msg:'Sổ quỹ '+csName(coSoId)+' kỳ tháng '+(+ky.split('-')[1])+'/'+ky.split('-')[0]+' đã được CHỐT nên không ghi thêm được.\n\nQuản trị vào Thu – Chi → chọn đúng kỳ và cơ sở → bấm 🔓 Mở khóa kỳ.'};
+  }
+  return {ly:'khac',
+    msg:'Máy chủ từ chối ghi (khóa hàng RLS) trong khi tài khoản ('+(prof.role==='admin'?'Quản trị':'Lễ tân '+(csName(prof.coso_id)||('mã '+prof.coso_id)))+'), cơ sở và kỳ sổ đều hợp lệ.\n\nHãy tải lại trang rồi thử lại; nếu vẫn lỗi thì chụp màn hình này gửi bộ phận kỹ thuật.'};
+}
+/* Dịch lỗi ghi sổ sang tiếng Việt; lỗi quyền thì hiện hộp thoại giải thích đầy đủ.
+   errFn: hàm hiện dòng lỗi đỏ nhỏ tại chỗ (nếu form đó có). */
+async function baoLoiGhiSo(e,coSoId,ngay,viec,errFn){
+  const v=viec||'ghi';
+  if(!laLoiQuyen(e)){
+    const t='Lỗi '+v+': '+((e&&e.message)||e);
+    if(errFn)errFn(t); else await avaAlert(t);
+    return;
+  }
+  if(errFn)errFn('Không '+v+' được — xem hướng dẫn vừa hiện.');
+  const r=await chanDoanGhiSo(coSoId,ngay);
+  if(r.ly==='phien'){
+    if(await avaConfirm('Không '+v+' được.\n\n'+r.msg+'\n\nĐăng nhập lại ngay bây giờ?',{okText:'Đăng nhập lại'})){
+      try{ await SB.auth.signOut(); }catch(e){}
+      location.reload();
+    }
+    return;
+  }
+  await avaAlert('Không '+v+' được.\n\n'+r.msg);
 }
 const HM_THU=['Học phí','Ghi danh/Nhập học','Bán tài liệu','Thu khác'];
 const HM_CHI=['Lương giáo viên','Thuê mặt bằng','Điện nước','Vật tư/Văn phòng phẩm','Marketing','Chi khác'];
@@ -2791,6 +2872,7 @@ const HD_FAQ=[
   ['Học sinh đã đóng tiền nhưng Sổ quỹ không thấy phiếu','Tiền học phí chỉ vào sổ khi ghi nhận qua khung <b>Các đợt đóng học phí</b> (nút <b>＋ Ghi nhận đóng tiền</b>) trong hồ sơ em đó. Nếu hồ sơ hiện dòng nhắc “chưa có phiếu thu” thì đó là số liệu nhập tay trước đây — hãy ghi nhận lại thành một đợt.'],
   ['Sổ quỹ có phiếu thu học phí nhưng trang Học sinh không thấy em nào đã đóng','Phiếu đó được lập thẳng ở <b>Thu – Chi</b> mà <b>chưa gắn học sinh</b>, nên tiền vào quỹ rồi nhưng hệ thống không biết của em nào. Bảng điều hành sẽ hiện dòng nhắc kèm số tiền. Khắc phục: <b>Thu – Chi</b> → bấm <b>Sửa</b> ở phiếu đó → chọn tên học sinh → Lưu. Lần sau khi lập phiếu, chọn luôn học sinh ở ô <b>“Thu của học sinh nào”</b>.'],
   ['Không thêm/sửa/xóa được phiếu, báo lỗi quyền','Kỳ sổ quỹ tháng đó của cơ sở đã được <b>chốt sổ</b> (số phiếu có dấu 🔒). Quản trị vào <b>Thu – Chi</b> → chọn đúng kỳ &amp; cơ sở → <b>🔓 Mở khóa kỳ</b>.'],
+  ['Báo lỗi “row-level security policy for table so_quy”','Đó là câu tiếng Anh của máy chủ, nghĩa là <b>máy chủ từ chối ghi</b>. Hệ thống nay tự tìm nguyên nhân và nói rõ bằng tiếng Việt ngay khi lỗi: hay gặp nhất là <b>phiên đăng nhập đã hết hạn</b> (mở app từ lâu, điện thoại khóa màn hình) — bấm <b>Đăng nhập lại</b> ở hộp thoại là ghi được bình thường. Các nguyên nhân khác được nêu kèm cách xử lý: tài khoản sai vai trò, lễ tân ghi cho cơ sở khác, hoặc kỳ vừa bị chốt ở máy khác. Nếu hộp thoại báo “tài khoản, cơ sở và kỳ sổ đều hợp lệ” thì nhờ kỹ thuật chạy file <b>sql-chan-doan-loi-ghi-so-quy.sql</b> trong Supabase.'],
   ['Lập nhầm hạng mục hoặc số tiền trên phiếu','Bấm <b>Sửa</b> ở cuối dòng phiếu trong sổ quỹ (không cần xóa đi lập lại). Phiếu thu học phí sửa số tiền thì số đã đóng của học sinh tự tính lại.'],
   ['Số phiếu vẫn là PT0001 chứ không phải PT-02-2607-001','Chưa chạy file <b>sql-giai-doan-5-thu-chi.sql</b> trong Supabase → SQL Editor. Chạy xong tải lại trang; các phiếu cũ cũng được đánh số lại theo đúng trình tự ngày.'],
   ['Quên mật khẩu','Giáo viên: Quản trị vào <b>Tài khoản</b> → <b>Đổi MK</b>. Giám đốc / Lễ tân: liên hệ bộ phận kỹ thuật đặt lại.'],
@@ -3668,7 +3750,7 @@ function renderThu(){
       : `Xóa phiếu ${soPhieu(g)} khỏi sổ quỹ? Thao tác không thể hoàn tác.`;
     if(!await avaConfirm(msg,{danger:true,okText:'Xóa'}))return;
     const {error}=await SB.from('so_quy').delete().eq('id',id);
-    if(error){avaAlert('Lỗi xóa phiếu: '+error.message);return;}
+    if(error){ await baoLoiGhiSo(error,g.coSoId,g.ngay,'xóa phiếu'); return; }
     OPS.gd=OPS.gd.filter(x=>x.id!==id);
     if(hv) await capNhatTongDong(hv);          // tính lại tổng đã đóng từ các đợt còn lại
     renderThu();});
@@ -3772,7 +3854,7 @@ function addGD(loai){
   const doSave=async g=>{
     if(await chanKyChot(g.coSoId,g.ngay,'thêm phiếu'))return;
     const {data,error}=await insertPhieu(g);
-    if(error){avaAlert('Lỗi lưu phiếu: '+error.message);return;}
+    if(error){ await baoLoiGhiSo(error,g.coSoId,g.ngay,'lưu phiếu'); return; }
     OPS.gd.push(gdFromDb(data));
     // Có gắn học sinh → tính lại số đã đóng của em đó cho khớp chứng từ
     if(g.hvId!=null){ const h=OPS.hv.find(x=>x.id===g.hvId); if(h) await capNhatTongDong(h); }
@@ -3906,7 +3988,7 @@ function editGD(g){
       sqLive5=false; r=await SB.from('so_quy').update(patch).eq('id',g.id);
     }
     btn.disabled=false; btn.textContent='💾 Lưu thay đổi';
-    if(r.error){err('Lỗi lưu: '+r.error.message);return;}
+    if(r.error){ await baoLoiGhiSo(r.error,g.coSoId,ngay,'lưu phiếu',err); return; }
     Object.assign(g,{ngay,hangMuc:patch.hang_muc,soTien:tien,noiDung:patch.noi_dung,nguoiLap:patch.nguoi_lap,
       nguoiNop:patch5.nguoi_nop,hinhThuc:patch5.hinh_thuc});
     if(hv) await capNhatTongDong(hv);
@@ -3915,7 +3997,7 @@ function editGD(g){
     if(!hv && ehv && ehv.value){
       const hid=Number(ehv.value);
       const r2=await SB.from('so_quy').update({hv_id:hid}).eq('id',g.id);
-      if(r2.error){err('Đã lưu phiếu, nhưng chưa gắn được học sinh: '+r2.error.message);return;}
+      if(r2.error){ await baoLoiGhiSo(r2.error,g.coSoId,ngay,'gắn phiếu vào học sinh',err); return; }
       g.hvId=hid;
       const h2=OPS.hv.find(x=>x.id===hid);
       if(h2) await capNhatTongDong(h2);
@@ -4644,14 +4726,14 @@ function bindHpDot(h){
     const btn=$('#hv_dotAdd'); btn.disabled=true; btn.textContent='Đang lưu…'; err('');
     const r=await themDotDong(h,{soTien:sd,ngay,nguoiNop:$('#hv_dotNguoi').value.trim(),hinhThuc:$('#hv_dotHT').value});
     btn.disabled=false; btn.textContent='＋ Ghi nhận đóng tiền';
-    if(r.error){err('Lỗi: '+r.error);return;}
+    if(r.error){ await baoLoiGhiSo(r.loi||r.error,h.coSoId,ngay,'ghi nhận đóng tiền',err); return; }
     lamMoi();
   };
   $$('#hv_dotBox [data-xoadot]').forEach(b=>b.onclick=async()=>{
     const id=Number(b.dataset.xoadot), p=OPS.gd.find(x=>x.id===id); if(!p)return;
     if(!await avaConfirm('Xóa đợt đóng '+fmtVND(p.soTien)+' ngày '+isoVN(p.ngay)+' (phiếu '+soPhieu(p)+')?\nPhiếu thu này sẽ bị xóa khỏi sổ quỹ.',{danger:true,okText:'Xóa'}))return;
     const {error}=await SB.from('so_quy').delete().eq('id',id);
-    if(error){err('Lỗi xóa: '+error.message);return;}
+    if(error){ await baoLoiGhiSo(error,p.coSoId,p.ngay,'xóa đợt đóng',err); return; }
     OPS.gd=OPS.gd.filter(x=>x.id!==id);
     await capNhatTongDong(h);
     lamMoi();
