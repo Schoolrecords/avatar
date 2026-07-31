@@ -918,6 +918,21 @@ tr.pgpad,tfoot.pgpad{display:none}
 <body>
 
 <!-- ================= LOGIN ================= -->
+<!-- Màn hình chờ khi máy đã nhớ đăng nhập: vào thẳng app, KHÔNG chớp ô nhập mật khẩu -->
+<div id="boot" style="display:none;position:fixed;inset:0;z-index:9999;place-items:center;text-align:center;
+     background:radial-gradient(1100px 560px at 12% -8%,#1e3d76,transparent 58%),
+                radial-gradient(900px 620px at 112% 118%,#12305e,transparent 55%),#0b1d3d;color:#fff">
+  <div>
+    <img src="logo-mark.png" alt="AVATAR" style="width:86px;height:86px;object-fit:contain;border-radius:22px;background:#fff;padding:9px;box-shadow:0 14px 40px rgba(0,0,0,.3)"/>
+    <div style="margin-top:16px;font-weight:800;letter-spacing:.16em;font-size:1.15rem">AVATAR</div>
+    <div id="bootMsg" style="margin-top:7px;font-size:.88rem;opacity:.82;font-weight:600">Đang mở lại phiên làm việc…</div>
+    <div style="margin:18px auto 0;width:132px;height:4px;border-radius:99px;background:rgba(255,255,255,.22);overflow:hidden">
+      <div style="width:42%;height:100%;border-radius:99px;background:#fff;animation:bootrun 1.15s ease-in-out infinite"></div>
+    </div>
+  </div>
+</div>
+<style>@keyframes bootrun{0%{transform:translateX(-110%)}100%{transform:translateX(320%)}}</style>
+
 <div id="login">
   <div class="login-deco" aria-hidden="true">
     <span style="left:7%;top:12%;--s:62px;--d:11s;--dl:-2s;--r:-10deg"><svg viewBox="0 0 24 24"><path d="M12 6c-1.5-1.2-4-2-7-2v13c3 0 5.5.8 7 2 1.5-1.2 4-2 7-2V4c-3 0-5.5.8-7 2z"/><path d="M12 6v13"/></svg></span>
@@ -1685,6 +1700,7 @@ async function baoLoiGhiSo(e,coSoId,ngay,viec,errFn){
   const r=await chanDoanGhiSo(coSoId,ngay);
   if(r.ly==='phien'){
     if(await avaConfirm('Không '+v+' được.\n\n'+r.msg+'\n\nĐăng nhập lại ngay bây giờ?',{okText:'Đăng nhập lại'})){
+      dangTuDangXuat=true;
       try{ await SB.auth.signOut(); }catch(e){}
       location.reload();
     }
@@ -2112,20 +2128,29 @@ $('#loginBtn').onclick=async()=>{
 async function afterAuth(preUser){
   let user=preUser;
   if(!user){const r=await SB.auth.getUser(); user=r.data&&r.data.user;}
-  if(!user)return;
-  const {data:prof,error}=await SB.from('profiles').select('*').eq('id',user.id).maybeSingle();
-  if(error){showLoginErr('Không kết nối được máy chủ. Kiểm tra mạng rồi thử lại.');return;}   // lỗi mạng/hết hạn tạm → GIỮ phiên, KHÔNG đăng xuất
-  if(!prof||!prof.role){showLoginErr('Tài khoản chưa được phân quyền. Liên hệ quản trị viên.');await SB.auth.signOut();return;}
-  if(prof.role==='teacher' && !prof.gv_id){showLoginErr('Tài khoản giáo viên chưa được gắn lớp phụ trách. Liên hệ quản trị viên.');await SB.auth.signOut();return;}
+  if(!user)return false;
+  // Đọc hồ sơ phân quyền. Mạng chập chờn hoặc token vừa hết hạn thì THỬ LẠI —
+  // trước đây chỉ cần một lần trả rỗng là app đăng xuất oan tài khoản đang dùng tốt.
+  let prof=null,loi=null;
+  for(let lan=1;lan<=3;lan++){
+    const r=await SB.from('profiles').select('*').eq('id',user.id).maybeSingle();
+    prof=r.data; loi=r.error;
+    if(prof)break;
+    if(lan===1&&!loi){ try{ await SB.auth.refreshSession(); }catch(e){} }   // rỗng có thể do token hết hạn → xin token mới rồi đọc lại
+    if(lan<3) await new Promise(r2=>setTimeout(r2,700*lan));
+  }
+  if(!prof&&loi){showLoginErr('Không kết nối được máy chủ. Kiểm tra mạng rồi thử lại.');return false;}   // lỗi mạng/hết hạn tạm → GIỮ phiên, KHÔNG đăng xuất
+  if(!prof||!prof.role){showLoginErr('Tài khoản chưa được phân quyền. Liên hệ quản trị viên.');await SB.auth.signOut();return false;}
+  if(prof.role==='teacher' && !prof.gv_id){showLoginErr('Tài khoản giáo viên chưa được gắn lớp phụ trách. Liên hệ quản trị viên.');await SB.auth.signOut();return false;}
   USER = prof.role==='admin' ? {role:'admin',coSoId:null,email:user.email,hoTen:prof.ho_ten||''}
        : prof.role==='teacher' ? {role:'teacher',coSoId:prof.coso_id,gvId:prof.gv_id,email:user.email,hoTen:prof.ho_ten||''}
        : {role:'owner',coSoId:prof.coso_id,email:user.email,hoTen:prof.ho_ten||''};
   scope='all';
   const btn=$('#loginBtn'); if(btn){btn.disabled=true;btn.textContent='Đang tải dữ liệu…';}
   try{ await loadCloud(); }
-  catch(e){ if(btn){btn.disabled=false;btn.textContent='Đăng nhập hệ thống';} showLoginErr('Không tải được dữ liệu. Kiểm tra kết nối mạng.'); return; }
+  catch(e){ if(btn){btn.disabled=false;btn.textContent='Đăng nhập hệ thống';} showLoginErr('Không tải được dữ liệu. Kiểm tra kết nối mạng.'); return false; }
   if(btn){btn.disabled=false;btn.textContent='Đăng nhập hệ thống';}
-  showLoginErr(''); startApp();
+  showLoginErr(''); startApp(); return true;
 }
 $('#upass').addEventListener('keydown',e=>{if(e.key==='Enter')$('#loginBtn').click();});
 
@@ -2280,7 +2305,7 @@ function initBell(){
   $('#bellPanel').onclick=e=>e.stopPropagation();
   document.addEventListener('click',()=>closeBellPanel());
 }
-$('#logout').onclick=async()=>{ try{if(rtChannel)SB.removeChannel(rtChannel);}catch(e){} try{await SB.auth.signOut();}catch(e){} location.reload(); };
+$('#logout').onclick=async()=>{ dangTuDangXuat=true; try{if(rtChannel)SB.removeChannel(rtChannel);}catch(e){} try{await SB.auth.signOut();}catch(e){} location.reload(); };
 $('#chgPass').onclick=openChgPass;
 function openChgPass(){
   $('#mcard').innerHTML=`
@@ -2875,6 +2900,7 @@ const HD_FAQ=[
   ['Báo lỗi “row-level security policy for table so_quy”','Đó là câu tiếng Anh của máy chủ, nghĩa là <b>máy chủ từ chối ghi</b>. Hệ thống nay tự tìm nguyên nhân và nói rõ bằng tiếng Việt ngay khi lỗi: hay gặp nhất là <b>phiên đăng nhập đã hết hạn</b> (mở app từ lâu, điện thoại khóa màn hình) — bấm <b>Đăng nhập lại</b> ở hộp thoại là ghi được bình thường. Các nguyên nhân khác được nêu kèm cách xử lý: tài khoản sai vai trò, lễ tân ghi cho cơ sở khác, hoặc kỳ vừa bị chốt ở máy khác. Nếu hộp thoại báo “tài khoản, cơ sở và kỳ sổ đều hợp lệ” thì nhờ kỹ thuật chạy file <b>sql-chan-doan-loi-ghi-so-quy.sql</b> trong Supabase.'],
   ['Lập nhầm hạng mục hoặc số tiền trên phiếu','Bấm <b>Sửa</b> ở cuối dòng phiếu trong sổ quỹ (không cần xóa đi lập lại). Phiếu thu học phí sửa số tiền thì số đã đóng của học sinh tự tính lại.'],
   ['Số phiếu vẫn là PT0001 chứ không phải PT-02-2607-001','Chưa chạy file <b>sql-giai-doan-5-thu-chi.sql</b> trong Supabase → SQL Editor. Chạy xong tải lại trang; các phiếu cũ cũng được đánh số lại theo đúng trình tự ngày.'],
+  ['Vì sao thỉnh thoảng phải đăng nhập lại?','Máy đã đăng nhập một lần thì <b>mở app là vào thẳng</b>, không hỏi mật khẩu nữa — hệ thống nhớ phiên trong bộ nhớ của <b>riêng trình duyệt đó</b>. Đổi sang trình duyệt khác (Chrome → Safari), máy khác, hoặc mở <b>chế độ ẩn danh</b> thì phải nhập lại một lần. Ngoài ra phải đăng nhập lại khi: bấm <b>Đăng xuất</b>, đổi mật khẩu, Quản trị thu hồi quyền, hoặc xóa dữ liệu duyệt web. Trên điện thoại nên <b>Thêm vào màn hình chính</b> để dùng như một app riêng — vừa vào nhanh vừa giữ đăng nhập lâu hơn.'],
   ['Quên mật khẩu','Giáo viên: Quản trị vào <b>Tài khoản</b> → <b>Đổi MK</b>. Giám đốc / Lễ tân: liên hệ bộ phận kỹ thuật đặt lại.'],
   ['Muốn đổi mật khẩu của chính mình','Bấm <b>Đổi mật khẩu</b> ở cuối thanh menu bên trái (điện thoại: bấm ☰ rồi kéo xuống), nhập mật khẩu mới hai lần.']
 ];
@@ -6253,19 +6279,70 @@ const EYE_OFF='<svg viewBox="0 0 24 24" fill="none" stroke-width="1.9"><path d="
 $('#eyeBtn').innerHTML=EYE_ON;
 $('#eyeBtn').onclick=()=>{const i=$('#upass');const show=i.type==='password';i.type=show?'text':'password';$('#eyeBtn').innerHTML=show?EYE_OFF:EYE_ON;$('#eyeBtn').setAttribute('aria-label',show?'Ẩn mật khẩu':'Hiện mật khẩu');i.focus();};
 
-/* Giữ đăng nhập: khôi phục phiên khi mở lại app; làm mới token để tránh hết hạn (>1 giờ) */
+/* ============ GIỮ ĐĂNG NHẬP TRÊN TỪNG THIẾT BỊ ============
+   Đăng nhập một lần trên máy nào thì lần sau mở app vào THẲNG, chỉ trình duyệt
+   hoặc thiết bị khác mới phải nhập lại (phiên nằm trong bộ nhớ trình duyệt của
+   riêng máy đó, khóa 'avatar-auth' — không có ai đọc được mật khẩu).
+   Ba việc phải làm cho phiên khỏi đứt vặt:
+     1) Mở app: dùng lại phiên đã lưu, CHỈ xin token mới khi sắp hết hạn. Xin lại
+        vô cớ mỗi lần mở rất dễ mất phiên khi mạng chập chờn — máy chủ đã thu hồi
+        token cũ mà token mới chưa về tới máy là đứt, phải đăng nhập lại.
+     2) Mạng lỗi lúc mở: thử lại vài lần chứ KHÔNG đá về màn hình đăng nhập.
+     3) Máy vừa thức dậy / có mạng trở lại: làm mới token sớm, để thao tác đầu
+        tiên (thu tiền, điểm danh…) không bị máy chủ từ chối. */
+const AUTH_KEY='avatar-auth';
+const coPhienLuu=()=>{ try{ return !!localStorage.getItem(AUTH_KEY); }catch(e){ return false; } };
+const bootHien=m=>{const b=$('#boot'); if(!b)return; b.style.display='grid'; const t=$('#bootMsg'); if(t&&m)t.textContent=m;};
+const bootAn=()=>{const b=$('#boot'); if(b)b.style.display='none';};
+/* Lấy phiên đang dùng; token còn dưới 10 phút mới xin token mới cho nhẹ và an toàn */
+async function phienHienTai(batBuocLamMoi){
+  let s=null;
+  try{ const {data}=await SB.auth.getSession(); s=data&&data.session; }catch(e){}
+  const conLai = (s&&s.expires_at) ? (s.expires_at*1000-Date.now())/1000 : -1;
+  if(!s || batBuocLamMoi || conLai<600){
+    try{ const rf=await SB.auth.refreshSession(); if(rf.data&&rf.data.session) s=rf.data.session; }
+    catch(e){}                       // mạng lỗi → giữ token cũ; còn hạn thì vẫn làm việc bình thường
+  }
+  return s;
+}
 (async()=>{
-  try{
-    let {data:{session}}=await SB.auth.getSession();
-    if(session){
-      const rf=await SB.auth.refreshSession();          // dùng refresh-token đổi lấy token mới
-      if(rf.data&&rf.data.session) session=rf.data.session;
-    }
-    if(session&&session.user) await afterAuth(session.user);
-  }catch(e){}
+  if(!coPhienLuu()) return;          // máy này chưa từng đăng nhập → hiện màn hình đăng nhập như thường
+  bootHien('Đang mở lại phiên làm việc…');
+  let s=null;
+  for(let lan=1; lan<=3 && !s; lan++){
+    s=await phienHienTai(false);
+    if(!s && lan<3){ bootHien('Mạng chậm — đang thử lại…'); await new Promise(r=>setTimeout(r,900*lan)); }
+  }
+  if(s&&s.user){
+    bootHien('Đang tải dữ liệu…');
+    await afterAuth(s.user);         // không vào được (mạng lỗi / hết quyền) thì afterAuth đã ghi rõ lý do ở màn hình đăng nhập
+  }else{
+    showLoginErr('Phiên đăng nhập trên máy này đã hết hạn. Vui lòng đăng nhập lại — lần sau máy sẽ tự nhớ.');
+  }
+  bootAn();
 })();
-/* Làm mới token định kỳ khi app đang mở (Supabase tự chạy, nhưng gọi lại khi quay lại tab cho chắc) */
-document.addEventListener('visibilitychange',()=>{ const app=$('#app'); if(!document.hidden && app && app.style.display!=='none') SB.auth.getSession().catch(()=>{}); });
+/* Máy thức dậy, chuyển về tab app, hoặc có mạng lại → làm mới token ngay */
+let lanLamMoiCuoi=0;
+const dangTrongApp=()=>{ const a=$('#app'); return !!a && a.style.display!=='none'; };
+const lamTuoiPhien=()=>{
+  if(!dangTrongApp()) return;                        // chưa vào app thì không cần làm gì
+  if(Date.now()-lanLamMoiCuoi<30000) return;         // gộp các sự kiện dồn dập
+  lanLamMoiCuoi=Date.now();
+  phienHienTai(false).catch(()=>{});
+};
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden) lamTuoiPhien(); });
+window.addEventListener('focus',lamTuoiPhien);
+window.addEventListener('online',()=>{ lanLamMoiCuoi=0; lamTuoiPhien(); });
+window.addEventListener('pageshow',e=>{ if(e.persisted){ lanLamMoiCuoi=0; lamTuoiPhien(); } });  // trở lại từ bộ nhớ đệm trình duyệt
+/* Phiên bị máy chủ chấm dứt thật (đổi mật khẩu, quản trị thu hồi, refresh-token hỏng):
+   nói rõ lý do rồi đưa về màn hình đăng nhập — không để app treo với số liệu cũ. */
+let dangTuDangXuat=false;
+SB.auth.onAuthStateChange(async(sk)=>{
+  if(sk==='SIGNED_OUT' && dangTrongApp() && !dangTuDangXuat){
+    try{ await avaAlert('Phiên đăng nhập trên máy này đã kết thúc — thường do đổi mật khẩu hoặc Quản trị thu hồi quyền.\n\nBấm OK để đăng nhập lại.'); }catch(e){}
+    location.reload();
+  }
+});
 </script>
 </body>
 </html>
