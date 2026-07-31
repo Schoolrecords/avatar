@@ -593,20 +593,73 @@ td.chi{color:var(--rose);font-weight:800}
 .sqtbl tr.sum td{background:#f2f5fb;font-weight:700}
 .sqtbl tbody tr:nth-child(even) td{background:#fbfcfe}
 .sqtbl tbody tr.sum:nth-child(even) td{background:#f2f5fb}
+/* ===== KẺ Ô CHO MỌI BẢNG IN — cách vẽ CHỐNG MẤT NÉT =====
+   Không dùng border-collapse nữa: khi in ra PDF (nhất là máy in ảo
+   "Microsoft Print to PDF") nét viền dùng chung giữa hai ô hay bị bỏ sót —
+   thường mất nét dưới của dòng cuối bảng và nét ở chỗ ngắt sang trang mới.
+   Cách chắc ăn: MỖI Ô tự vẽ nét PHẢI + DƯỚI, ô đầu dòng vẽ thêm nét TRÁI,
+   ô tiêu đề vẽ thêm nét TRÊN → mỗi đường chỉ vẽ đúng một lần, không đường nào mất,
+   và trang nào cũng có đủ khung kể cả khi bảng dài nhiều trang.
+   Độ dày tính bằng pt (không phải px) để không bị làm tròn về 0 khi in. */
+.sqtbl,.ddtbl{border-collapse:separate;border-spacing:0}
+.sqtbl th,.sqtbl td,.ddtbl th,.ddtbl td{border:0;border-right:.8pt solid #000;border-bottom:.8pt solid #000}
+.sqtbl th:first-child,.sqtbl td:first-child,.ddtbl th:first-child,.ddtbl td:first-child{border-left:.8pt solid #000}
+.sqtbl thead th,.ddtbl thead th{border-top:.8pt solid #000}
+/* Dòng đệm chừa lề trên/dưới khi bảng dài sang trang mới — xem chú thích ở khối @media print.
+   Trên màn hình ẩn đi, chỉ hiện khi in. */
+tr.pgpad,tfoot.pgpad{display:none}
+/* Lịch dạy theo ca in giấy A4 DỌC (xem chú thích ở khối @media print bên dưới) */
+.tkpaper .sqtbl{font-size:11px}
+.tkpaper .sqtbl th{font-size:10.5px}
+/* Nhắc chọn khổ giấy ngay trên thanh nút — chỉ hiện trên màn hình, không in ra */
+.vhint{margin-right:auto;align-self:center;font-size:.78rem;color:#fff;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.3);padding:5px 11px;border-radius:99px}
+.vhint b{color:#fff}
 @media(max-width:1140px){.voucher{overflow:auto}}   /* màn hình hẹp: cuộn ngang xem trang giấy, bản in không đổi */
-@page vport{size:A4 portrait;margin:12mm}
-@page sqland{size:A4 landscape;margin:10mm}         /* sổ quỹ & lịch tuần in ngang, phiếu thu/chi in dọc */
+/* ===== LỀ GIẤY = 0 — ĐỂ BỎ ĐẦU TRANG / CHÂN TRANG CỦA TRÌNH DUYỆT =====
+   Trình duyệt in ngày giờ, tên trang, số trang và dòng địa chỉ web
+   (https://...) vào PHẦN LỀ của tờ giấy. Đặt lề = 0 thì không còn chỗ cho
+   những dòng đó nữa → bản in sạch, không cần người dùng phải nhớ đi bỏ tick
+   "Headers and footers" trong hộp thoại in.
+   Lề thật của tờ giấy chuyển sang cho padding của .vpaper lo, nên nhìn y hệt cũ.
+   Bề rộng để hụt 1–2mm so với khổ giấy để không sinh trang trắng do làm tròn. */
+@page vport{size:A4 portrait;margin:0}
+@page sqland{size:A4 landscape;margin:0}             /* sổ quỹ & bảng lương in ngang, còn lại in dọc */
 @media print{
   body>*{display:none!important}
   #voucher{display:block!important;position:static;background:#fff;padding:0;backdrop-filter:none;overflow:visible}
   .vbar{display:none!important}
-  /* Lề đã do @page lo → trang giấy bỏ padding, chỉ giữ đúng bề rộng vùng in */
-  .vpaper{box-shadow:none;border-radius:0;padding:0;width:186mm;page:vport}
-  .voucher.sq{padding:0}
-  .vpaper.sqpaper{width:277mm;padding:0;page:sqland}
+  /* Lề = 0 nên trang giấy tự chừa lề bằng padding */
+  .vpaper{box-shadow:none;border-radius:0;padding:12mm;width:185mm;page:vport}
+  .voucher.sq,.voucher.tk{padding:0}
+  .vpaper.sqpaper{width:275mm;padding:10mm;page:sqland}
   .sqtbl{font-size:10.5px}
+  /* LỊCH DẠY THEO CA in giấy A4 DỌC.
+     Trước đây in ngang: máy in ảo "Microsoft Print to PDF" luôn đặt giấy DỌC,
+     gặp yêu cầu in ngang nó không xoay tờ giấy mà xoay nội dung 90° → file PDF
+     tải về bị nằm nghiêng, phải nghiêng đầu mới đọc được. In dọc thì máy in nào,
+     điện thoại nào cũng ra đúng chiều. */
+  .tkpaper .sqtbl{font-size:9.2px}
+  .tkpaper .sqtbl th{font-size:9px}
+  .tkpaper .sqtbl th,.tkpaper .sqtbl td{padding:3px 4px}
   .sqtbl thead{display:table-header-group}          /* lặp tiêu đề bảng ở mỗi trang in */
   .sqtbl tr{page-break-inside:avoid}
+  /* ===== CHỪA LỀ TRÊN/DƯỚI CHO CÁC TRANG THỨ 2 TRỞ ĐI =====
+     Lề giấy đang đặt = 0 nên padding của .vpaper chỉ chừa được lề trên ở trang
+     đầu và lề dưới ở trang cuối. Với bảng dài, phần đầu mỗi trang tiếp theo sẽ
+     sát mép giấy (máy in thật sẽ cắt mất). Cách chữa: chèn một dòng trống vào
+     thead (lặp ở ĐẦU mỗi trang) và một dòng trống vào tfoot (lặp ở CUỐI mỗi
+     trang) — hai dòng này chính là lề trên/dưới của từng trang. */
+  tr.pgpad{display:table-row}
+  tfoot.pgpad{display:table-footer-group}
+  /* Phần cuối phiếu (tổng hợp + ngày tháng + chữ ký) đi liền một khối, không bị
+     cắt đôi giữa hai trang. padding-top vừa là khoảng cách với bảng ở trên, vừa
+     đóng vai lề trên nếu cả khối bị đẩy sang trang mới. */
+  .vfoot,.vsign{page-break-inside:avoid}
+  .vfoot{padding-top:8mm}
+  .vpaper>.vsign{padding-top:8mm}
+  tr.pgpad td,tfoot.pgpad td{border:0!important;padding:0!important;background:none!important}
+  thead tr.pgpad td{height:9mm}
+  tfoot.pgpad td{height:10mm}
   /* In trang Hướng dẫn (body.print-guide): chỉ in phần nội dung */
   body.print-guide #voucher{display:none!important}
   body.print-guide #app{display:block!important}
@@ -4010,6 +4063,17 @@ async function exportSoQuy(list,t){
   if(btn){btn.disabled=false;btn.textContent=oldTxt;}
 }
 
+/* Dòng nhắc khổ giấy trên thanh nút của mọi khung in (chỉ hiện trên màn hình).
+   Bản in ngang chỉ ra đúng chiều khi người dùng chọn hướng Ngang trong hộp thoại in;
+   nếu để mặc định giấy dọc, máy in sẽ xoay nội dung 90° và file PDF bị nằm nghiêng. */
+const VHINT=huong=>`<span class="vhint">Khi in chọn khổ <b>A4</b> · hướng <b>${huong}</b></span>`;
+/* Hai dòng trống vô hình chèn vào đầu bảng (trong thead) và cuối bảng (tfoot).
+   Trình duyệt lặp thead ở đầu mỗi trang và tfoot ở cuối mỗi trang, nên hai dòng
+   này chính là lề trên/lề dưới của những trang thứ 2 trở đi. Trên màn hình chúng
+   bị ẩn (CSS .pgpad), chỉ hiện khi in. */
+const PGPAD=n=>`<tr class="pgpad"><td colspan="${n}"></td></tr>`;
+const PGFOOT=n=>`<tfoot class="pgpad"><tr><td colspan="${n}"></td></tr></tfoot>`;
+
 /* ===== IN SỔ QUỸ TRỰC TIẾP TỪ WEB (khổ A4 nằm ngang) =====
    Dùng chung khung in với phiếu thu/chi: đổ bảng sổ quỹ vào #voucher rồi window.print(). */
 function inSoQuy(list,t){
@@ -4047,8 +4111,8 @@ function inSoQuy(list,t){
   const nCot=cot.length;
   const tongW=cot.reduce((s,c)=>s+c[1],0);
   const sqColgroup=`<colgroup>${cot.map(c=>`<col style="width:${(c[1]*100/tongW).toFixed(2)}%"/>`).join('')}</colgroup>`;
-  const sqThead=`<thead><tr>${cot.map(c=>`<th>${c[0]}</th>`).join('')}</tr></thead>`;
-  $('#voucher').innerHTML=`<div class="vbar">
+  const sqThead=`<thead>${PGPAD(nCot)}<tr>${cot.map(c=>`<th>${c[0]}</th>`).join('')}</tr></thead>${PGFOOT(nCot)}`;
+  $('#voucher').innerHTML=`<div class="vbar">${VHINT('Ngang')}
       <button class="btn btn-sm btn-light" id="sqPrint">🖶 In / lưu PDF</button>
       <button class="btn btn-sm btn-light" id="sqClose">Đóng</button>
     </div>
@@ -4072,15 +4136,16 @@ function inSoQuy(list,t){
           ${motLoai?'':`<tr class="sum"><td colspan="${truocTien}" class="r">SỐ DƯ CUỐI KỲ</td><td></td><td></td><td class="r"><b>${Math.round(ton).toLocaleString('vi-VN')}</b></td><td></td></tr>`}
         </tbody>
       </table>
+      <div class="vfoot">
       ${motLoai?'':`<div style="font-style:italic;font-size:12.5px;margin-top:6px">Số dư cuối kỳ bằng chữ: ${docSoVN(Math.abs(ton))}${ton<0?' (âm)':''}</div>`}
       <div style="text-align:right;font-style:italic;font-size:12.5px;margin-top:10px">Nghệ An, ngày ${now.getDate()} tháng ${now.getMonth()+1} năm ${now.getFullYear()}</div>
       <div class="vsign" style="margin-top:6px">
         <div><b>Người lập biểu</b><small>(Ký, họ tên)</small><div style="height:48px"></div></div>
         <div><b>Kế toán</b><small>(Ký, họ tên)</small><div style="height:48px"></div></div>
         <div><b>Giám đốc</b><small>(Ký, họ tên)</small><div style="height:48px"></div></div>
-      </div>
+      </div></div>
     </div>`;
-  $('#voucher').classList.add('on'); $('#voucher').classList.add('sq');
+  $('#voucher').classList.remove('sq','tk','dd'); $('#voucher').classList.add('on','sq');
   $('#sqClose').onclick=()=>{$('#voucher').classList.remove('on');$('#voucher').classList.remove('sq');};
   $('#sqPrint').onclick=()=>window.print();
 }
@@ -4132,8 +4197,8 @@ function voucherHTML(g){
   </div>`;
 }
 function openVoucher(g,opts={}){
-  $('#voucher').classList.remove('sq');
-  $('#voucher').innerHTML=`<div class="vbar">
+  $('#voucher').classList.remove('sq','tk','dd');   // dọn kiểu khổ giấy của khung in mở trước đó
+  $('#voucher').innerHTML=`<div class="vbar">${VHINT('Dọc')}
     ${opts.onSave?'<button class="btn btn-sm btn-primary" id="vSave">✓ Lưu vào sổ</button>':''}
     <button class="btn btn-sm btn-light" id="vPrint">🖶 In phiếu</button>
     <button class="btn btn-sm btn-light" id="vWord">⬇ Tải Word</button>
@@ -5366,7 +5431,7 @@ function inDiemDanh(lopId,iso){
     ['Phòng',(lich&&lich.phong)||'—'],
     ['Chấm công GV',cc?CC_LABEL[cc]:'chưa chấm'],
     ['Trạng thái',c?CA_LABEL[c.st]:'chưa gửi đối soát']];
-  $('#voucher').innerHTML=`<div class="vbar">
+  $('#voucher').innerHTML=`<div class="vbar">${VHINT('Dọc')}
       <button class="btn btn-sm btn-light" id="ddPrintGo">🖶 In / lưu PDF</button>
       <button class="btn btn-sm btn-light" id="ddPrintClose">Đóng</button></div>
     <div class="vpaper ddpaper">
@@ -5375,49 +5440,54 @@ function inDiemDanh(lopId,iso){
       <div class="ddmeta">${meta.map(([k,v])=>`<div><b>${esc(k)}:</b> ${esc(v)}</div>`).join('')}</div>
       <table class="ddtbl">
         <colgroup><col style="width:6%"/><col style="width:30%"/><col style="width:13%"/><col style="width:8%"/><col style="width:8%"/><col style="width:8%"/><col style="width:8%"/><col style="width:19%"/></colgroup>
-        <thead><tr><th>TT</th><th>Họ và tên học sinh</th><th>Ngày sinh</th>
-          <th>Có mặt</th><th>Muộn</th><th>Phép</th><th>Vắng</th><th>Ghi chú</th></tr></thead>
+        <thead>${PGPAD(8)}<tr><th>TT</th><th>Họ và tên học sinh</th><th>Ngày sinh</th>
+          <th>Có mặt</th><th>Muộn</th><th>Phép</th><th>Vắng</th><th>Ghi chú</th></tr></thead>${PGFOOT(8)}
         <tbody>${rows||`<tr><td colspan="8" style="text-align:center;font-style:italic;padding:14px">Lớp chưa có học sinh.</td></tr>`}</tbody>
       </table>
+      <div class="vfoot">
       <div style="font-size:12.5px;margin-top:6px"><b>Tổng hợp:</b> sĩ số ${ds.length} · có mặt ${dem.co} · muộn ${dem.muon} · phép ${dem.phep} · vắng ${dem.vang} · chưa điểm ${ds.length-(dem.co+dem.muon+dem.phep+dem.vang)}</div>
       <div style="text-align:right;font-style:italic;font-size:12.5px;margin-top:10px">Nghệ An, ngày ${now.getDate()} tháng ${now.getMonth()+1} năm ${now.getFullYear()}</div>
       <div class="vsign" style="margin-top:6px">
         <div><b>Giáo viên</b><small>(Ký, họ tên)</small><div style="height:48px"></div></div>
         <div><b>Lễ tân đối soát</b><small>(Ký, họ tên)</small><div style="height:48px"></div></div>
         <div><b>Quản trị</b><small>(Ký, họ tên)</small><div style="height:48px"></div></div>
-      </div>
+      </div></div>
     </div>`;
-  $('#voucher').classList.add('on'); $('#voucher').classList.add('dd');
+  $('#voucher').classList.remove('sq','tk','dd'); $('#voucher').classList.add('on','dd');
   $('#ddPrintClose').onclick=()=>{$('#voucher').classList.remove('on');$('#voucher').classList.remove('dd');};
   $('#ddPrintGo').onclick=()=>window.print();
 }
-/* ===== IN THỜI KHÓA BIỂU TUẦN CỦA 1 CƠ SỞ (A4 ngang) ===== */
+/* ===== IN THỜI KHÓA BIỂU TUẦN CỦA 1 CƠ SỞ (A4 DỌC) =====
+   In DỌC chứ không in ngang: máy in ảo "Microsoft Print to PDF" luôn để giấy dọc,
+   gặp lệnh in ngang nó xoay nội dung 90° thay vì xoay tờ giấy → PDF tải về nằm nghiêng.
+   Cỡ chữ trong ô dùng em (theo cỡ chữ của bảng) để khi in thu nhỏ thì thu nhỏ đều. */
 function inLichTuan(coSoId,lops){
   const cas=caList(coSoId), cell={}, now=new Date();
   lops.forEach(l=>lichOfLop(l.id).forEach(x=>{(cell[x.thu+'|'+x.caMa]=cell[x.thu+'|'+x.caMa]||[]).push({lop:l,phong:x.phong,gv:tenGvBuoi(x,l)});}));
   const body=cas.map(c=>`<tr>
-      <td class="c"><b>${esc(c.ten)}</b><br/><span style="font-size:10px">${esc(c.bd&&c.kt?c.bd+' – '+c.kt:'')}</span></td>
+      <td class="c"><b>${esc(c.ten)}</b><br/><span style="font-size:.86em">${esc(c.bd&&c.kt?c.bd+' – '+c.kt:'')}</span></td>
       ${THU_LIST.map(t=>{const a=cell[t+'|'+c.ma]||[];
-        return `<td>${a.map(o=>`<div><b>${esc(o.lop.lop)}</b>${o.phong?' · '+esc(o.phong):''}<br/><span style="font-size:10px">${esc(o.gv||'—')}</span></div>`).join('<hr style="border:0;border-top:1px dotted #bbb;margin:3px 0">')}</td>`;}).join('')}
+        return `<td>${a.map(o=>`<div><b>${esc(o.lop.lop)}</b>${o.phong?' · '+esc(o.phong):''}<br/><span style="font-size:.86em">${esc(o.gv||'—')}</span></div>`).join('<hr style="border:0;border-top:1px dotted #bbb;margin:3px 0">')}</td>`;}).join('')}
     </tr>`).join('');
-  $('#voucher').innerHTML=`<div class="vbar">
+  $('#voucher').innerHTML=`<div class="vbar">${VHINT('Dọc')}
       <button class="btn btn-sm btn-light" id="tkPrintGo">🖶 In / lưu PDF</button>
       <button class="btn btn-sm btn-light" id="tkPrintClose">Đóng</button></div>
-    <div class="vpaper sqpaper">
+    <div class="vpaper tkpaper">
       <div class="vtop"><div><b>TRUNG TÂM ANH NGỮ AVATAR</b><br/><span>Cơ sở: ${esc(csName(coSoId))}</span></div></div>
       <div class="vtitle">LỊCH DẠY THEO CA</div>
       <div class="vdate">Áp dụng từ ngày ${isoVN(todayISO())}</div>
       <table class="sqtbl">
         <colgroup><col style="width:11%"/>${THU_LIST.map(()=>`<col style="width:${(89/THU_LIST.length).toFixed(2)}%"/>`).join('')}</colgroup>
-        <thead><tr><th>CA</th>${THU_LIST.map(t=>`<th>${THU_DAI[t]}</th>`).join('')}</tr></thead>
+        <thead>${PGPAD(THU_LIST.length+1)}<tr><th>CA</th>${THU_LIST.map(t=>`<th>${THU_DAI[t]}</th>`).join('')}</tr></thead>${PGFOOT(THU_LIST.length+1)}
         <tbody>${body}</tbody></table>
+      <div class="vfoot">
       <div style="text-align:right;font-style:italic;font-size:12.5px;margin-top:10px">Nghệ An, ngày ${now.getDate()} tháng ${now.getMonth()+1} năm ${now.getFullYear()}</div>
       <div class="vsign" style="margin-top:6px">
         <div><b>Người lập biểu</b><small>(Ký, họ tên)</small><div style="height:48px"></div></div>
-        <div><b>Giám đốc</b><small>(Ký, họ tên)</small><div style="height:48px"></div></div></div>
+        <div><b>Giám đốc</b><small>(Ký, họ tên)</small><div style="height:48px"></div></div></div></div>
     </div>`;
-  $('#voucher').classList.add('on'); $('#voucher').classList.add('sq');
-  $('#tkPrintClose').onclick=()=>{$('#voucher').classList.remove('on');$('#voucher').classList.remove('sq');};
+  $('#voucher').classList.remove('sq','tk','dd'); $('#voucher').classList.add('on','tk');
+  $('#tkPrintClose').onclick=()=>{$('#voucher').classList.remove('on');$('#voucher').classList.remove('tk');};
   $('#tkPrintGo').onclick=()=>window.print();
 }
 
@@ -5632,7 +5702,7 @@ function inBangLuong(){
       <td class="c">${g.day}</td><td class="c">${g.bu}</td><td class="c">${g.thay||''}</td>
       <td class="c"><b>${g.ca}</b></td><td class="r">${gia?Math.round(gia).toLocaleString('vi-VN'):''}</td>
       <td class="r">${gia?Math.round(g.ca*gia).toLocaleString('vi-VN'):''}</td></tr>`;}).join('');
-  $('#voucher').innerHTML=`<div class="vbar">
+  $('#voucher').innerHTML=`<div class="vbar">${VHINT('Ngang')}
       <button class="btn btn-sm btn-light" id="blPrint">🖶 In / lưu PDF</button>
       <button class="btn btn-sm btn-light" id="blClose">Đóng</button></div>
     <div class="vpaper sqpaper">
@@ -5642,11 +5712,12 @@ function inBangLuong(){
       <div style="text-align:right;font-style:italic;font-size:12px;margin-bottom:4px">Đơn vị tính: đồng</div>
       <table class="sqtbl">
         <colgroup>${cot.map(c=>`<col style="width:${(c[1]*100/tongW).toFixed(2)}%"/>`).join('')}</colgroup>
-        <thead><tr>${cot.map(c=>`<th>${c[0]}</th>`).join('')}</tr></thead>
+        <thead>${PGPAD(cot.length)}<tr>${cot.map(c=>`<th>${c[0]}</th>`).join('')}</tr></thead>${PGFOOT(cot.length)}
         <tbody>${body||`<tr><td colspan="${cot.length}" style="text-align:center;font-style:italic;padding:14px">Chưa có buổi dạy nào được chấm công trong kỳ.</td></tr>`}
           <tr class="sum"><td colspan="6" class="r">TỔNG CỘNG</td><td class="c">${tongCa}</td><td></td>
             <td class="r"><b>${Math.round(tongTien).toLocaleString('vi-VN')}</b></td></tr>
         </tbody></table>
+      <div class="vfoot">
       <div style="font-style:italic;font-size:12.5px;margin-top:6px">Tổng số tiền bằng chữ: ${docSoVN(tongTien)}</div>
       <div style="font-size:12px;margin-top:4px">Ca thực dạy = lên lớp + dạy bù (không tính buổi nghỉ). Buổi dạy thay được tính công cho người thực dạy.</div>
       <div style="text-align:right;font-style:italic;font-size:12.5px;margin-top:10px">Nghệ An, ngày ${now.getDate()} tháng ${now.getMonth()+1} năm ${now.getFullYear()}</div>
@@ -5654,9 +5725,9 @@ function inBangLuong(){
         <div><b>Người lập biểu</b><small>(Ký, họ tên)</small><div style="height:48px"></div></div>
         <div><b>Kế toán</b><small>(Ký, họ tên)</small><div style="height:48px"></div></div>
         <div><b>Giám đốc</b><small>(Ký, họ tên)</small><div style="height:48px"></div></div>
-      </div>
+      </div></div>
     </div>`;
-  $('#voucher').classList.add('on'); $('#voucher').classList.add('sq');
+  $('#voucher').classList.remove('sq','tk','dd'); $('#voucher').classList.add('on','sq');
   $('#blClose').onclick=()=>{$('#voucher').classList.remove('on');$('#voucher').classList.remove('sq');};
   $('#blPrint').onclick=()=>window.print();
 }
