@@ -614,6 +614,11 @@ tr.pgpad,tfoot.pgpad{display:none}
 /* Lịch dạy theo ca in giấy A4 DỌC (xem chú thích ở khối @media print bên dưới) */
 .tkpaper .sqtbl{font-size:11px}
 .tkpaper .sqtbl th{font-size:10.5px}
+/* ===== BẢN IN NHIỀU TỜ =====
+   Danh sách giáo viên / lớp / học sinh in TÁCH theo từng cơ sở (hoặc từng lớp):
+   mỗi cơ sở là MỘT TỜ riêng để ký và lưu vào hồ sơ của cơ sở đó. Trên màn hình các
+   tờ xếp dọc cách nhau; khi in, mỗi tờ bắt đầu ở một trang mới. */
+.vpaper+.vpaper{margin-top:22px}
 /* Nhắc chọn khổ giấy ngay trên thanh nút — chỉ hiện trên màn hình, không in ra */
 .vhint{margin-right:auto;align-self:center;font-size:.78rem;color:#fff;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.3);padding:5px 11px;border-radius:99px}
 .vhint b{color:#fff}
@@ -635,6 +640,7 @@ tr.pgpad,tfoot.pgpad{display:none}
   .vpaper{box-shadow:none;border-radius:0;padding:12mm;width:185mm;page:vport}
   .voucher.sq,.voucher.tk{padding:0}
   .vpaper.sqpaper{width:275mm;padding:10mm;page:sqland}
+  .vpaper+.vpaper{margin-top:0;page-break-before:always}   /* mỗi tờ (cơ sở/lớp) một trang riêng */
   .sqtbl{font-size:10.5px}
   /* LỊCH DẠY THEO CA in giấy A4 DỌC.
      Trước đây in ngang: máy in ảo "Microsoft Print to PDF" luôn đặt giấy DỌC,
@@ -2333,7 +2339,7 @@ async function renderTaiKhoan(){
   const gvs=GV.filter(g=>g.coSoId===csId).slice().sort((a,b)=>String(a.ten).localeCompare(String(b.ten),'vi'));
   const nCo=gvs.filter(g=>acctByGv[g.id]).length;
   const csSel=`<select class="fsel" id="tkCsSel" style="flex:1;min-width:180px;max-width:100%">${opts.map(c=>`<option value="${c.id}" ${csId===c.id?'selected':''}>${esc(c.ten)}</option>`).join('')}</select>`;
-  let h=`<div class="toolbar">${csSel}<button class="btn btn-sm btn-primary" id="tkBulk" style="white-space:nowrap">＋ Tạo hàng loạt</button><button class="btn btn-sm btn-ghost" id="tkReload" style="white-space:nowrap">↻ Tải lại</button></div>
+  let h=`<div class="toolbar">${csSel}<button class="btn btn-sm btn-primary" id="tkBulk" style="white-space:nowrap">＋ Tạo hàng loạt</button><button class="btn btn-sm btn-light" id="tkPrint" style="white-space:nowrap">🖶 In danh sách</button><button class="btn btn-sm btn-ghost" id="tkReload" style="white-space:nowrap">↻ Tải lại</button></div>
     <div class="panel"><div class="phead"><div style="display:flex;align-items:baseline;gap:8px"><h3>Tài khoản giáo viên</h3><span class="sub">${gvs.length} GV · ${nCo} đã có TK</span></div></div>
     <div class="pbody">
       <p class="muted" style="font-size:.8rem;line-height:1.5;margin:0 2px 12px">Giáo viên đăng nhập chỉ thấy <b>lớp mình phụ trách</b> để <b>ghi danh</b> (thêm HS) và <b>điểm danh</b>. Muốn GV thấy lớp nào: vào <b>Giáo viên → mở hồ sơ → Phụ trách lớp</b> rồi tích lớp cho GV đó.</p>`;
@@ -2359,6 +2365,7 @@ async function renderTaiKhoan(){
   $('#tkCsSel').onchange=e=>{tkCs=e.target.value;renderTaiKhoan();};
   $('#tkReload').onclick=()=>{tkList=null;renderTaiKhoan();};
   $('#tkBulk').onclick=()=>tkBulkCreate();
+  $('#tkPrint').onclick=()=>inDsTaiKhoan(csId,gvs,acctByGv);
   $$('#view [data-new]').forEach(b=>b.onclick=()=>tkCreate(Number(b.dataset.new)));
   $$('#view [data-pw]').forEach(b=>b.onclick=()=>tkResetPw(b.dataset.pw));
   $$('#view [data-ban]').forEach(b=>b.onclick=()=>tkBan(b.dataset.ban,b.dataset.b==='1'));
@@ -2626,6 +2633,16 @@ const HD_HOWTO={
       'Khung tính lương hiện ra: chọn <b>giáo viên</b> + <b>kỳ lương</b> → hệ thống lấy <b>số buổi đã chấm công</b> (lên lớp + dạy bù, không tính buổi nghỉ).',
       'Nhập <b>đơn giá/buổi</b> rồi bấm <b>Tính &amp; điền</b> — số tiền và diễn giải tự điền vào phiếu, người nhận tiền là giáo viên đó.',
       'Số buổi lấy từ chấm công thực tế, nên hãy chốt điểm danh trước khi tính lương.'
+    ]],
+    ['🖶','In danh sách &amp; báo cáo để ký lưu hồ sơ',[
+      'Mọi bản in đều <b>in đúng danh sách đang xem trên màn hình</b> — hãy lọc cơ sở / lớp / khoảng ngày cho gọn <b>trước khi</b> bấm nút in.',
+      '<b>Giáo viên → 🖶 In danh sách</b>: A4 dọc, <b>mỗi cơ sở một tờ riêng</b>, có cột <b>Ký tên</b> để giáo viên ký xác nhận và khối ký cuối trang.',
+      '<b>Lớp học → 🖶 In danh sách</b>: A4 dọc theo từng cơ sở — tên lớp, giáo viên, sĩ số, lịch học, dự thu học phí, có dòng tổng cộng.',
+      '<b>Học sinh → 🖶 In danh sách</b>: A4 dọc, <b>mỗi lớp một tờ</b> (giáo viên phụ trách – lễ tân – giám đốc cùng ký). <b>🖶 In học phí</b>: A4 ngang theo từng cơ sở — học phí, đã đóng, còn phải thu, tổng tiền bằng chữ.',
+      '<b>Cơ sở → 🖶 In tổng hợp</b>: A4 ngang, quy mô và học phí toàn chuỗi (giáo viên, lớp, học sinh, dự thu, đã thu, tỉ lệ thu).',
+      '<b>Báo cáo → 🖶 In chuyên cần</b>: A4 ngang theo đúng kỳ đang chọn. <b>Đối soát → 🖶 In biên bản</b>: biên bản đối soát ca dạy, ba bên ký.',
+      '<b>Tài khoản → 🖶 In danh sách</b>: có cột <b>Ký nhận tài khoản</b> để phát cho giáo viên ký. ⚠ Bản in <b>không có mật khẩu</b> — mật khẩu giao riêng từng người.',
+      'Ở thanh nút phía trên trang xem trước có ghi rõ <b>khổ A4 · hướng Dọc hay Ngang</b> — chọn đúng như thế trong hộp thoại in là ra vừa trang.'
     ]]
   ],
   owner:[
@@ -2679,6 +2696,14 @@ const HD_HOWTO={
       'Em nào <b>học 2 lớp</b> thì ghi <b>2 dòng</b>, mỗi dòng một lớp, <b>cùng họ tên và cùng ngày sinh</b> — hệ thống hiểu là một em học 2 lớp, không báo trùng.',
       'Lưu file → <b>⬆ Nhập Excel</b> → xem trước danh sách → xác nhận. Dòng thiếu họ tên hoặc sai tên lớp sẽ bị bỏ qua và báo rõ số dòng.',
       'Chỉ những dòng <b>trùng tên + trùng ngày sinh + cùng một lớp</b> mới bị chặn — nên up lại file cũ không sợ nhân đôi danh sách.'
+    ]],
+    ['🖶','In danh sách để ký lưu hồ sơ cơ sở',[
+      'Bản in luôn lấy <b>đúng danh sách đang xem</b> — lọc lớp, trạng thái, học phí cho gọn <b>trước khi</b> bấm nút in.',
+      '<b>Học sinh → 🖶 In danh sách</b>: A4 dọc, <b>mỗi lớp một tờ</b>, có ngày sinh, phụ huynh, điện thoại, ngày nhập học; cuối tờ là chỗ ký của giáo viên phụ trách và lễ tân.',
+      '<b>Học sinh → 🖶 In học phí</b>: A4 ngang — học phí, đã đóng, còn phải thu của từng em, có tổng cộng và tổng tiền bằng chữ để đối chiếu với sổ quỹ.',
+      '<b>Giáo viên → 🖶 In danh sách</b> và <b>Lớp học → 🖶 In danh sách</b>: A4 dọc, dùng để lưu hồ sơ cơ sở đầu năm học.',
+      '<b>Đối soát → 🖶 In biên bản</b>: in biên bản đối soát ca dạy theo trạng thái đang lọc để giáo viên và lễ tân cùng ký.',
+      'Thanh nút phía trên trang xem trước ghi rõ <b>khổ A4 · hướng Dọc hay Ngang</b> — chọn đúng như vậy khi in.'
     ]]
   ],
   teacher:[
@@ -3028,6 +3053,7 @@ function renderGV(){
   let h=`<div class="toolbar">
     <div class="search">${svg(IC.search,2)}<input id="gvq" placeholder="Tìm theo tên, SĐT, địa chỉ…" value="${esc(gvSearch)}"/></div>
     ${USER.role==='admin'?`<select class="fsel" id="gvcs"><option value="all">Tất cả cơ sở</option>${opts.map(c=>`<option value="${c.id}" ${String(gvCs)===String(c.id)?'selected':''}>${esc(c.ten)}</option>`).join('')}</select>`:''}
+    <button class="btn btn-sm btn-light" id="gvPrint" style="white-space:nowrap">🖶 In danh sách</button>
     ${gvLive?`<button class="btn btn-sm btn-ghost" id="gvTpl" style="white-space:nowrap">⬇ Tải mẫu Excel</button>
     <button class="btn btn-sm btn-ghost" id="gvImp" style="white-space:nowrap">⬆ Nhập Excel</button>
     <button class="btn btn-sm btn-primary" id="gvAdd" style="white-space:nowrap">＋ Thêm giáo viên</button>`:''}
@@ -3070,6 +3096,10 @@ function renderGV(){
   const ga=$('#gvAdd'); if(ga)ga.onclick=openGvNew;
   const gt=$('#gvTpl'); if(gt)gt.onclick=gvDownloadTemplate;
   const gi=$('#gvImp'); if(gi)gi.onclick=gvImportExcel;
+  /* In danh sách giáo viên — in ĐÚNG danh sách đang xem, tách theo từng cơ sở để ký lưu */
+  const gp=$('#gvPrint'); if(gp)gp.onclick=()=>inDsGiaoVien(list,
+    [gvMon==='TA'?'Môn Tiếng Anh':gvMon==='VH'?'Môn Văn hóa':'', gvSearch.trim()?('tìm "'+gvSearch.trim()+'"'):'']
+      .filter(Boolean).join(' · '));
   bindGVRows();
 }
 function refreshGVTable(){renderGV();$('#gvq').focus();const v=$('#gvq').value;$('#gvq').setSelectionRange(v.length,v.length);}
@@ -3250,6 +3280,7 @@ function renderCoso(){
   </div>
   <div class="toolbar">
     ${csLive?`<button class="btn btn-sm btn-primary" id="csAdd" style="white-space:nowrap">＋ Thêm cơ sở</button>`:''}
+    <button class="btn btn-sm btn-light" id="csPrint" style="white-space:nowrap">🖶 In tổng hợp</button>
     <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
     <small class="muted" style="font-weight:700">Sắp xếp:</small>
     <select class="fsel" id="cssort">${[['thu','Dự thu cao nhất'],['hs','Học sinh nhiều nhất'],['gv','Giáo viên nhiều nhất'],['ten','Tên A→Z']].map(([k,t])=>`<option value="${k}" ${csSort===k?'selected':''}>${t}</option>`).join('')}</select>
@@ -3280,6 +3311,7 @@ function renderCoso(){
   h+='</div>';
   $('#view').innerHTML=h;
   $('#cssort').onchange=e=>{csSort=e.target.value;renderCoso();};
+  const cp=$('#csPrint'); if(cp)cp.onclick=()=>inTongHopCoSo();
   const ca2=$('#csAdd'); if(ca2)ca2.onclick=()=>openCoSo(null);
   $$('#view .cscard[data-cs]').forEach(el=>el.onclick=()=>{
     csDetailId=Number(el.dataset.cs); renderCoso();
@@ -3424,6 +3456,7 @@ function renderLop(){
   let h=`<div class="toolbar">
     <div class="search">${svg(IC.search,2)}<input id="lopq" placeholder="Tìm lớp hoặc giáo viên…" value="${esc(lopSearch)}"/></div>
     ${USER.role==='admin'?`<select class="fsel" id="lopcs"><option value="all">Tất cả cơ sở</option>${opts.map(c=>`<option value="${c.id}" ${String(lopCs)===String(c.id)?'selected':''}>${esc(c.ten)}</option>`).join('')}</select>`:''}
+    <button class="btn btn-sm btn-light" id="lopPrint" style="white-space:nowrap">🖶 In danh sách</button>
     ${gvLive?`<button class="btn btn-sm btn-primary" id="lopAdd" style="white-space:nowrap">＋ Thêm lớp</button>`:''}
   </div>`;
   h+=`<div class="panel"><div class="phead"><h3>Danh sách lớp học</h3><span class="sub">${list.length} lớp · ${hs} HS · dự thu ${fmtShort(thu)}${gvLive?' · bấm dòng để sửa':''}</span></div>
@@ -3440,6 +3473,7 @@ function renderLop(){
   $('#view').innerHTML=h;
   $('#lopq').oninput=e=>{lopSearch=e.target.value;const v=e.target.value;renderLop();$('#lopq').focus();$('#lopq').setSelectionRange(v.length,v.length);};
   const cs=$('#lopcs'); if(cs)cs.onchange=e=>{lopCs=e.target.value;renderLop();};
+  const lp=$('#lopPrint'); if(lp)lp.onclick=()=>inDsLop(list);
   const la=$('#lopAdd'); if(la)la.onclick=openLopNew;
   if(gvLive)$$('#view .lopRow').forEach(r=>r.onclick=()=>{const l=LOP.find(x=>x.id===Number(r.dataset.lid));if(l)openLopEdit(l);});
 }
@@ -4280,6 +4314,8 @@ function renderHocVien(){
   </div>
   <div class="panel"><div class="phead"><div style="display:flex;align-items:baseline;gap:8px"><h3>Hồ sơ học sinh</h3><span class="sub">${soNguoi} học sinh${list.length>soNguoi?' · '+list.length+' lượt ghi danh':''}</span></div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
+      ${list.length?`<button class="btn btn-sm btn-light" id="hvPrint" style="white-space:nowrap">🖶 In danh sách</button>
+      <button class="btn btn-sm btn-light" id="hvPrintHP" style="white-space:nowrap">🖶 In học phí</button>`:''}
       ${isAdmin&&list.length?`<button class="btn btn-sm ${hvSelMode?'btn-primary':'btn-light'}" id="hvPick" style="white-space:nowrap">${hvSelMode?'✕ Thoát chọn':'☑ Chọn nhiều'}</button>`:''}
       ${mauList.length?`<button class="btn btn-sm btn-light" id="hvClean" style="color:var(--rose);white-space:nowrap">🧹 Dọn ${mauList.length} HS mẫu</button>`:''}
     </div></div>
@@ -4343,6 +4379,9 @@ function renderHocVien(){
   const xn=$('#hvXemNhieu'); if(xn)xn.onclick=()=>{hvNhieu=!hvNhieu;renderHocVien();};
   const tg=$('#toGhi2'); if(tg)tg.onclick=()=>go('ghidanh');
   const cl=$('#hvClean'); if(cl)cl.onclick=()=>cleanMauHV(mauList);
+  /* In hồ sơ học sinh: danh sách lớp (mỗi lớp một tờ) và bảng theo dõi học phí (mỗi cơ sở một tờ) */
+  const hp1=$('#hvPrint'); if(hp1)hp1.onclick=()=>inDsHocSinh(list);
+  const hp2=$('#hvPrintHP'); if(hp2)hp2.onclick=()=>inHocPhi(list);
   $$('#view [data-edit]').forEach(b=>b.onclick=()=>{const hv=OPS.hv.find(x=>x.id===Number(b.dataset.edit));if(hv)openHvEdit(hv);});
   /* ----- chọn nhiều học sinh để xóa hàng loạt ----- */
   const pk=$('#hvPick'); if(pk)pk.onclick=()=>{hvSelMode=!hvSelMode;if(!hvSelMode)hvSel.clear();renderHocVien();};
@@ -4938,7 +4977,7 @@ function renderDuyet(){
   const shown=f==='all'?list:list.filter(x=>x.st===f);
   const fopts=[['cho_duyet','Chờ đối soát ('+cnt.cho+')'],['da_doi_soat','Đã đối soát ('+cnt.soat+')'],['da_chot','Đã chốt ('+cnt.chot+')'],['all','Tất cả ('+list.length+')']];
   const fsel=`<select class="fsel" id="dzFilter" style="flex:1;min-width:180px;max-width:100%">${fopts.map(([k,t])=>`<option value="${k}" ${f===k?'selected':''}>${t}</option>`).join('')}</select>`;
-  let h=`<div class="toolbar">${fsel}<button class="btn btn-sm btn-ghost" id="dzReload" style="white-space:nowrap">↻ Tải lại</button></div>
+  let h=`<div class="toolbar">${fsel}<button class="btn btn-sm btn-light" id="dzPrint" style="white-space:nowrap">🖶 In biên bản</button><button class="btn btn-sm btn-ghost" id="dzReload" style="white-space:nowrap">↻ Tải lại</button></div>
    <div class="panel"><div class="phead"><h3>${isAdm?'Chốt số liệu ca dạy':'Đối soát điểm danh'}</h3><span class="sub">${shown.length} ca</span></div>
    <div class="pbody">
      <p class="muted" style="font-size:.8rem;margin:0 2px 10px">${isAdm?'Kiểm tra ca <b>Đã đối soát</b> rồi bấm <b>Chốt</b> để khóa số liệu. Bấm tên ca để xem chi tiết.':'Kiểm tra ca <b>Chờ đối soát</b> (GV vừa gửi) rồi bấm <b>Chấp nhận</b>. Bấm tên ca để xem chi tiết.'}</p>`;
@@ -4961,6 +5000,8 @@ function renderDuyet(){
   $('#view').innerHTML=h;
   $('#dzFilter').onchange=e=>{duyetFilter=e.target.value;renderDuyet();};
   $('#dzReload').onclick=async()=>{try{await loadCloud();}catch(e){}renderDuyet();};
+  /* In biên bản đối soát đúng nhóm ca đang xem (theo bộ lọc trạng thái ở trên) */
+  $('#dzPrint').onclick=()=>inDoiSoat(shown,(fopts.find(o=>o[0]===f)||[])[1]||'Tất cả');
   $$('#view [data-open]').forEach(b=>b.onclick=()=>{const a=b.dataset.open.split('|');ddLopId=Number(a[0]);ddDate=a[1];go('diemdanh');});
   $$('#view [data-accept]').forEach(b=>b.onclick=async()=>{const a=b.dataset.accept.split('|');const lop=LOP.find(x=>x.id===Number(a[0]));const r=await caSetState(Number(a[0]),a[1],lop.coSoId,'da_doi_soat');if(r.error){avaAlert('Lỗi: '+r.error);return;}renderDuyet();});
   $$('#view [data-chot]').forEach(b=>b.onclick=async()=>{const a=b.dataset.chot.split('|');if(!await avaConfirm('Chốt số liệu ca này? Sau khi chốt sẽ khóa.'))return;const lop=LOP.find(x=>x.id===Number(a[0]));const r=await caSetState(Number(a[0]),a[1],lop.coSoId,'da_chot');if(r.error){avaAlert('Lỗi: '+r.error);return;}renderDuyet();});
@@ -5494,6 +5535,311 @@ function inLichTuan(coSoId,lops){
   $('#tkPrintGo').onclick=()=>window.print();
 }
 
+/* ==========================================================================
+   TRUNG TÂM IN ẤN — CÁC BẢN IN A4 ĐỂ KÝ VÀ LƯU HỒ SƠ
+   Mọi bản in ở đây dùng chung một khuôn: khối đầu (tên trung tâm + cơ sở) →
+   tiêu đề → dòng thông tin → bảng kẻ ô → tổng hợp → ngày tháng → khối ký.
+   Danh sách nhiều cơ sở được TÁCH THÀNH NHIỀU TỜ, mỗi cơ sở (hoặc mỗi lớp) một
+   tờ riêng — in ra là ký lưu được ngay vào hồ sơ của đơn vị đó.
+
+   Cách dùng: dựng mảng tờ bằng toIn({...}) rồi gọi moBanIn('Dọc'|'Ngang', tos).
+   Định nghĩa cột: {t:'tiêu đề', w:bề rộng %, a:'c'|'r' (mặc định trái),
+                    b:true (in đậm), stt:true (tự đánh số thứ tự)}.
+   ========================================================================== */
+const KY_LAP_GD=[['Người lập biểu','(Ký, họ tên)'],['Giám đốc','(Ký, họ tên)']];
+const KY_KE_TOAN=[['Người lập biểu','(Ký, họ tên)'],['Kế toán','(Ký, họ tên)'],['Giám đốc','(Ký, họ tên)']];
+/* Gom một danh sách thành từng cơ sở, giữ đúng thứ tự cơ sở của hệ thống (cơ sở chính đứng đầu) */
+function nhomTheoCoSo(arr){
+  const m=new Map();
+  arr.forEach(x=>{ const k=x.coSoId; if(!m.has(k))m.set(k,[]); m.get(k).push(x); });
+  return [...m.entries()].sort((a,b)=>csCmp(a[0],b[0])).map(([coSoId,ds])=>({coSoId,ds}));
+}
+/* Số lớp một giáo viên đang phụ trách (khớp theo mã GV, dữ liệu cũ thì khớp theo tên) */
+const soLopCuaGV=g=>LOP.filter(l=>l.coSoId===g.coSoId &&
+  ((g.id!=null&&l.gvId===g.id)||(!!l.gv&&String(l.gv).trim()===String(g.ten).trim()))).length;
+/* Số tiền học phí ĐÃ THU của từng em, tính từ phiếu thu trong sổ quỹ (cùng cách với hpStat).
+   Em nào chưa có phiếu thu nào thì lấy số ghi ở hồ sơ (dữ liệu nhập tay thời kỳ đầu). */
+function tienDaDong(){
+  const m={};
+  OPS.gd.forEach(g=>{ if(g.loai==='thu'&&g.hvId!=null) m[g.hvId]=(m[g.hvId]||0)+(g.soTien||0); });
+  return h=>{ const raw=(m[h.id]!=null)?m[h.id]:(Number(h.soTienDong)||0);
+    return Math.min(raw, h.hocPhi||0); };
+}
+/* Dựng MỘT TỜ in A4 hoàn chỉnh.
+   t = {tieuDe, coSo, sub, meta:[[nhãn,giá trị]], cot:[], rows:[[…]], tong:{span,nhan,o:[]},
+        ghiChu:[], ky:[[chức danh,chú thích]], trong:'câu hiện khi bảng rỗng', ngang:bool} */
+function toIn(t){
+  const now=new Date(), cot=t.cot, nC=cot.length;
+  const tongW=cot.reduce((s,c)=>s+(c.w||10),0);
+  const cls=c=>c.a==='c'?' class="c"':c.a==='r'?' class="r"':'';
+  const o=(c,v)=>{const s=(v==null||v==='')?'':esc(v); return c.b&&s?`<b>${s}</b>`:s;};
+  const body=t.rows.length
+    ? t.rows.map((r,i)=>{ let j=0;
+        return `<tr>${cot.map(c=>`<td${cls(c)}>${o(c,c.stt?i+1:r[j++])}</td>`).join('')}</tr>`; }).join('')
+    : `<tr><td colspan="${nC}" style="text-align:center;font-style:italic;padding:14px">${esc(t.trong||'Chưa có dữ liệu.')}</td></tr>`;
+  let tong='';
+  if(t.tong&&t.rows.length){
+    const con=cot.slice(t.tong.span);
+    tong=`<tr class="sum"><td colspan="${t.tong.span}" class="r">${esc(t.tong.nhan||'TỔNG CỘNG')}</td>`
+      + con.map((c,i)=>`<td${cls(c)}>${t.tong.o[i]==null?'':`<b>${esc(t.tong.o[i])}</b>`}</td>`).join('') + `</tr>`;
+  }
+  const ky=(t.ky||KY_LAP_GD);
+  return `<div class="vpaper${t.ngang?' sqpaper':''}">
+      <div class="vtop"><div><b>TRUNG TÂM ANH NGỮ AVATAR</b><br/><span>Cơ sở: ${esc(t.coSo||'Toàn hệ thống')}</span></div></div>
+      <div class="vtitle">${esc(t.tieuDe)}</div>
+      ${t.sub?`<div class="vdate">${esc(t.sub)}</div>`:''}
+      ${(t.meta&&t.meta.length)?`<div class="ddmeta">${t.meta.filter(m=>m&&m[1]).map(m=>`<div><b>${esc(m[0])}:</b> ${esc(m[1])}</div>`).join('')}</div>`:''}
+      <table class="sqtbl">
+        <colgroup>${cot.map(c=>`<col style="width:${((c.w||10)*100/tongW).toFixed(2)}%"/>`).join('')}</colgroup>
+        <thead>${PGPAD(nC)}<tr>${cot.map(c=>`<th>${esc(c.t)}</th>`).join('')}</tr></thead>${PGFOOT(nC)}
+        <tbody>${body}${tong}</tbody>
+      </table>
+      <div class="vfoot">
+        ${(t.ghiChu||[]).filter(Boolean).map(g=>`<div style="font-size:12.5px;margin-top:6px">${g}</div>`).join('')}
+        <div style="text-align:right;font-style:italic;font-size:12.5px;margin-top:10px">Quảng Châu, ngày ${now.getDate()} tháng ${now.getMonth()+1} năm ${now.getFullYear()}</div>
+        <div class="vsign" style="margin-top:6px">
+          ${ky.map(k=>`<div><b>${esc(k[0])}</b><small>${esc(k[1]||'(Ký, họ tên)')}</small><div style="height:48px"></div></div>`).join('')}
+        </div>
+      </div>
+    </div>`;
+}
+/* Mở cửa sổ xem trước bản in. huong = 'Dọc' | 'Ngang' (quyết định luôn khổ giấy khi in). */
+function moBanIn(huong,tos){
+  const ngang=(huong==='Ngang');
+  const v=$('#voucher');
+  v.innerHTML=`<div class="vbar">${VHINT(huong)}
+      <button class="btn btn-sm btn-light" id="prGo">🖶 In / lưu PDF</button>
+      <button class="btn btn-sm btn-light" id="prClose">Đóng</button></div>`+tos.join('');
+  v.classList.remove('sq','tk','dd');
+  v.classList.add('on'); if(ngang)v.classList.add('sq');
+  $('#prClose').onclick=()=>v.classList.remove('on','sq');
+  $('#prGo').onclick=()=>window.print();
+}
+/* Bản in tách quá nhiều tờ (VD danh sách học sinh của cả trăm lớp) hoặc quá dài
+   thì hỏi lại — vừa tốn giấy, vừa làm máy chậm khi dựng trang xem trước. */
+async function xacNhanNhieuTo(n,donVi,soDong){
+  const nhieuTo=n>20, dai=(soDong||0)>1500;
+  if(!nhieuTo&&!dai)return true;
+  const ly=[nhieuTo?`${n} tờ (mỗi ${donVi} một tờ riêng để ký lưu)`:'',dai?`${soDong} dòng`:''].filter(Boolean).join(' · ');
+  return await avaConfirm(`Bản in này rất lớn: ${ly}.\n\nMáy có thể chậm vài giây khi dựng trang xem trước. Nên lọc lại phạm vi (chọn cơ sở hoặc lớp cụ thể) cho gọn trước khi in.\n\nVẫn tiếp tục?`,{okText:'Vẫn in'});
+}
+
+/* ===== 1) DANH SÁCH GIÁO VIÊN — A4 dọc, mỗi cơ sở một tờ ===== */
+async function inDsGiaoVien(list,ghiChuLoc){
+  if(!list.length){avaAlert('Không có giáo viên nào trong danh sách đang xem để in.');return;}
+  const nhom=nhomTheoCoSo(list);
+  if(!await xacNhanNhieuTo(nhom.length,'cơ sở',list.length))return;
+  const cot=[{t:'TT',w:5,a:'c',stt:true},{t:'HỌ VÀ TÊN',w:21,b:true},{t:'NGÀY SINH',w:11,a:'c'},
+    {t:'MÔN',w:10,a:'c'},{t:'TRÌNH ĐỘ',w:15},{t:'ĐIỆN THOẠI',w:12,a:'c'},{t:'SỐ LỚP',w:7,a:'c'},{t:'KÝ TÊN',w:19}];
+  const tos=nhom.map(({coSoId,ds})=>toIn({
+    tieuDe:'DANH SÁCH GIÁO VIÊN', coSo:csName(coSoId),
+    sub:'Số liệu tính đến ngày '+isoVN(todayISO()),
+    meta:[['Tổng số',ds.length+' giáo viên'],['Phạm vi lọc',ghiChuLoc||'']],
+    cot, rows:ds.slice().sort((a,b)=>String(a.ten).localeCompare(String(b.ten),'vi'))
+      .map(g=>[g.ten,g.ns||'',g.mon==='TA'?'Tiếng Anh':'Văn hóa',g.td||'',g.sdt||'',soLopCuaGV(g)||'',''] ),
+    trong:'Cơ sở này chưa có giáo viên.',
+    ghiChu:['Giáo viên ký xác nhận thông tin cá nhân và số lớp được phân công trong danh sách này.'],
+    ky:KY_LAP_GD }));
+  moBanIn('Dọc',tos);
+}
+
+/* ===== 2) DANH SÁCH LỚP HỌC — A4 dọc, mỗi cơ sở một tờ ===== */
+async function inDsLop(list){
+  if(!list.length){avaAlert('Không có lớp nào trong danh sách đang xem để in.');return;}
+  const nhom=nhomTheoCoSo(list);
+  if(!await xacNhanNhieuTo(nhom.length,'cơ sở',list.length))return;
+  const cot=[{t:'TT',w:5,a:'c',stt:true},{t:'TÊN LỚP',w:15,b:true},{t:'MÔN',w:9,a:'c'},
+    {t:'GIÁO VIÊN PHỤ TRÁCH',w:20},{t:'SĨ SỐ',w:7,a:'c'},{t:'LỊCH HỌC',w:24},{t:'DỰ THU HỌC PHÍ',w:20,a:'r'}];
+  const tos=nhom.map(({coSoId,ds})=>{
+    const arr=ds.slice().sort((a,b)=>String(a.lop).localeCompare(String(b.lop),'vi'));
+    const tSiSo=arr.reduce((s,l)=>s+hvOfLop(l.id).filter(hvActive).length,0);
+    const tThu=arr.reduce((s,l)=>s+lopHP(l.id),0);
+    return toIn({
+      tieuDe:'DANH SÁCH LỚP HỌC', coSo:csName(coSoId),
+      sub:'Số liệu tính đến ngày '+isoVN(todayISO()),
+      meta:[['Tổng số',arr.length+' lớp'],['Học sinh',tSiSo+' em']],
+      cot,
+      rows:arr.map(l=>[l.lop||'',l.mon==='TA'?'Tiếng Anh':'Văn hóa',
+        gvCuaLop(l.id).join(', ')||l.gv||'(chưa phân công)',
+        hvOfLop(l.id).filter(hvActive).length,
+        lichTomTat(l.id)||'(chưa xếp lịch)',
+        lopHP(l.id)?Math.round(lopHP(l.id)).toLocaleString('vi-VN'):'']),
+      tong:{span:4,nhan:'TỔNG CỘNG',o:[tSiSo,'',tThu?Math.round(tThu).toLocaleString('vi-VN'):'']},
+      trong:'Cơ sở này chưa có lớp học.',
+      ghiChu:[`Dự thu học phí toàn cơ sở: <b>${fmtVND(tThu)}</b> — ${docSoVN(tThu)}`],
+      ky:KY_LAP_GD });
+  });
+  moBanIn('Dọc',tos);
+}
+
+/* ===== 3) DANH SÁCH HỌC SINH — A4 dọc, mỗi LỚP một tờ =====
+   In theo lớp chứ không theo cơ sở: danh sách lớp là thứ giáo viên chủ nhiệm ký,
+   dán ở lớp và lưu trong hồ sơ lớp. */
+async function inDsHocSinh(list){
+  if(!list.length){avaAlert('Không có học sinh nào trong danh sách đang xem để in.');return;}
+  const m=new Map();
+  list.forEach(h=>{ if(!m.has(h.lopId))m.set(h.lopId,[]); m.get(h.lopId).push(h); });
+  const nhom=[...m.entries()].map(([lopId,ds])=>({lop:LOP.find(l=>l.id===lopId),lopId,ds}))
+    .sort((a,b)=>csCmp(a.lop?a.lop.coSoId:999,b.lop?b.lop.coSoId:999)
+      ||String(a.lop&&a.lop.lop).localeCompare(String(b.lop&&b.lop.lop),'vi'));
+  if(!await xacNhanNhieuTo(nhom.length,'lớp',list.length))return;
+  const cot=[{t:'TT',w:5,a:'c',stt:true},{t:'HỌ VÀ TÊN HỌC SINH',w:23,b:true},{t:'NGÀY SINH',w:11,a:'c'},
+    {t:'HỌ TÊN PHỤ HUYNH',w:20},{t:'ĐIỆN THOẠI',w:12,a:'c'},{t:'NHẬP HỌC',w:11,a:'c'},{t:'GHI CHÚ',w:18}];
+  const tos=nhom.map(({lop,ds})=>{
+    const arr=ds.slice().sort((a,b)=>String(a.ten).localeCompare(String(b.ten),'vi'));
+    const nDangHoc=arr.filter(hvActive).length;
+    return toIn({
+      tieuDe:'DANH SÁCH HỌC SINH', coSo:lop?csName(lop.coSoId):'—',
+      sub:'Số liệu tính đến ngày '+isoVN(todayISO()),
+      meta:[['Lớp',lop?lopNhan(lop):'(không rõ lớp)'],
+        ['Giáo viên phụ trách',lop?(gvCuaLop(lop.id).join(', ')||lop.gv||'(chưa phân công)'):''],
+        ['Lịch học',lop?(lichTomTat(lop.id)||'(chưa xếp lịch)'):''],
+        ['Sĩ số',nDangHoc+' em đang học'+(arr.length>nDangHoc?' · '+(arr.length-nDangHoc)+' em đã thôi học':'')]],
+      cot,
+      rows:arr.map(h=>[h.ten,h.ns||'',h.ph||'',h.sdt||'',h.ngayNhapHoc?isoVN(h.ngayNhapHoc):'',
+        hvActive(h)?'':('Thôi học'+(h.ngayThoiHoc?' '+isoVN(h.ngayThoiHoc):'')+(h.lyDo?' · '+h.lyDo:''))]),
+      trong:'Lớp này chưa có học sinh.',
+      ky:[['Giáo viên phụ trách','(Ký, họ tên)'],['Lễ tân cơ sở','(Ký, họ tên)'],['Giám đốc','(Ký, họ tên)']] });
+  });
+  moBanIn('Dọc',tos);
+}
+
+/* ===== 4) BẢNG THEO DÕI HỌC PHÍ — A4 ngang, mỗi cơ sở một tờ ===== */
+async function inHocPhi(list){
+  const ds=list.filter(hvActive);
+  if(!ds.length){avaAlert('Không có học sinh đang học nào trong danh sách đang xem để in bảng học phí.');return;}
+  const nhom=nhomTheoCoSo(ds);
+  if(!await xacNhanNhieuTo(nhom.length,'cơ sở',ds.length))return;
+  const daDong=tienDaDong();
+  const cot=[{t:'TT',w:4,a:'c',stt:true},{t:'HỌ VÀ TÊN HỌC SINH',w:17,b:true},{t:'LỚP',w:11},
+    {t:'PHỤ HUYNH',w:14},{t:'ĐIỆN THOẠI',w:9,a:'c'},{t:'HỌC PHÍ',w:10,a:'r'},{t:'ĐÃ ĐÓNG',w:10,a:'r'},
+    {t:'CÒN PHẢI THU',w:10,a:'r'},{t:'NGÀY ĐÓNG',w:8,a:'c'},{t:'GHI CHÚ',w:7}];
+  const vnd=n=>n?Math.round(n).toLocaleString('vi-VN'):'';
+  const tos=nhom.map(({coSoId,ds:arr0})=>{
+    const arr=arr0.slice().sort((a,b)=>String(lopName(a.lopId)).localeCompare(String(lopName(b.lopId)),'vi')
+      ||String(a.ten).localeCompare(String(b.ten),'vi'));
+    let tHP=0,tDa=0;
+    const rows=arr.map(h=>{ const hp=h.hocPhi||0, sd=daDong(h), con=Math.max(0,hp-sd);
+      tHP+=hp; tDa+=sd;
+      return [h.ten,lopName(h.lopId),h.ph||'',h.sdt||'',vnd(hp),vnd(sd),vnd(con),
+        h.ngayDong?isoVN(h.ngayDong):'', sd<=0?'Chưa đóng':(con>0?'Còn nợ':'Đủ')];
+    });
+    const tCon=Math.max(0,tHP-tDa);
+    return toIn({ ngang:true,
+      tieuDe:'BẢNG THEO DÕI THU HỌC PHÍ', coSo:csName(coSoId),
+      sub:'Số liệu tính đến ngày '+isoVN(todayISO()),
+      meta:[['Tổng số',arr.length+' học sinh đang học'],
+        ['Đã thu',fmtVND(tDa)],['Còn phải thu',fmtVND(tCon)]],
+      cot, rows,
+      tong:{span:5,nhan:'TỔNG CỘNG',o:[vnd(tHP),vnd(tDa),vnd(tCon),'','']},
+      trong:'Cơ sở này chưa có học sinh đang học.',
+      ghiChu:[`Tổng số tiền đã thu bằng chữ: <i>${docSoVN(tDa)}</i>`,
+        'Số đã đóng lấy theo phiếu thu trong sổ quỹ; em nào chưa có phiếu thì lấy số ghi ở hồ sơ học sinh.'],
+      ky:KY_KE_TOAN });
+  });
+  moBanIn('Ngang',tos);
+}
+
+/* ===== 5) BÁO CÁO CHUYÊN CẦN HỌC SINH — A4 ngang, một tờ theo phạm vi đang xem ===== */
+function inChuyenCan(){
+  const isAdm=USER.role==='admin', D=bcCollect();
+  if(!D.hsRows.length){avaAlert('Chưa có dữ liệu điểm danh trong khoảng thời gian đang chọn.');return;}
+  const phamVi=isAdm?(scope==='all'?'Toàn hệ thống':csName(Number(scope))):csName(USER.coSoId);
+  const cot=[{t:'TT',w:4,a:'c',stt:true},{t:'HỌ VÀ TÊN HỌC SINH',w:20,b:true}];
+  if(isAdm)cot.push({t:'CƠ SỞ',w:14});
+  cot.push({t:'LỚP',w:14},{t:'SỐ BUỔI',w:8,a:'c'},{t:'CÓ MẶT',w:8,a:'c'},{t:'MUỘN',w:7,a:'c'},
+    {t:'PHÉP',w:7,a:'c'},{t:'VẮNG',w:7,a:'c'},{t:'CHUYÊN CẦN',w:11,a:'r'});
+  const rows=D.hsRows.map(r=>{
+    const c=[r.ten]; if(isAdm)c.push(r.coSoId!=null?csName(r.coSoId):'—');
+    c.push(r.lop,r.tot,r.co,r.muon,r.phep,r.vang,r.pct+'%'); return c; });
+  const S=D.hsRows.reduce((a,r)=>{a.tot+=r.tot;a.co+=r.co;a.muon+=r.muon;a.phep+=r.phep;a.vang+=r.vang;return a;},
+    {tot:0,co:0,muon:0,phep:0,vang:0});
+  const ccPct=S.tot?Math.round((S.co+S.muon)/S.tot*100):0;
+  moBanIn('Ngang',[toIn({ ngang:true,
+    tieuDe:'BÁO CÁO CHUYÊN CẦN HỌC SINH', coSo:phamVi,
+    sub:`Kỳ báo cáo: ${isoVN(bcFrom)} – ${isoVN(bcTo)}`,
+    meta:[['Số học sinh',D.hsRows.length+' em'],['Số buổi điểm danh',String(D.totBuoi)],
+      ['Lượt có mặt (kể cả muộn)',(S.co+S.muon)+'/'+S.tot],['Chuyên cần chung',ccPct+'%'],
+      ['Lớp',bcLop==='all'?'Tất cả lớp':lopName(Number(bcLop))]],
+    cot, rows,
+    tong:{span:isAdm?4:3,nhan:'TỔNG CỘNG',o:[S.tot,S.co,S.muon,S.phep,S.vang,ccPct+'%']},
+    ghiChu:['Chuyên cần = (có mặt + muộn) / tổng số lượt điểm danh của em đó trong kỳ.'],
+    ky:KY_LAP_GD })]);
+}
+
+/* ===== 6) BIÊN BẢN ĐỐI SOÁT CA DẠY — A4 ngang ===== */
+function inDoiSoat(shown,tenLoc){
+  if(!shown.length){avaAlert('Không có ca nào trong danh sách đang xem để in.');return;}
+  const isAdm=USER.role==='admin';
+  const phamVi=isAdm?(scope==='all'?'Toàn hệ thống':csName(Number(scope))):csName(USER.coSoId);
+  const cot=[{t:'TT',w:4,a:'c',stt:true},{t:'NGÀY DẠY',w:10,a:'c'},{t:'LỚP',w:15,b:true}];
+  if(isAdm)cot.push({t:'CƠ SỞ',w:13});
+  cot.push({t:'GIÁO VIÊN',w:17},{t:'CÓ MẶT',w:8,a:'c'},{t:'SĨ SỐ ĐIỂM DANH',w:9,a:'c'},
+    {t:'CHUYÊN CẦN',w:9,a:'r'},{t:'TRẠNG THÁI',w:15,a:'c'});
+  const ds=shown.slice().sort((a,b)=>(a.ngay<b.ngay?1:a.ngay>b.ngay?-1:0));
+  const rows=ds.map(x=>{
+    const c=[isoVN(x.ngay),x.lop.lop]; if(isAdm)c.push(csName(x.lop.coSoId));
+    c.push(gvTenBuoi(x.lopId,x.ngay),x.co,x.tot,(x.tot?Math.round(x.co/x.tot*100):0)+'%',CA_LABEL[x.st]||'Chưa gửi');
+    return c; });
+  const tCo=ds.reduce((s,x)=>s+x.co,0), tTot=ds.reduce((s,x)=>s+x.tot,0);
+  moBanIn('Ngang',[toIn({ ngang:true,
+    tieuDe:'BIÊN BẢN ĐỐI SOÁT CA DẠY', coSo:phamVi,
+    sub:'Lập ngày '+isoVN(todayISO()),
+    meta:[['Số ca',ds.length+' ca'],['Trạng thái lọc',tenLoc||'Tất cả'],
+      ['Khoảng ngày',ds.length?isoVN(ds[ds.length-1].ngay)+' – '+isoVN(ds[0].ngay):'']],
+    cot, rows,
+    tong:{span:isAdm?5:4,nhan:'TỔNG CỘNG',o:[tCo,tTot,(tTot?Math.round(tCo/tTot*100):0)+'%','']},
+    ghiChu:['Các bên ký dưới đây xác nhận số liệu điểm danh và công dạy của những ca nêu trên là đúng thực tế.'],
+    ky:[['Giáo viên','(Ký, họ tên)'],['Lễ tân đối soát','(Ký, họ tên)'],['Quản trị chốt số liệu','(Ký, họ tên)']] })]);
+}
+
+/* ===== 7) DANH SÁCH TÀI KHOẢN GIÁO VIÊN — A4 dọc, một cơ sở một tờ =====
+   KHÔNG in mật khẩu: mật khẩu chỉ hiện một lần lúc tạo, hệ thống không lưu lại. */
+function inDsTaiKhoan(csId,gvs,acctByGv){
+  if(!gvs.length){avaAlert('Cơ sở này chưa có giáo viên để in.');return;}
+  const cot=[{t:'TT',w:5,a:'c',stt:true},{t:'HỌ VÀ TÊN GIÁO VIÊN',w:24,b:true},{t:'TÊN ĐĂNG NHẬP',w:24},
+    {t:'SỐ LỚP',w:8,a:'c'},{t:'TRẠNG THÁI',w:15,a:'c'},{t:'KÝ NHẬN TÀI KHOẢN',w:24}];
+  const nCo=gvs.filter(g=>acctByGv[g.id]).length;
+  moBanIn('Dọc',[toIn({
+    tieuDe:'DANH SÁCH TÀI KHOẢN GIÁO VIÊN', coSo:csName(csId),
+    sub:'Số liệu tính đến ngày '+isoVN(todayISO()),
+    meta:[['Tổng số',gvs.length+' giáo viên'],['Đã có tài khoản',nCo+' người']],
+    cot,
+    rows:gvs.map(g=>{ const a=acctByGv[g.id];
+      return [g.ten,a?a.email:'(chưa tạo)',LOP.filter(l=>l.gvId===g.id).length||'',
+        !a?'Chưa có TK':(a.banned?'Đã khóa':'Đang dùng'),'']; }),
+    trong:'Cơ sở này chưa có giáo viên.',
+    ghiChu:['<b>Mật khẩu không in trên danh sách này.</b> Mật khẩu được giao riêng cho từng giáo viên; giáo viên đổi mật khẩu ngay sau lần đăng nhập đầu tiên và tự chịu trách nhiệm bảo mật tài khoản của mình.'],
+    ky:KY_LAP_GD })]);
+}
+
+/* ===== 8) TỔNG HỢP QUY MÔ & HỌC PHÍ CÁC CƠ SỞ — A4 ngang, một tờ ===== */
+function inTongHopCoSo(){
+  const list=inCOSO();
+  if(!list.length){avaAlert('Không có cơ sở nào trong phạm vi đang xem.');return;}
+  const cot=[{t:'TT',w:4,a:'c',stt:true},{t:'CƠ SỞ',w:20,b:true},{t:'GIÁO VIÊN',w:8,a:'c'},
+    {t:'LỚP',w:7,a:'c'},{t:'HỌC SINH',w:9,a:'c'},{t:'DỰ THU HỌC PHÍ',w:13,a:'r'},
+    {t:'ĐÃ THU',w:13,a:'r'},{t:'CÒN PHẢI THU',w:13,a:'r'},{t:'TỈ LỆ THU',w:8,a:'r'},{t:'GHI CHÚ',w:9}];
+  const vnd=n=>n?Math.round(n).toLocaleString('vi-VN'):'';
+  const T={gv:0,lop:0,hs:0,du:0,da:0};
+  const rows=list.map(c=>{ const s=csStat(c.id), hp=hpStat([c.id]);
+    T.gv+=s.gv;T.lop+=s.lop;T.hs+=s.hs;T.du+=hp.du;T.da+=hp.da;
+    return [c.ten,s.gv,s.lop,s.hs,vnd(hp.du),vnd(hp.da),vnd(Math.max(0,hp.du-hp.da)),
+      hp.du?Math.round(hp.da/hp.du*100)+'%':'—',
+      [c.chinh?'Cơ sở chính':'',c.build?'Đang xây dựng':''].filter(Boolean).join(' · ')]; });
+  const tCon=Math.max(0,T.du-T.da);
+  moBanIn('Ngang',[toIn({ ngang:true,
+    tieuDe:'TỔNG HỢP QUY MÔ VÀ HỌC PHÍ CÁC CƠ SỞ', coSo:'Toàn hệ thống',
+    sub:'Số liệu tính đến ngày '+isoVN(todayISO()),
+    meta:[['Số cơ sở',list.length+' cơ sở'],['Học sinh đang học',T.hs+' em']],
+    cot, rows,
+    tong:{span:2,nhan:'TỔNG CỘNG',o:[T.gv,T.lop,T.hs,vnd(T.du),vnd(T.da),vnd(tCon),
+      T.du?Math.round(T.da/T.du*100)+'%':'—','']},
+    ghiChu:[`Tổng số tiền đã thu bằng chữ: <i>${docSoVN(T.da)}</i>`,
+      'Học sinh đếm theo đầu người (em học nhiều lớp vẫn tính một em). Đã thu lấy theo phiếu thu học phí trong sổ quỹ.'],
+    ky:KY_KE_TOAN })]);
+}
+
 /* ============ BÁO CÁO ĐIỂM DANH (Giai đoạn A — mức ngày, dùng dữ liệu hiện có) ============ */
 const fmtDT=iso=>{ if(!iso)return''; const d=new Date(iso); if(isNaN(d))return''; const p=n=>('0'+n).slice(-2); return `${p(d.getDate())}/${p(d.getMonth()+1)}/${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`; };
 let bcFrom=todayISO().slice(0,7)+'-01', bcTo=todayISO(), bcLop='all';
@@ -5597,7 +5943,9 @@ function renderBaoCao(){
     <div style="display:grid;gap:6px"><label style="${lb}">ĐẾN NGÀY</label><input type="date" class="fsel" id="bcTo" value="${bcTo}"/></div>
     <div style="display:grid;gap:6px;flex:1;min-width:160px"><label style="${lb}">LỚP</label>
       <select class="fsel" id="bcLop" style="max-width:100%"><option value="all">Tất cả lớp</option>${lopOpts.map(l=>`<option value="${l.id}" ${String(bcLop)===String(l.id)?'selected':''}>${isAdm?csAbbr(l.coSoId)+' · ':''}${esc(lopNhan(l))}</option>`).join('')}</select></div>
-    <div style="display:flex;align-items:flex-end"><button class="btn btn-sm btn-xls" id="bcXls" ${anyData?'':'disabled'}>⬇ Xuất Excel</button></div>
+    <div style="display:flex;align-items:flex-end;gap:8px">
+      <button class="btn btn-sm btn-light" id="bcInCC" ${D.hsRows.length?'':'disabled'} style="white-space:nowrap">🖶 In chuyên cần</button>
+      <button class="btn btn-sm btn-xls" id="bcXls" ${anyData?'':'disabled'}>⬇ Xuất Excel</button></div>
   </div>
   <div class="kpis">
     <div class="kpi"><div class="kpi-top"><div class="kpi-ic ic-teal">${svg(IC.diemdanh)}</div></div><b>${D.totBuoi}</b><span>Buổi điểm danh</span></div>
@@ -5676,6 +6024,7 @@ function bcBind(){
   const t=$('#bcTo'); if(t)t.onchange=e=>{bcTo=e.target.value;renderBaoCao();};
   const l=$('#bcLop'); if(l)l.onchange=e=>{bcLop=e.target.value;renderBaoCao();};
   const x=$('#bcXls'); if(x)x.onclick=()=>bcExport();
+  const icc=$('#bcInCC'); if(icc)icc.onclick=()=>inChuyenCan();
   // Đơn giá một ca dạy
   const gc=$('#bcGiaChung');
   if(gc){ attachMoneyFormat(gc);

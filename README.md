@@ -28,6 +28,20 @@ Phân quyền được khóa ở tầng CSDL bằng **RLS** (Row Level Security)
   - **In sổ quỹ** ngay trên web (A4 nằm ngang, kẻ ô, lặp tiêu đề, khối ký) và **Xuất Excel** theo mẫu sổ quỹ kế toán: đầu sổ đơn vị + mẫu số S05-DNN, số dư đầu kỳ – phát sinh – số dư cuối kỳ, tồn quỹ lũy kế, số tiền bằng chữ; kèm sheet tổng hợp theo hạng mục và theo cơ sở.
   - **Chốt sổ theo tháng** (Quản trị) — kỳ đã chốt khóa hoàn toàn với mọi vai trò ở tầng CSDL; có mở khóa khi cần sửa.
 - **Tài khoản giáo viên** (chỉ Giám đốc) — tạo/đổi mật khẩu/khóa/xóa tài khoản GV (qua Edge Function `quan-ly-tk`).
+- **In ấn hồ sơ (A4, in ngay trên web)** — mỗi bản in lấy **đúng danh sách đang xem** (theo bộ lọc trên màn hình), có tiêu đề đơn vị, dòng tổng hợp, ngày tháng và khối ký; bảng dài tự lặp tiêu đề và chừa lề mỗi trang. Danh sách nhiều cơ sở được **tách thành nhiều tờ — mỗi cơ sở (hoặc mỗi lớp) một tờ riêng để ký lưu hồ sơ**.
+
+  | Bản in | Nơi bấm | Khổ | Tách tờ |
+  |---|---|---|---|
+  | Danh sách giáo viên (có cột ký tên) | Giáo viên → 🖶 In danh sách | A4 dọc | theo cơ sở |
+  | Danh sách lớp học (GV, sĩ số, lịch, dự thu) | Lớp học → 🖶 In danh sách | A4 dọc | theo cơ sở |
+  | Danh sách học sinh của lớp | Học sinh → 🖶 In danh sách | A4 dọc | theo lớp |
+  | Bảng theo dõi thu học phí (đã đóng / còn phải thu) | Học sinh → 🖶 In học phí | A4 ngang | theo cơ sở |
+  | Tổng hợp quy mô & học phí các cơ sở | Cơ sở → 🖶 In tổng hợp | A4 ngang | một tờ |
+  | Báo cáo chuyên cần học sinh | Báo cáo → 🖶 In chuyên cần | A4 ngang | một tờ |
+  | Biên bản đối soát ca dạy | Đối soát → 🖶 In biên bản | A4 ngang | một tờ |
+  | Danh sách tài khoản GV (cột ký nhận, **không in mật khẩu**) | Tài khoản → 🖶 In danh sách | A4 dọc | một tờ |
+
+  Ngoài ra đã có sẵn: **phiếu thu/chi**, **sổ quỹ**, **bảng thanh toán công giảng dạy**, **danh sách điểm danh từng buổi**, **lịch dạy theo ca**, **trang hướng dẫn sử dụng**.
 - **Hướng dẫn sử dụng** — hướng dẫn hiển thị **theo vai trò đang đăng nhập** (Giám đốc xem được cả 3 bản để in phát cho nhân viên): 3 việc đầu tiên, sơ đồ quy trình một buổi dạy, menu có gì, thao tác từng bước, cách hệ thống tính số liệu, hỏi đáp – xử lý sự cố. Có nút **In / lưu PDF**.
 
 ## Cấu trúc
