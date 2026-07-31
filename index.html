@@ -594,17 +594,20 @@ td.chi{color:var(--rose);font-weight:800}
 .sqtbl tbody tr:nth-child(even) td{background:#fbfcfe}
 .sqtbl tbody tr.sum:nth-child(even) td{background:#f2f5fb}
 /* ===== KẺ Ô CHO MỌI BẢNG IN — cách vẽ CHỐNG MẤT NÉT =====
-   Không dùng border-collapse nữa: khi in ra PDF (nhất là máy in ảo
-   "Microsoft Print to PDF") nét viền dùng chung giữa hai ô hay bị bỏ sót —
-   thường mất nét dưới của dòng cuối bảng và nét ở chỗ ngắt sang trang mới.
-   Cách chắc ăn: MỖI Ô tự vẽ nét PHẢI + DƯỚI, ô đầu dòng vẽ thêm nét TRÁI,
-   ô tiêu đề vẽ thêm nét TRÊN → mỗi đường chỉ vẽ đúng một lần, không đường nào mất,
-   và trang nào cũng có đủ khung kể cả khi bảng dài nhiều trang.
-   Độ dày tính bằng pt (không phải px) để không bị làm tròn về 0 khi in. */
+   ⚠ THỦ PHẠM làm bản in mất nét viền: ba dòng CSS chung của app ở phần "table"
+   phía trên — thead th:last-child{border-right:0}, tbody td:last-child{border-right:0},
+   tbody tr:last-child td{border-bottom:0} — cố tình bỏ nét cột cuối và dòng cuối cho
+   bảng trên màn hình. Chúng "nặng ký" hơn (specificity cao hơn) mấy dòng .sqtbl/.ddtbl
+   viết gọn, nên nuốt luôn nét viền phải và nét đáy của phiếu in.
+   → Vì vậy các dòng dưới đây PHẢI viết đủ dài (table + thead/tbody + tr + th/td)
+   để thắng. ĐỪNG rút gọn thành .sqtbl th,.sqtbl td — sẽ mất nét trở lại.
+   Cách kẻ: mỗi ô tự vẽ nét PHẢI + DƯỚI, ô đầu dòng vẽ thêm nét TRÁI, ô tiêu đề vẽ
+   thêm nét TRÊN → mỗi đường chỉ vẽ đúng một lần, trang nào cũng đủ khung kể cả khi
+   bảng dài nhiều trang. Độ dày tính bằng pt để không bị làm tròn về 0 khi in. */
 .sqtbl,.ddtbl{border-collapse:separate;border-spacing:0}
-.sqtbl th,.sqtbl td,.ddtbl th,.ddtbl td{border:0;border-right:.8pt solid #000;border-bottom:.8pt solid #000}
-.sqtbl th:first-child,.sqtbl td:first-child,.ddtbl th:first-child,.ddtbl td:first-child{border-left:.8pt solid #000}
-.sqtbl thead th,.ddtbl thead th{border-top:.8pt solid #000}
+table.sqtbl thead tr th,table.sqtbl tbody tr td,table.ddtbl thead tr th,table.ddtbl tbody tr td{border:0;border-right:.8pt solid #000;border-bottom:.8pt solid #000}
+table.sqtbl tr th:first-child,table.sqtbl tr td:first-child,table.ddtbl tr th:first-child,table.ddtbl tr td:first-child{border-left:.8pt solid #000}
+table.sqtbl thead tr th,table.ddtbl thead tr th{border-top:.8pt solid #000}
 /* Dòng đệm chừa lề trên/dưới khi bảng dài sang trang mới — xem chú thích ở khối @media print.
    Trên màn hình ẩn đi, chỉ hiện khi in. */
 tr.pgpad,tfoot.pgpad{display:none}
