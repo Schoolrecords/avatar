@@ -3914,6 +3914,7 @@ function openLopEdit(l){
       <div class="fld"><label>Môn</label><select id="lp_mon"><option value="VH" ${l.mon!=='TA'?'selected':''}>Văn hóa</option><option value="TA" ${l.mon==='TA'?'selected':''}>Tiếng Anh</option></select></div>
       <div class="fld"><label>Sĩ số dự kiến</label><input id="lp_siso" inputmode="numeric" value="${l.siso||''}"/></div>
       <div class="fld full"><label>Giáo viên phụ trách</label><select id="lp_gv"><option value="">— Chưa phân công —</option>${gvOptions(l.coSoId,l.gv)}</select></div>
+      ${USER.role==='admin'&&COSO.some(c=>!c.build&&c.id!==l.coSoId)?`<div class="fld full" style="padding-top:0"><button class="btn btn-light" style="width:100%" id="lp_move">⇄ Chuyển lớp sang cơ sở khác — giữ nguyên dữ liệu</button></div>`:''}
       <div id="lp_err" class="fld full" style="display:none;color:#c0392b;font-size:.84rem;font-weight:600;padding:0"></div>
       <div class="fld full" style="display:flex;gap:8px;margin-top:2px">
         <button class="btn btn-light" style="color:var(--rose)" id="lp_del">Xóa lớp</button>
@@ -3923,6 +3924,7 @@ function openLopEdit(l){
     </div></div>`;
   $('#modal').classList.add('on');
   const err=m=>{const e=$('#lp_err');e.textContent=m||'';e.style.display=m?'block':'none';};
+  const mv=$('#lp_move'); if(mv)mv.onclick=()=>openLopChuyenCoSo(l);
   $('#lp_save').onclick=async()=>{
     const ten=$('#lp_ten').value.trim();
     if(!ten){err('Vui lòng nhập tên lớp.');return;}
@@ -3952,6 +3954,87 @@ function openLopEdit(l){
     for(const k in OPS.ccGV) if(Number(k.split('|')[1])===l.id){ delete OPS.ccGV[k]; delete OPS.ccGvId[k]; }
     for(const k in OPS.duyet) if(Number(k.split('|')[0])===l.id) delete OPS.duyet[k];
     closeModal(); renderLop();
+  };
+}
+
+/* ============ CHUYỂN LỚP SANG CƠ SỞ KHÁC (chỉ Quản trị) ============
+   Nguyên tắc: GIỮ NGUYÊN toàn bộ dữ liệu — không xóa gì, chỉ đổi coso_id.
+   Đi theo lớp: hồ sơ học sinh (kể cả em đã thôi học), điểm danh, chấm công,
+   đối soát, lịch học. Phiếu thu/chi đã gắn học sinh của lớp thì CHO CHỌN:
+   chuyển theo (khi lớp bị khai nhầm cơ sở) hay ở lại (khi lớp thật sự dời
+   địa điểm — tiền đã nằm trong két cơ sở cũ, sổ quỹ mỗi nơi phải khớp tiền
+   thật ở nơi đó). Riêng phiếu thuộc kỳ ĐÃ CHỐT SỔ (dù ở cơ sở cũ hay cơ sở
+   đích) luôn ở lại: chứng từ của kỳ đã khóa kế toán không được đụng tới. */
+function openLopChuyenCoSo(l){
+  if(USER.role!=='admin')return;
+  const csKhac=COSO.filter(c=>!c.build&&c.id!==l.coSoId);
+  if(!csKhac.length){avaAlert('Chưa có cơ sở nào khác để chuyển tới.');return;}
+  const dsHV=hvOfLop(l.id), hvSet=new Set(dsHV.map(h=>h.id));
+  const nNghi=dsHV.filter(h=>!hvActive(h)).length;
+  const phieu=OPS.gd.filter(g=>g.hvId!=null&&hvSet.has(g.hvId));
+  const lich=lichOfLop(l.id);
+  $('#mcard').innerHTML=`
+    <div class="mhead">
+      <div class="mava">⇄</div>
+      <div style="flex:1"><h3>Chuyển lớp ${esc(l.lop)}</h3><p>Đang ở ${esc(csName(l.coSoId))} · ${dsHV.length} học sinh</p></div>
+      <button class="mclose" onclick="closeModal()">${svg('<path d="M6 6l12 12M18 6L6 18"/>')}</button>
+    </div>
+    <div class="mbody"><div class="form2">
+      <div class="fld full"><label>Chuyển tới cơ sở *</label><select id="mv_cs">${csKhac.map(c=>`<option value="${c.id}">${esc(c.ten)}</option>`).join('')}</select></div>
+      <div class="fld full" style="font-size:.85rem;line-height:1.6;background:#f4f6fb;border-radius:11px;padding:10px 12px">
+        Đi theo lớp, <b>không mất gì</b>: ${dsHV.length} hồ sơ học sinh${nNghi?` (kể cả ${nNghi} em đã thôi học)`:''},
+        toàn bộ điểm danh – chấm công – đối soát${lich.length?` và ${lich.length} buổi lịch học/tuần`:''}.
+      </div>
+      ${phieu.length?`<div class="fld full" style="padding-top:0"><label style="display:flex;gap:8px;align-items:flex-start;font-weight:600;font-size:.85rem;cursor:pointer">
+        <input type="checkbox" id="mv_phieu" checked style="width:17px;height:17px;flex:none;margin-top:2px;accent-color:var(--brand)"/>
+        <span>Chuyển kèm ${phieu.length} phiếu thu/chi đã gắn học sinh của lớp sang sổ quỹ cơ sở mới<br/>
+        <span class="muted" style="font-weight:500">Tích khi lớp bị <b>khai nhầm cơ sở</b>. Nếu lớp thật sự dời địa điểm mà tiền vẫn nằm két cơ sở cũ thì BỎ tích — sổ quỹ mỗi nơi phải khớp tiền thật ở nơi đó.</span></span></label></div>`:''}
+      <div id="mv_err" class="fld full" style="display:none;color:#c0392b;font-size:.84rem;font-weight:600;padding:0"></div>
+      <div class="fld full" style="display:flex;gap:8px"><button class="btn btn-light" style="flex:1" id="mv_back">‹ Quay lại</button><button class="btn btn-primary" style="flex:2" id="mv_save">⇄ Chuyển lớp</button></div>
+    </div></div>`;
+  $('#modal').classList.add('on');
+  const err=m=>{const e=$('#mv_err');e.textContent=m||'';e.style.display=m?'block':'none';};
+  $('#mv_back').onclick=()=>openLopEdit(l);
+  $('#mv_save').onclick=async()=>{
+    const den=Number($('#mv_cs').value);
+    const chonPhieu=!!($('#mv_phieu')&&$('#mv_phieu').checked);
+    // Phiếu nằm trong kỳ đã chốt sổ (ở cơ sở cũ HOẶC cơ sở đích) không được rời chỗ
+    const kyKhoa=ky=>!!(chotCua(l.coSoId,ky)||chotCua(den,ky));
+    const phieuDi=chonPhieu?phieu.filter(g=>!kyKhoa(kyCua(g.ngay))):[];
+    const soKhoa=chonPhieu?phieu.length-phieuDi.length:0;
+    // Ca trong lịch lớp chưa khai ở cơ sở mới → buổi học vẫn còn, chỉ trống giờ cho tới khi khai
+    const caThieu=[...new Set(lich.map(x=>x.caMa))].filter(m=>!(OPS.ca[den]||[]).some(c=>c.ma===m)).sort((a,b)=>a-b);
+    let luuY='';
+    if(l.gv)luuY+='\n• GV phụ trách '+l.gv+' vẫn thuộc '+csName(l.coSoId)+' — nếu đổi người dạy, vào Sửa lớp phân công lại.';
+    if(caThieu.length)luuY+='\n• '+csName(den)+' chưa khai Ca '+caThieu.join(', ')+' — vào Lịch dạy để khai giờ.';
+    if(soKhoa)luuY+='\n• '+soKhoa+' phiếu thuộc kỳ ĐÃ CHỐT SỔ sẽ ở lại '+csName(l.coSoId)+' (chứng từ kỳ đã khóa).';
+    if(!await avaConfirm('Chuyển lớp "'+l.lop+'" từ '+csName(l.coSoId)+' sang '+csName(den)+'?\n\nToàn bộ '+dsHV.length+' học sinh cùng điểm danh, chấm công, đối soát, lịch học đi theo lớp'
+      +(chonPhieu?', kèm '+phieuDi.length+' phiếu thu/chi.':(phieu.length?'. '+phieu.length+' phiếu thu/chi Ở LẠI sổ quỹ '+csName(l.coSoId)+'.':'.'))
+      +(luuY?'\n\nLưu ý:'+luuY:''),{okText:'Chuyển lớp'}))return;
+    const btn=$('#mv_save'); btn.disabled=true; btn.textContent='Đang chuyển…'; err('');
+    const loi=async e=>{btn.disabled=false;btn.textContent='⇄ Chuyển lớp';
+      err('Lỗi chuyển: '+e.message+' — kiểm tra mạng rồi bấm "Chuyển lớp" lần nữa; phần đã chuyển không sao, chạy lại không tạo dữ liệu trùng.');};
+    // Dữ liệu con đi TRƯỚC, lớp đi SAU — lỡ đứt mạng giữa chừng thì bấm lại,
+    // mọi lệnh dưới chỉ đặt coso_id nên chạy lại lần nữa đều vô hại.
+    for(const bang of ['hoc_vien','diem_danh_hv','cham_cong_gv','duyet_diem_danh','lich_lop']){
+      const {error}=await SB.from(bang).update({coso_id:den}).eq('lop_id',l.id);
+      if(error)return loi(error);
+    }
+    for(let i=0;i<phieuDi.length;i+=200){
+      const {error}=await SB.from('so_quy').update({coso_id:den}).in('id',phieuDi.slice(i,i+200).map(g=>g.id));
+      if(error)return loi(error);
+    }
+    const {error}=await SB.from('lop_hoc').update({coso_id:den}).eq('id',l.id);
+    if(error)return loi(error);
+    // Cập nhật bộ nhớ đang mở — không cần tải lại trang
+    l.coSoId=den;
+    dsHV.forEach(h=>h.coSoId=den);
+    OPS.lich.forEach(x=>{if(x.lopId===l.id)x.coSoId=den;});
+    phieuDi.forEach(g=>g.coSoId=den);
+    closeModal(); renderLop();
+    avaAlert('Đã chuyển lớp "'+l.lop+'" sang '+csName(den)+' — '+dsHV.length+' học sinh và toàn bộ điểm danh, chấm công, lịch học được giữ nguyên.'
+      +(phieuDi.length?'\n'+phieuDi.length+' phiếu thu/chi đã theo về sổ quỹ '+csName(den)+'.':'')
+      +(soKhoa?'\n'+soKhoa+' phiếu thuộc kỳ đã chốt vẫn nằm ở sổ quỹ '+csName(l.coSoId)+'.':''));
   };
 }
 
