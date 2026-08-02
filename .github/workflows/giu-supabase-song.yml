@@ -1,0 +1,38 @@
+# ===== GIỮ SUPABASE LUÔN THỨC =====
+# Gói miễn phí của Supabase tự TẠM NGƯNG dự án nếu 7 ngày liền không có truy vấn
+# nào (nghỉ hè, nghỉ Tết là dính). Lệnh này chạy ngầm trên máy chủ của GitHub,
+# mỗi tuần 2 lần (thứ Hai & thứ Năm, 8h sáng giờ Việt Nam) gửi một truy vấn nhỏ
+# tới CSDL — Supabase thấy còn hoạt động nên không bao giờ ngưng.
+#
+# Khóa dưới đây là khóa PUBLISHABLE — vốn đã công khai trong index.html cho mọi
+# người truy cập trang, không phải bí mật; dữ liệu vẫn do RLS bảo vệ.
+#
+# Nếu một ngày truy vấn thất bại (Supabase trục trặc hoặc đã bị ngưng), lần chạy
+# đó báo ĐỎ và GitHub tự gửi email tới hộp thư chủ repo — coi như chuông báo động.
+#
+# Lưu ý: repo mà 60 ngày liền không có commit nào thì GitHub tạm tắt lịch chạy
+# và gửi email "scheduled workflow disabled" — chỉ cần bấm nút bật lại trong
+# thẻ Actions là chạy tiếp.
+
+name: Giu Supabase luon thuc
+
+on:
+  schedule:
+    - cron: '0 1 * * 1,4'   # 01:00 UTC thứ Hai & thứ Năm = 08:00 sáng VN
+  workflow_dispatch: {}      # cho phép vào thẻ Actions bấm "Run workflow" chạy tay
+
+jobs:
+  danh-thuc:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Gui truy van danh thuc CSDL
+        run: |
+          ma=$(curl -s -o /dev/null -w "%{http_code}" \
+            "https://hdvtlbeozyumvnhgejxp.supabase.co/rest/v1/co_so?select=id&limit=1" \
+            -H "apikey: sb_publishable_eGYgGZpxRRdIgLeO6_S_JQ_N7rHsINZ")
+          echo "Ma tra ve: $ma"
+          if [ "$ma" != "200" ]; then
+            echo "::error::Supabase khong tra loi binh thuong (ma $ma) - vao dashboard Supabase kiem tra ngay!"
+            exit 1
+          fi
+          echo "Supabase van thuc va khoe manh."
