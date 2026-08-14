@@ -2461,7 +2461,14 @@ async function afterAuth(preUser){
   scope='all';
   const btn=$('#loginBtn'); if(btn){btn.disabled=true;btn.textContent='Đang tải dữ liệu…';}
   try{ await loadCloud(); }
-  catch(e){ if(btn){btn.disabled=false;btn.textContent='Đăng nhập hệ thống';} showLoginErr('Không tải được dữ liệu. Kiểm tra kết nối mạng.'); return false; }
+  catch(e){ if(btn){btn.disabled=false;btn.textContent='Đăng nhập hệ thống';}
+    // Trước đây mọi trục trặc đều bị quy cho "kiểm tra kết nối mạng" — sai hướng và
+    // rất khó dò. Nay nói đúng bệnh: 57014 = máy chủ hủy truy vấn vì chạy quá lâu.
+    const ma=(e&&(e.code||e.status))||'', mo=(e&&e.message)||'';
+    showLoginErr(ma==='57014'
+      ? 'Máy chủ tải dữ liệu quá lâu nên bị ngắt. Báo quản trị viên (mã 57014).'
+      : ('Không tải được dữ liệu. '+(mo?('Máy chủ báo: '+mo):'Kiểm tra kết nối mạng.')));
+    return false; }
   if(btn){btn.disabled=false;btn.textContent='Đăng nhập hệ thống';}
   showLoginErr(''); startApp(); return true;
 }
