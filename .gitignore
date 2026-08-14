@@ -6,3 +6,8 @@ dataset.json
 *DANH-SACH*
 __*.js
 node_modules/
+
+# File dữ liệu có tên người thật — KHÔNG đưa lên kho vì kho này CÔNG KHAI
+*.xlsx
+*.xls
+*.csv
