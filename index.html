@@ -1211,23 +1211,39 @@ async function fetchAll(build){
   }
   return {data:out,error:null};
 }
-const DD_SO_NGAY=120;              // điểm danh / chấm công / đối soát: tải sẵn ~4 tháng gần nhất
+/* ===== BAO NHIÊU NGÀY ĐƯỢC TẢI SẴN LÚC ĐĂNG NHẬP =====
+   Hai mức khác nhau, vì hai loại dữ liệu nặng nhẹ rất khác nhau:
+
+   · diem_danh_hv nặng nhất — MỖI HỌC SINH mỗi buổi một dòng. Với 6.000 học
+     sinh, 120 ngày là ~255.000 dòng; máy chủ chỉ trả 1.000 dòng mỗi lượt gọi
+     nên riêng bảng này ngốn 255 lượt (~40 giây) và ~35 MB mỗi lần Quản trị
+     mở app. Hạ xuống 30 ngày cắt được khoảng 4 lần.
+   · cham_cong_gv và duyet_diem_danh nhẹ hơn ~17 lần — mỗi BUỔI một dòng, không
+     nhân theo sĩ số. Giữ nguyên 120 ngày, vì trang Đối soát/Chốt liệt kê thẳng
+     danh sách chứ không có bộ lọc ngày: cắt ngắn là những ca chờ duyệt cũ hơn
+     biến mất khỏi màn hình, không ai duyệt nữa.
+
+   Xem khoảng cũ hơn thì loadDiemDanhTu() tải bù đúng khúc còn thiếu. */
+const DD_SO_NGAY=30;               // điểm danh học sinh: tải sẵn ~1 tháng gần nhất
+const CA_SO_NGAY=120;              // chấm công + đối soát: giữ ~4 tháng gần nhất
 function isoCongNgay(iso,d){const t=new Date(iso+'T00:00:00');t.setDate(t.getDate()+d);
   return `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;}
-let ddFrom='';                     // mốc ngày sớm nhất ĐÃ tải
+let ddFrom='';                     // mốc ngày sớm nhất ĐÃ tải của điểm danh học sinh
+let caFrom='';                     // mốc ngày sớm nhất ĐÃ tải của chấm công / đối soát
 let ddFromWanted='';               // mốc sớm nhất CẦN tải (nới ra khi xem báo cáo cũ; loadCloud giữ nguyên mốc này)
 async function loadCloud(){
-  const mocMacDinh=isoCongNgay(todayISO(),-DD_SO_NGAY);
-  ddFrom=(ddFromWanted && ddFromWanted<mocMacDinh) ? ddFromWanted : mocMacDinh;
+  const mocDD=isoCongNgay(todayISO(),-DD_SO_NGAY), mocCA=isoCongNgay(todayISO(),-CA_SO_NGAY);
+  ddFrom=(ddFromWanted && ddFromWanted<mocDD) ? ddFromWanted : mocDD;
+  caFrom=(ddFromWanted && ddFromWanted<mocCA) ? ddFromWanted : mocCA;
   const [hv,gd,dd,cc,ge,gvR,lopR,dz,cs,caR,liR,csR,tbR]=await Promise.all([
     fetchAll(()=>SB.from('hoc_vien').select('*')),
     fetchAll(()=>SB.from('so_quy').select('*')),          // sổ quỹ tải đủ: tồn quỹ tính lũy kế từ đầu
     fetchAll(()=>SB.from('diem_danh_hv').select('*').gte('ngay',ddFrom)),
-    fetchAll(()=>SB.from('cham_cong_gv').select('*').gte('ngay',ddFrom)),
+    fetchAll(()=>SB.from('cham_cong_gv').select('*').gte('ngay',caFrom)),
     fetchAll(()=>SB.from('gv_edits').select('*')),
     fetchAll(()=>SB.from('giao_vien').select('*')),
     fetchAll(()=>SB.from('lop_hoc').select('*')),
-    fetchAll(()=>SB.from('duyet_diem_danh').select('*').gte('ngay',ddFrom)),
+    fetchAll(()=>SB.from('duyet_diem_danh').select('*').gte('ngay',caFrom)),
     fetchAll(()=>SB.from('chot_so_quy').select('*')),
     fetchAll(()=>SB.from('ca_hoc').select('*')),
     fetchAll(()=>SB.from('lich_lop').select('*')),
@@ -1295,22 +1311,27 @@ async function loadCloud(){
 }
 /* Xem báo cáo khoảng ngày cũ hơn phần đã tải → tải bù đúng khúc còn thiếu (không tải lại từ đầu) */
 let ddLoading=false;
+const RONG={data:[],error:null};                 // "không cần tải gì thêm"
 async function loadDiemDanhTu(iso){
-  if(!iso || !ddFrom || iso>=ddFrom || ddLoading) return false;
+  if(!iso || !ddFrom || ddLoading) return false;
+  if(iso>=ddFrom && iso>=caFrom) return false;   // cả hai loại đều đã có sẵn khoảng này
   ddLoading=true;
-  const den=isoCongNgay(ddFrom,-1);
+  // Hai loại dữ liệu có mốc riêng nên khúc còn thiếu của mỗi loại cũng khác nhau
+  const denDD=isoCongNgay(ddFrom,-1), denCA=isoCongNgay(caFrom,-1);
   try{
     const [dd,cc,dz]=await Promise.all([
-      fetchAll(()=>SB.from('diem_danh_hv').select('*').gte('ngay',iso).lte('ngay',den)),
-      fetchAll(()=>SB.from('cham_cong_gv').select('*').gte('ngay',iso).lte('ngay',den)),
-      fetchAll(()=>SB.from('duyet_diem_danh').select('*').gte('ngay',iso).lte('ngay',den))
+      iso<ddFrom ? fetchAll(()=>SB.from('diem_danh_hv').select('*').gte('ngay',iso).lte('ngay',denDD)) : RONG,
+      iso<caFrom ? fetchAll(()=>SB.from('cham_cong_gv').select('*').gte('ngay',iso).lte('ngay',denCA)) : RONG,
+      iso<caFrom ? fetchAll(()=>SB.from('duyet_diem_danh').select('*').gte('ngay',iso).lte('ngay',denCA)) : RONG
     ]);
     const hvCon=new Set(OPS.hv.map(h=>h.id));      // bỏ qua điểm danh của học sinh đã xóa
     (dd.data||[]).forEach(r=>{ if(!hvCon.has(r.hv_id))return;
       const k=r.lop_id+'|'+r.ngay;(OPS.ddHV[k]=OPS.ddHV[k]||{})[r.hv_id]=r.trang_thai;});
     (cc.data||[]).forEach(r=>{const k='cc|'+r.lop_id+'|'+r.ngay; OPS.ccGV[k]=r.trang_thai; if(r.gv_id!=null)OPS.ccGvId[k]=r.gv_id;});
     (dz.data||[]).forEach(r=>{OPS.duyet[r.lop_id+'|'+r.ngay]={id:r.id,st:r.trang_thai,gvAt:r.gv_gui_at,letanAt:r.letan_at,adminAt:r.admin_at};});
-    ddFrom=iso; ddFromWanted=iso;   // giữ mốc để realtime tải lại không làm mất phần vừa bù
+    if(iso<ddFrom) ddFrom=iso;
+    if(iso<caFrom) caFrom=iso;
+    ddFromWanted=iso;               // giữ mốc để realtime tải lại không làm mất phần vừa bù
     return true;
   }catch(e){ return false; }
   finally{ ddLoading=false; }
@@ -5455,7 +5476,19 @@ function renderDiemDanh(){
   h+='</div></div>';
   $('#view').innerHTML=h;
   tbBarBind();
-  $('#ddDate').onchange=e=>{ddDate=e.target.value;renderDiemDanh();};
+  // Chọn ngày cũ hơn phần đã tải sẵn thì phải tải bù XONG rồi mới vẽ. Nếu vẽ trước,
+  // màn hình hiện trắng như cả lớp chưa ai điểm danh — cô giáo bấm một cái là GHI ĐÈ
+  // mất dữ liệu thật. Tải hỏng thì trả ô ngày về chỗ cũ chứ không cho vào.
+  $('#ddDate').onchange=async e=>{
+    const chon=e.target.value; if(!chon) return;
+    if(chon<ddFrom){
+      e.target.disabled=true;
+      const ok=await loadDiemDanhTu(chon);
+      e.target.disabled=false;
+      if(!ok){ e.target.value=ddDate; avaAlert('Chưa tải được điểm danh của ngày cũ. Kiểm tra mạng rồi chọn lại.'); return; }
+    }
+    ddDate=chon; renderDiemDanh();
+  };
   $('#ddLop').onchange=e=>{ddLopId=Number(e.target.value);renderDiemDanh();};
   const tg=$('#toGhi'); if(tg)tg.onclick=()=>{ghiLopId=ddLopId;go('ghidanh');};
   $$('#view .carow[data-ca]').forEach(r=>r.onclick=()=>{ddLopId=Number(r.dataset.ca);renderDiemDanh();});
