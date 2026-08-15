@@ -1400,6 +1400,33 @@ function avaDialog({title,message,okText,cancelText,danger}){
 }
 const avaAlert=(message,opts={})=>avaDialog({title:opts.title||'AVATAR thông báo',message,okText:opts.okText||'Đã hiểu',cancelText:null,danger:opts.danger});
 const avaConfirm=(message,opts={})=>avaDialog({title:opts.title||'AVATAR thông báo',message,okText:opts.okText||'Đồng ý',cancelText:opts.cancelText||'Hủy',danger:opts.danger});
+/* Hộp thoại có Ô NHẬP (avaDialog escape hết nội dung nên không chèn ô nhập vào được).
+   Trả về chuỗi đã nhập khi bấm đồng ý, hoặc null khi hủy/đóng.  */
+function avaPrompt({title,message,label,value,okText,cancelText,date}){
+  return new Promise(resolve=>{
+    const ov=document.createElement('div'); ov.className='ava-dlg-ov';
+    const body=esc(String(message==null?'':message)).replace(/\n/g,'<br>');
+    ov.innerHTML=`<div class="ava-dlg" role="dialog" aria-modal="true">
+      <div class="ava-dlg-h"><svg viewBox="0 0 24 24">${IC_BELL}</svg><span>${esc(title||'AVATAR thông báo')}</span></div>
+      <div class="ava-dlg-b">${body}
+        <div class="fld" style="margin-top:12px"><label>${esc(label||'')}</label>
+        <input id="ava_prompt_in" value="${esc(value||'')}" autocomplete="off"/></div>
+      </div>
+      <div class="ava-dlg-f">
+        <button class="ava-dlg-btn ghost" data-r="0">${esc(cancelText||'Hủy')}</button>
+        <button class="ava-dlg-btn primary" data-r="1">${esc(okText||'Đồng ý')}</button>
+      </div></div>`;
+    document.body.appendChild(ov);
+    const inp=ov.querySelector('#ava_prompt_in');
+    const done=v=>{ov.remove();document.removeEventListener('keydown',onKey);resolve(v);};
+    const onKey=e=>{ if(e.key==='Escape')done(null); else if(e.key==='Enter')done(inp.value.trim()); };
+    ov.querySelectorAll('[data-r]').forEach(b=>b.onclick=()=>done(b.dataset.r==='1'?inp.value.trim():null));
+    ov.addEventListener('click',e=>{ if(e.target===ov)done(null); });
+    document.addEventListener('keydown',onKey);
+    if(date)attachDateFormat(inp);
+    inp.focus(); inp.select();
+  });
+}
 const initials=s=>{const p=String(s).trim().split(/\s+/);return ((p[p.length-2]?.[0]||'')+(p[p.length-1]?.[0]||'')).toUpperCase()||'?';};
 const AVCOL=['#1f4276','#2a5490','#0e7fb0','#3a5db0','#5b6fb8','#7c5cd6','#2f6fd0','#17335f'];
 const avaColor=s=>AVCOL[[...String(s)].reduce((a,c)=>a+c.charCodeAt(0),0)%AVCOL.length];
@@ -2978,7 +3005,7 @@ const HD_MENU_DESC={
   gv:'Hồ sơ giáo viên: thêm/sửa, ngày hợp đồng, tích chọn <b>lớp phụ trách</b>, tải mẫu &amp; nhập Excel.',
   coso:'Danh mục cơ sở của chuỗi; bấm vào một cơ sở để xem chi tiết lớp, học sinh, kinh phí học phí. Quản trị <b>tự thêm/sửa/xóa cơ sở</b> ngay tại đây, và đánh dấu <b>★ Cơ sở chính</b> — cơ sở này luôn đứng đầu mọi danh sách toàn hệ thống.',
   lop:'Danh sách lớp: sĩ số, giáo viên phụ trách và <b>tình trạng thu phí từng lớp</b> — dự thu · đã thu (kèm vạch %) · còn thiếu. Lọc nhanh <b>“Lớp còn thiếu phí”</b> hoặc sắp xếp <b>“Còn thiếu nhiều nhất”</b> để biết ngay lớp nào cần nhắc. Thêm / sửa / xóa lớp.',
-  hocvien:'Kho hồ sơ học sinh: tìm kiếm, lọc theo cơ sở – lớp – trạng thái – học phí; bấm <b>Hồ sơ</b> để sửa, ghi nhận đóng tiền, cho thôi học. Em học nhiều lớp có nhãn tím <b>“Học N lớp”</b> và chỉ tính là <b>1 học sinh</b>. Nhập trùng danh sách thì trang này hiện khung vàng <b>“Phát hiện N bản ghi trùng”</b> (chỉ tính trùng khi <b>cùng lớp</b>) — bấm <b>Chọn N bản trùng để xóa</b> là dọn sạch bản dư, giữ bản gốc. Muốn xóa nhiều em bất kỳ: bấm <b>☑ Chọn nhiều</b> → tick từng em → <b>🗑 Xóa</b>. Hai nút <b>⬇ Tải file điền học phí</b> / <b>⬆ Nhập học phí</b> dùng để nhập tiền đã thu từ trước cho hàng loạt em bằng Excel.',
+  hocvien:'Kho hồ sơ học sinh: tìm kiếm, lọc theo cơ sở – lớp – trạng thái – học phí; bấm <b>Hồ sơ</b> để sửa, ghi nhận đóng tiền, cho thôi học. Em học nhiều lớp có nhãn tím <b>“Học N lớp”</b> và chỉ tính là <b>1 học sinh</b>. <b>Hết khóa, lên khóa mới:</b> lọc về đúng lớp → <b>☑ Chọn nhiều</b> → <b>Chọn hết</b> → <b>🎓 Kết khóa</b>, nhập ngày kết thúc khóa. Các em được đánh dấu <b>“Hết khóa”</b>, <b>giữ nguyên hồ sơ và học phí đã thu</b>, chỉ rời khỏi danh sách đang học — rồi nhập danh sách khóa mới như bình thường. Em tái tục sẽ có <b>2 dòng</b> (khóa cũ đã hết khóa + khóa mới đang học); đó là lịch sử học phí từng khóa, <b>không phải nhập trùng</b>. <b>Tuyệt đối đừng xóa</b> — xóa là mất luôn tiền đã thu của khóa cũ. Nhập trùng danh sách thật thì trang này hiện khung vàng <b>“Phát hiện N bản ghi trùng”</b> (chỉ tính trùng khi <b>cùng lớp, cùng trạng thái và cùng ngày nhập học</b>) — bấm <b>Chọn N bản trùng để xóa</b> là dọn sạch bản dư, giữ bản gốc. Muốn xóa nhiều em bất kỳ: bấm <b>☑ Chọn nhiều</b> → tick từng em → <b>🗑 Xóa</b> (chỉ Quản trị). Hai nút <b>⬇ Tải file điền học phí</b> / <b>⬆ Nhập học phí</b> dùng để nhập tiền đã thu từ trước cho hàng loạt em bằng Excel.',
   lichhoc:'Khai <b>khung ca</b> của cơ sở (mặc định 5 ca, mỗi ca 2 giờ — <b>sửa giờ được</b>, ngay trong cửa sổ khai lịch lớp cũng sửa được) và <b>lịch từng lớp</b> (học thứ mấy – ca nào – phòng nào). Có lưới lịch tuần, cảnh báo xếp trùng giáo viên/phòng và nút <b>🖶 In lịch tuần</b> khổ A4. Giáo viên chỉ xem lịch dạy của mình.',
   thongbao:'Thông báo của trung tâm gửi tới mọi người. Quản trị gửi <b>toàn chuỗi</b> hoặc từng cơ sở; Lễ tân gửi cho cơ sở mình. Chọn được <b>người nhận</b> (tất cả / chỉ giáo viên / chỉ lễ tân), <b>mức độ</b> (thường · quan trọng · khẩn), <b>ghim</b> lên đầu và <b>ngày hết hạn</b>. Tin quan trọng chưa đọc hiện thành băng nổi bật ngay đầu trang Điểm danh và Bảng điều hành.',
   ghidanh:'Thêm học sinh vào lớp — nhập từng em hoặc nhập Excel cả cơ sở một lần. Do <b>Lễ tân</b> và <b>Quản trị</b> làm; giáo viên không dùng mục này.',
@@ -4927,7 +4954,7 @@ function renderHocVien(){
       <button class="btn btn-sm btn-light" id="hvPrintHP" style="white-space:nowrap">🖶 In học phí</button>`:''}
       ${USER.role!=='teacher'?`<button class="btn btn-sm btn-ghost" id="hvHpTpl" style="white-space:nowrap">⬇ Tải file điền học phí</button>
       <button class="btn btn-sm btn-primary" id="hvHpImp" style="white-space:nowrap">⬆ Nhập học phí</button>`:''}
-      ${isAdmin&&list.length?`<button class="btn btn-sm ${hvSelMode?'btn-primary':'btn-light'}" id="hvPick" style="white-space:nowrap">${hvSelMode?'✕ Thoát chọn':'☑ Chọn nhiều'}</button>`:''}
+      ${list.length?`<button class="btn btn-sm ${hvSelMode?'btn-primary':'btn-light'}" id="hvPick" style="white-space:nowrap">${hvSelMode?'✕ Thoát chọn':'☑ Chọn nhiều'}</button>`:''}
       ${mauList.length?`<button class="btn btn-sm btn-light" id="hvClean" style="color:var(--rose);white-space:nowrap">🧹 Dọn ${mauList.length} HS mẫu</button>`:''}
     </div></div>
     <div class="pbody">
@@ -4949,8 +4976,9 @@ function renderHocVien(){
         <b style="font-size:.85rem;flex:1;min-width:110px">Đã chọn ${hvSel.size} / ${list.length} em</b>
         <button class="btn btn-sm btn-light" id="hvSelAll">Chọn hết</button>
         <button class="btn btn-sm btn-light" id="hvSelNone">Bỏ chọn</button>
-        ${dupIds.length?`<button class="btn btn-sm btn-light" id="hvSelDup" style="color:#8a5a00">🔎 Chọn ${dupIds.length} bản trùng</button>`:''}
-        <button class="btn btn-sm btn-primary" id="hvDel" ${hvSel.size?'':'disabled'} style="background:var(--rose);border-color:var(--rose)">🗑 Xóa ${hvSel.size} em</button>
+        ${isAdmin&&dupIds.length?`<button class="btn btn-sm btn-light" id="hvSelDup" style="color:#8a5a00">🔎 Chọn ${dupIds.length} bản trùng</button>`:''}
+        <button class="btn btn-sm btn-primary" id="hvKet" ${hvSel.size?'':'disabled'}>🎓 Kết khóa ${hvSel.size} em</button>
+        ${isAdmin?`<button class="btn btn-sm btn-primary" id="hvDel" ${hvSel.size?'':'disabled'} style="background:var(--rose);border-color:var(--rose)">🗑 Xóa ${hvSel.size} em</button>`:''}
       </div>`:''}`;
   if(!list.length){
     h+=`<div class="empty">${svg(IC.hocvien,1.5)}Chưa có học sinh nào trong phạm vi này.<br/><button class="btn btn-sm btn-ghost" id="toGhi2" style="margin-top:12px">→ Sang trang Ghi danh</button></div>`;
@@ -5013,8 +5041,45 @@ function renderHocVien(){
   $$('#view [data-pick]').forEach(r=>r.onclick=()=>{const id=Number(r.dataset.pick);
     if(hvSel.has(id))hvSel.delete(id);else hvSel.add(id);renderHocVien();});
   const dl=$('#hvDel'); if(dl)dl.onclick=()=>xoaHvBulk([...hvSel]);
+  const kk=$('#hvKet'); if(kk)kk.onclick=()=>ketKhoaBulk([...hvSel]);
 }
 /* Xóa hàng loạt học sinh: xóa luôn điểm danh và phiếu thu học phí gắn với các em đó */
+/* ===== KẾT KHÓA HÀNG LOẠT =====
+   Cuối mỗi khóa (VD khóa 25 xong, lên khóa 26) lễ tân đánh dấu cả lớp "Hết khóa"
+   — KHÔNG xóa. Hồ sơ và học phí đã thu của khóa cũ giữ nguyên trong sổ quỹ, các em
+   chỉ rời khỏi danh sách đang học. Danh sách khóa mới nhập vào sau đó là LƯỢT GHI
+   DANH MỚI, không bị coi là nhập trùng (xem cungLuot).
+   Trước đây không có nút này: 3.900 em phải mở hồ sơ bấm tay từng người.  */
+async function ketKhoaBulk(ids){
+  ids=[...new Set(ids)];
+  const ds=OPS.hv.filter(h=>ids.includes(h.id)&&hvActive(h));
+  const daNghi=ids.length-ds.length;
+  if(!ds.length){avaAlert(daNghi?'Các em đã chọn đều đã thôi học / hết khóa từ trước rồi.':'Chưa chọn học sinh nào.');return;}
+  const lops=[...new Set(ds.map(h=>lopName(h.lopId)))];
+  const txt=await avaPrompt({title:'Kết khóa cho '+ds.length+' em',
+    message:ds.length+' em thuộc '+lops.length+' lớp ('+lops.slice(0,6).join(', ')+(lops.length>6?'…':'')+') sẽ được đánh dấu "Hết khóa".'
+      +'\n\nHồ sơ và học phí đã thu VẪN GIỮ NGUYÊN — các em chỉ rời khỏi danh sách đang học. Sau đó nhập danh sách khóa mới như bình thường.'
+      +(daNghi?'\n\n('+daNghi+' em đã nghỉ từ trước — bỏ qua.)':''),
+    label:'Ngày kết thúc khóa',value:isoVN(todayISO()),date:true,
+    okText:'Kết khóa '+ds.length+' em'});
+  if(txt===null)return;
+  const iso=vnToIso(txt);
+  if(!iso){avaAlert('Ngày chưa đúng dạng ngày/tháng/năm (VD: 31/08/2026).');return;}
+  const btn=$('#hvKet'); if(btn){btn.disabled=true;btn.textContent='Đang kết khóa…';}
+  let xong=0,loi='';
+  for(let i=0;i<ds.length;i+=300){
+    const chunk=ds.slice(i,i+300).map(h=>h.id);
+    const {error}=await SB.from('hoc_vien').update({ngay_thoi_hoc:iso,ly_do_thoi_hoc:'Hết khóa'}).in('id',chunk);
+    if(error){loi=error.message;break;}
+    xong+=chunk.length;
+    if(btn)btn.textContent='Đang kết khóa '+xong+'/'+ds.length+'…';
+  }
+  if(xong)await loadCloud();
+  hvSel.clear(); hvSelMode=false; renderHocVien(); renderNavCounts();
+  avaAlert(loi?('Đã kết khóa '+xong+'/'+ds.length+' em rồi dừng vì lỗi: '+loi)
+              :('Đã kết khóa '+xong+' em, ngày '+txt+'.\n\nCác em vẫn nằm trong mục lọc "Đã thôi học" cùng toàn bộ học phí đã đóng. Giờ nhập được danh sách khóa mới.'),
+    {title:loi?'Kết khóa chưa xong':'Kết khóa xong'});
+}
 async function xoaHvBulk(ids){
   ids=[...new Set(ids)].filter(id=>OPS.hv.some(h=>h.id===id));
   if(!ids.length){avaAlert('Chưa chọn học sinh nào.');return;}
