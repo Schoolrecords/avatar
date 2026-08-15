@@ -2899,6 +2899,36 @@ async function renderTaiKhoan(){
     h+=`</div>`;
   }
   h+=`</div></div>`;
+
+  /* ===== TÀI KHOẢN LỄ TÂN — TOÀN HỆ THỐNG =====
+     Để nguyên một chỗ, KHÔNG lọc theo cơ sở đang chọn: lúc cần đến khu này là lúc
+     có người gọi báo "em quên mật khẩu", tìm theo tên cho nhanh, khỏi phải đoán
+     họ thuộc cơ sở nào rồi chuyển ô lọc.
+     Chỉ có nút Đổi MK — khóa và xóa tài khoản lễ tân vẫn phải làm trên Supabase
+     Dashboard, cố ý để bấm nhầm không mất tài khoản của cả một cơ sở. */
+  const lts=(tkList||[]).filter(a=>a.role==='owner').slice()
+    .sort((a,b)=>csCmp(a.coso_id,b.coso_id));
+  const csThieu=COSO.filter(c=>!c.build&&!lts.some(a=>a.coso_id===c.id));
+  h+=`<div class="panel" style="margin-top:14px"><div class="phead">
+      <div style="display:flex;align-items:baseline;gap:8px"><h3>Tài khoản lễ tân</h3>
+      <span class="sub">${lts.length} cơ sở đã có tài khoản</span></div></div>
+    <div class="pbody">
+      <p class="muted" style="font-size:.8rem;line-height:1.5;margin:0 2px 12px">Lễ tân quên mật khẩu thì bấm <b>Đổi MK</b> ở đây, khỏi vào Supabase. Danh sách này <b>không theo ô lọc cơ sở</b> phía trên — luôn hiện đủ mọi cơ sở.</p>`;
+  if(!lts.length) h+=`<div class="empty">Chưa lấy được danh sách lễ tân. Nếu vừa cập nhật Edge Function thì bấm <b>↻ Tải lại</b>.</div>`;
+  else{
+    h+=`<div class="ddgrid">`;
+    lts.forEach((a,i)=>{
+      const stat=a.banned?`<span class="paidtag no">Đã khóa</span>`:`<span class="paidtag yes">Đang dùng</span>`;
+      h+=`<div class="ddrow"><div class="idx">${i+1}</div>
+        <div class="nm"><b>${esc(csName(a.coso_id))}</b><small>${esc(a.email||'')} ${stat}</small></div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
+          <button class="btn btn-sm btn-light" data-pw="${a.id}">Đổi MK</button></div></div>`;
+    });
+    h+=`</div>`;
+    if(csThieu.length) h+=`<p class="muted" style="font-size:.79rem;margin:11px 2px 0;color:#8a5a00"><b>⚠ ${csThieu.length} cơ sở chưa có tài khoản lễ tân:</b> ${esc(csThieu.map(c=>c.ten).join(', '))}. Tài khoản lễ tân phải tạo trên Supabase Dashboard.</p>`;
+  }
+  h+=`</div></div>`;
+
   $('#view').innerHTML=h;
   $('#tkCsSel').onchange=e=>{tkCs=e.target.value;renderTaiKhoan();};
   $('#tkReload').onclick=()=>{tkList=null;renderTaiKhoan();};
