@@ -1147,7 +1147,7 @@ async function themDotDong(h,{soTien,ngay,nguoiNop,hinhThuc}){
     + (h.hocPhi?(' (đợt này '+fmtVND(sd)+', lũy kế '+fmtVND(daCo+sd)+'/'+fmtVND(h.hocPhi)
       + ((h.hocPhi-daCo-sd)>0?', còn '+fmtVND(h.hocPhi-daCo-sd):', đã đủ')+')'):'');
   const rec={ngay:ngay||todayISO(),loai:'thu',hangMuc:'Học phí',coSoId:h.coSoId,soTien:sd,noiDung:noi,
-    nguoiLap:USER.role==='admin'?'Quản trị':csName(USER.coSoId),nguoiNop:nguoiNop||h.ph||'',hinhThuc:hinhThuc||'tien_mat',hvId:h.id};
+    nguoiLap:tenNguoiLap(),nguoiNop:nguoiNop||h.ph||'',hinhThuc:hinhThuc||'tien_mat',hvId:h.id};
   const {data,error}=await insertPhieu(rec);
   if(error) return {error:error.message,loi:error};      // giữ cả lỗi gốc để còn chẩn đoán nguyên nhân
   OPS.gd.push(gdFromDb(data));
@@ -1166,7 +1166,7 @@ async function hoanHocPhi(h,soTien,xong){
   if(await chanKyChot(h.coSoId,ngay,'hoàn học phí'))return;
   const rec={ngay,loai:'chi',hangMuc:'Hoàn học phí',coSoId:h.coSoId,soTien:sd,
     noiDung:'Hoàn học phí thôi học: '+h.ten+' — '+lopName(h.lopId),
-    nguoiLap:USER.role==='admin'?'Quản trị':csName(USER.coSoId),nguoiNop:h.ph||'',hinhThuc:'tien_mat',hvId:h.id};
+    nguoiLap:tenNguoiLap(),nguoiNop:h.ph||'',hinhThuc:'tien_mat',hvId:h.id};
   const {data,error}=await insertPhieu(rec);
   if(error){ await baoLoiGhiSo(error,h.coSoId,ngay,'hoàn học phí'); return; }
   const g=gdFromDb(data); OPS.gd.push(g);
@@ -1955,7 +1955,7 @@ async function ghiPhieuHangLoat(recs,tienDo){
     const lo=recs.slice(i,i+300);
     const raw=lo.map(r=>({ngay:r.ngay,loai:'thu',hangMuc:'Học phí',coSoId:r.hv.coSoId,soTien:r.soTien,
       noiDung:'Học phí: '+r.hv.ten+' — '+lopName(r.hv.lopId)+' (nhập từ file danh sách)',
-      nguoiLap:USER.role==='admin'?'Quản trị':csName(USER.coSoId),
+      nguoiLap:tenNguoiLap(),
       nguoiNop:r.nguoiNop||r.hv.ph||'',hinhThuc:r.hinhThuc||'tien_mat',hvId:r.hv.id}));
     // Thử bản đầy đủ trước; thiếu cột (chưa chạy SQL) thì lùi dần, không im lặng bỏ tiền
     let res=await SB.from('so_quy').insert(raw.map(r=>({...gdToDb(r),...gdToDb5(r),hv_id:r.hvId}))).select();
@@ -2403,6 +2403,18 @@ function lopPickHTML(selId){
 
 /* ============ STATE ============ */
 let USER={role:'admin',coSoId:null}, VIEW='dashboard', scope='all';
+/* ===== TÊN GHI VÀO CỘT "NGƯỜI LẬP" CỦA PHIẾU SỔ QUỸ =====
+   Trước đây MỌI tài khoản quản trị đều ghi trơ chữ "Quản trị". Vì anh Chung và
+   Giám đốc dùng CHUNG một tài khoản nên 111 phiếu đầu tiên không biết ai lập —
+   sổ quỹ 1,49 tỉ mà không truy được trách nhiệm. Nay mỗi người một tài khoản thì
+   phải ghi ĐÚNG TÊN, nếu không thì tách tài khoản xong vẫn như cũ.
+   Hồ sơ chưa khai họ tên (ho_ten còn để trống hoặc đang là email) thì lùi về
+   "Quản trị" như trước cho khỏi ghi một địa chỉ email vào sổ quỹ. */
+const tenNguoiLap=()=>{
+  if(USER.role!=='admin') return csName(USER.coSoId);
+  const t=String(USER.hoTen||'').trim();
+  return (!t || t.includes('@')) ? 'Quản trị' : t;
+};
 let gvSearch='',gvCs='all',gvMon='all', lopSearch='',lopCs='all', csSort='thu';
 let lopSort='cs', lopThu='all';   // trang Lớp học: sắp xếp & lọc theo tình trạng thu phí
 let hvSearch='',hvCs='all',hvLop='all',hvPaid='all',hvStt='active';
@@ -6250,7 +6262,7 @@ function openThongBao(t){
     const rec={tieu_de:td,noi_dung:$('#tb_nd').value.trim(),muc_do:$('#tb_muc').value,
       vai_tro:$('#tb_ai').value,ghim:$('#tb_ghim').checked,het_han:hanTxt?vnToIso(hanTxt):null,
       coso_id: isAdm ? (csv===''?null:Number(csv)) : USER.coSoId,
-      nguoi_dang: USER.role==='admin'?'Quản trị':csName(USER.coSoId),
+      nguoi_dang: tenNguoiLap(),
       updated_at:new Date().toISOString()};
     const btn=$('#tb_save'); btn.disabled=true; btn.textContent='Đang lưu…'; err('');
     let r;
