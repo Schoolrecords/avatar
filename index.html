@@ -1470,6 +1470,22 @@ function nhomNguoi(arr){
 }
 /* khóa nhận diện MỘT LƯỢT GHI DANH — để bắt trùng */
 const gdKey=h=>h.coSoId+'|'+h.lopId+'|'+nameKey(h.ten);
+/* ===== HAI DÒNG CÓ PHẢI CÙNG MỘT LƯỢT GHI DANH KHÔNG? =====
+   Lớp học hết khóa rồi lên khóa mới (khóa 25 → khóa 26): em TÁI TỤC sẽ có THÊM một dòng
+   Ở CÙNG LỚP — dòng khóa cũ đã "Hết khóa", dòng khóa mới đang học. Đó là LỊCH SỬ HỌC PHÍ
+   TỪNG KHÓA, KHÔNG phải nhập trùng: không được chặn khi nhập file, càng KHÔNG được
+   rủ anh xóa đi (xóa dòng khóa cũ là mất luôn tiền đã thu của khóa đó).
+   Trùng THẬT = cùng cơ sở + cùng lớp + cùng tên (đã lọc trước khi gọi hàm này), VÀ:
+     • ngày sinh không mâu thuẫn (một bên để trống thì bỏ qua), VÀ
+     • cùng trạng thái — cùng đang học, hoặc cùng đã nghỉ, VÀ
+     • ngày nhập học không mâu thuẫn — hai khóa khác nhau thì nhập học khác ngày.  */
+const cungLuot=(a,b)=>{
+  const nsA=anyToIso(a.ns), nsB=anyToIso(b.ns);
+  if(nsA&&nsB&&nsA!==nsB) return false;
+  if(hvActive(a)!==hvActive(b)) return false;
+  const nhA=a.ngayNhapHoc||'', nhB=b.ngayNhapHoc||'';
+  return !(nhA&&nhB&&nhA!==nhB);
+};
 const demHS=arr=>new Set(nhomNguoi(arr).values()).size;
 /* các lớp mà một em đang theo học (dùng để hiện nhãn "2 lớp") */
 function lopCuaEm(h){
@@ -1997,7 +2013,7 @@ function hsImportExcel(lop){
         if(r2.nhapNhang){ mapMo.push(dong+': "'+lopCell+'" ('+r2.soLop+' lớp cùng tên)'); return; }   // KHÔNG đoán bừa
         lp=r2.lop; if(!lp){badLop.push(dong);return;} }
       const nh=anyToIso(xlPick(r,['thoi gian nhap','ngay nhap','nhap hoc','dang ky']));
-      const ns=String(xlPick(r,['ngay sinh','sinh'])).trim(), nsIso=anyToIso(ns);
+      const ns=String(xlPick(r,['ngay sinh','sinh'])).trim();
       const tt=fold(String(xlPick(r,['trang thai']))).toLowerCase().trim();
       let thoi=false, lyDo='';                    // trống hoặc "đang học" => đang học
       if(tt.includes('het khoa')){thoi=true;lyDo='Hết khóa';}
@@ -2006,10 +2022,11 @@ function hsImportExcel(lop){
       const tienDong=Number(String(xlPick(r,['da dong','da nop','da thu'])).replace(/\D/g,''))||0;
       const ngayDongF=anyToIso(xlPick(r,['ngay dong','ngay nop']));
       const rec={ten,ns,ph:String(xlPick(r,['phu huynh','huynh','cha me'])).trim(),sdt:String(xlPick(r,['dien thoai','sdt','so dt','phone'])).trim(),hocPhi:Number(String(xlPick(r,['hoc phi','phi'])).replace(/\D/g,''))||0,daDong:false,lopId:lp.id,coSoId:lp.coSoId,mau:false,ngayNhapHoc:nh,ngayThoiHoc:thoi?todayISO():null,lyDo,tienDong,ngayDongF};
-      // Chặn trùng: cùng tên + CÙNG LỚP, và ngày sinh không mâu thuẫn (một bên trống cũng coi là trùng).
+      // Chặn trùng: cùng tên + CÙNG LỚP + CÙNG MỘT LƯỢT GHI DANH (xem cungLuot).
       // Cùng tên nhưng KHÁC LỚP = em học thêm lớp nữa → nhập bình thường, không chặn.
+      // Cùng tên, cùng lớp nhưng dòng cũ đã "Hết khóa" = em học lên KHÓA MỚI → cũng không chặn.
       const k=lp.id+'|'+nameKey(ten);
-      const khop=o=>{const a=anyToIso(o.ns); return !a||!nsIso||a===nsIso;};
+      const khop=o=>cungLuot(o,rec);
       const cu=(daCo[k]||[]).find(khop);
       if(cu){dups.push({dong,ten,rec,note:'đã có trong lớp '+lopName(lp.id)});return;}
       const tf=(inFile[k]||[]).find(khop);
@@ -2038,7 +2055,7 @@ function hsImportExcel(lop){
       ${dups.length?`<div style="margin-top:12px;padding:11px 12px;border:1.5px solid #f2c14e;background:#fff9e8;border-radius:12px">
         <b style="font-size:.85rem;color:#8a5a00">⚠ ${dups.length} dòng bị chặn vì trùng học sinh đã có</b>
         <div class="muted" style="font-size:.76rem;line-height:1.6;margin-top:5px">${esc(dups.slice(0,15).map(d=>'dòng '+d.dong+': '+d.ten+' — '+d.note).join('; '))}${dups.length>15?' …':''}</div>
-        <label style="display:flex;gap:8px;align-items:flex-start;margin-top:9px;font-size:.79rem;cursor:pointer"><input type="checkbox" id="imp_dup" style="margin-top:2px"/><span>Tôi đã kiểm tra, đây là các em <b>khác nhau</b> (trùng tên) — vẫn nhập ${dups.length} dòng này</span></label>
+        <label style="display:flex;gap:8px;align-items:flex-start;margin-top:9px;font-size:.79rem;cursor:pointer"><input type="checkbox" id="imp_dup" style="margin-top:2px"/><span>Tôi đã kiểm tra: đây là các em <b>khác nhau</b> (chỉ trùng tên), hoặc là <b>lượt ghi danh mới</b> (khóa mới, học lại) — vẫn nhập ${dups.length} dòng này</span></label>
       </div>`:''}`;
     previewImport('học sinh vào '+csName(coSoId),recs,bad.concat(badLop),async()=>{
       const nhInp=$('#imp_nhaphoc'), nhTxt=(nhInp?nhInp.value:'').trim();
@@ -4877,13 +4894,14 @@ function renderHocVien(){
     const nhom={};
     list.forEach(h=>{const k=gdKey(h);(nhom[k]=nhom[k]||[]).push(h);});
     for(const k in nhom){ const g=nhom[k]; if(g.length<2)continue;
-      // tách theo ngày sinh: các em có NS khác nhau rõ ràng thì KHÔNG coi là trùng
+      // tách theo cungLuot: NS khác nhau rõ ràng, hoặc khác trạng thái (một bên đã hết khóa),
+      // hoặc khác ngày nhập học (hai khóa khác nhau) ⇒ KHÔNG coi là trùng
       const chuaXet=g.slice();
       while(chuaXet.length){
-        const a=chuaXet.shift(), nsA=vnToIso(a.ns);
+        const a=chuaXet.shift();
         const cung=[a];
-        for(let i=chuaXet.length-1;i>=0;i--){const b=chuaXet[i],nsB=vnToIso(b.ns);
-          if(!nsA||!nsB||nsA===nsB){cung.unshift(b);chuaXet.splice(i,1);}}
+        for(let i=chuaXet.length-1;i>=0;i--){const b=chuaXet[i];
+          if(cungLuot(a,b)){cung.unshift(b);chuaXet.splice(i,1);}}
         if(cung.length<2)continue;
         cung.sort((x,y)=>((Number(y.soTienDong)||0)>0)-((Number(x.soTienDong)||0)>0)||x.id-y.id);
         cung.slice(1).forEach(h=>dupIds.push(h.id));   // bỏ bản đầu (gốc), còn lại là trùng
@@ -5374,13 +5392,13 @@ function renderGhiDanh(){
     const nhTxt=$('#gd_nhaphoc').value.trim();
     if(nhTxt&&!vnToIso(nhTxt)){avaAlert('Thời gian nhập học chưa đúng dạng ngày/tháng/năm (VD: 30/06/2026).');$('#gd_nhaphoc').focus();return;}
     const nhIso=vnToIso(nhTxt)||todayISO(); gdNhapHoc=nhIso;   // giữ lại cho em tiếp theo
-    const ns=$('#gd_ns').value.trim(), nsIso=vnToIso(ns);
-    // Chặn trùng: cùng tên trong cùng cơ sở, ngày sinh không mâu thuẫn
-    // Chỉ cảnh báo khi trùng THẬT: cùng lớp + cùng tên + ngày sinh không mâu thuẫn.
+    const ns=$('#gd_ns').value.trim();
+    // Chỉ cảnh báo khi trùng THẬT: cùng lớp + cùng tên + CÙNG MỘT LƯỢT GHI DANH (xem cungLuot).
     // Cùng tên nhưng khác lớp = em học thêm lớp nữa → cho ghi danh thẳng, không hỏi han.
-    const hopNS=h=>{const a=vnToIso(h.ns);return !a||!nsIso||a===nsIso;};
-    const cu=OPS.hv.find(h=>h.lopId===lop.id&&nameKey(h.ten)===nameKey(ten)&&hopNS(h));
-    if(cu&&!await avaConfirm('Lớp '+lop.lop+' đã có học sinh tên "'+ten+'"'+(cu.ns?' (sinh '+cu.ns+')':'')+'.\n\nĐây có phải một em KHÁC trùng tên không?',{okText:'Đúng, vẫn ghi danh'}))return;
+    // Cùng tên, cùng lớp nhưng dòng cũ đã "Hết khóa" = em học lên KHÓA MỚI → cũng không hỏi.
+    const moi={ns,ngayNhapHoc:nhIso,ngayThoiHoc:null};
+    const cu=OPS.hv.find(h=>h.lopId===lop.id&&nameKey(h.ten)===nameKey(ten)&&cungLuot(h,moi));
+    if(cu&&!await avaConfirm('Lớp '+lop.lop+' đã có học sinh tên "'+ten+'" đang học'+(cu.ns?' (sinh '+cu.ns+')':'')+'.\n\nĐây có phải một em KHÁC trùng tên không?',{okText:'Đúng, vẫn ghi danh'}))return;
     const _hpEl=$('#gd_hp');
     const rec={ten,ns,ph:$('#gd_ph').value.trim(),sdt:$('#gd_sdt').value.trim(),hocPhi:_hpEl?Number(_hpEl.value.replace(/\D/g,''))||0:0,lopId:ghiLopId,coSoId:lop.coSoId,mau:false};
     const {data,error}=await SB.from('hoc_vien').insert(hvToDb(rec)).select().single();
