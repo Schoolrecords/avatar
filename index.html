@@ -2691,6 +2691,44 @@ function initBell(){
   document.addEventListener('click',()=>closeBellPanel());
 }
 $('#logout').onclick=async()=>{ dangTuDangXuat=true; try{if(rtChannel)SB.removeChannel(rtChannel);}catch(e){} try{await SB.auth.signOut();}catch(e){} location.reload(); };
+/* ===== QUY TẮC MẬT KHẨU =====
+   PHẢI khớp với thiết lập trên máy chủ Supabase (Authentication → Sign In/Providers
+   → Email): tối thiểu 8 ký tự, bắt buộc có chữ thường + chữ HOA + chữ số.
+   KHÔNG bắt ký tự đặc biệt. Đã dò bằng cách thử thật ngày 15/08/2026 — đừng đoán,
+   nếu sau này đổi thiết lập trên Supabase thì phải sửa lại đúng chỗ này.
+   Trước đây app ghi "ít nhất 6 ký tự" nên người dùng gõ 6 ký tự rồi lãnh nguyên
+   câu lỗi tiếng Anh của máy chủ — không ai hiểu chuyện gì. */
+const MK_TOI_THIEU=8;
+const MK_MO_TA='Ít nhất '+MK_TOI_THIEU+' ký tự, có chữ HOA, chữ thường và số';
+function loiMatKhau(p){
+  p=String(p||'');
+  if(!p) return 'Chưa nhập mật khẩu mới.';
+  if(p.length<MK_TOI_THIEU) return 'Mật khẩu phải từ '+MK_TOI_THIEU+' ký tự trở lên (đang '+p.length+' ký tự).';
+  const thieu=[];
+  if(!/[a-z]/.test(p)) thieu.push('chữ thường (a–z)');
+  if(!/[A-Z]/.test(p)) thieu.push('chữ HOA (A–Z)');
+  if(!/[0-9]/.test(p)) thieu.push('chữ số (0–9)');
+  if(thieu.length) return 'Mật khẩu còn thiếu '+thieu.join(', ')+'.';
+  if(/[^\x20-\x7E]/.test(p)) return 'Mật khẩu không nên có dấu tiếng Việt — máy khác bộ gõ sẽ không đăng nhập được. Hãy gõ chữ không dấu.';
+  return '';
+}
+/* Máy chủ trả lỗi bằng tiếng Anh — dịch sang tiếng Việt cho dễ hiểu */
+function dichLoiMK(m){
+  const s=String(m||'');
+  if(/at least\s+\d+\s+character/i.test(s)) return 'Mật khẩu quá ngắn — phải từ '+MK_TOI_THIEU+' ký tự trở lên.';
+  if(/one character of each/i.test(s))      return 'Mật khẩu phải có đủ chữ thường, chữ HOA và chữ số.';
+  if(/should be different|different from the old/i.test(s)) return 'Mật khẩu mới phải khác mật khẩu đang dùng.';
+  if(/weak|pwned|leaked|compromis/i.test(s)) return 'Mật khẩu này quá dễ đoán, hãy chọn mật khẩu khác.';
+  if(/rate limit|too many/i.test(s))         return 'Thao tác quá nhiều lần, chờ một lát rồi thử lại.';
+  return 'Không đổi được mật khẩu: '+s;
+}
+/* Gợi ý mật khẩu dễ nhớ mà vẫn đủ mạnh: hai từ không dấu + 4 số (VD Muanang4821) */
+function goiYMatKhau(){
+  const TU=['Mua','Nang','Gio','Song','Nui','Bien','Sao','Trang','Lua','Ngoc','Vang','Bac',
+            'Sen','Mai','Truc','Cau','Binh','Minh','Thanh','Phuc','Khanh','Hoa','Lam','Son'];
+  const r=n=>Math.floor(Math.random()*n);
+  return TU[r(TU.length)]+TU[r(TU.length)].toLowerCase()+(1000+r(9000));
+}
 $('#chgPass').onclick=openChgPass;
 function openChgPass(){
   $('#mcard').innerHTML=`
@@ -2701,27 +2739,36 @@ function openChgPass(){
    </div>
    <div class="mbody"><div class="form2">
      <div class="fld full"><label>Mật khẩu mới</label>
-       <div class="pass-wrap"><input type="password" id="np1" placeholder="Ít nhất 6 ký tự"/><button type="button" class="eye" id="npEye1"></button></div></div>
+       <div class="pass-wrap"><input type="password" id="np1" placeholder="${MK_MO_TA}"/><button type="button" class="eye" id="npEye1"></button></div></div>
      <div class="fld full"><label>Nhập lại mật khẩu mới</label>
        <input type="password" id="np2" placeholder="Gõ lại mật khẩu mới"/></div>
      <div id="npErr" style="display:none;color:#c0392b;font-size:.85rem;font-weight:600"></div>
+     <div class="fld full"><button class="btn btn-light btn-block" id="npGoiY" style="font-size:.86rem">💡 Gợi ý một mật khẩu mạnh</button></div>
      <div class="fld full"><button class="btn btn-primary btn-block" id="npSave">Cập nhật mật khẩu</button></div>
-     <div class="fld full"><small style="color:var(--muted)">Sau khi đổi, lần đăng nhập sau anh/chị dùng mật khẩu mới.</small></div>
+     <div class="fld full"><small style="color:var(--muted)"><b>${MK_MO_TA}.</b> Không cần ký tự đặc biệt, không dùng dấu tiếng Việt.<br/>Sau khi đổi, lần đăng nhập sau anh/chị dùng mật khẩu mới. Hãy ghi lại trước khi bấm.</small></div>
    </div></div>`;
   $('#modal').classList.add('on');
   $('#npEye1').innerHTML=EYE_ON;
   $('#npEye1').onclick=()=>{const i=$('#np1');const show=i.type==='password';i.type=show?'text':'password';$('#npEye1').innerHTML=show?EYE_OFF:EYE_ON;i.focus();};
   const show=m=>{const e=$('#npErr');e.textContent=m||'';e.style.display=m?'block':'none';};
+  $('#npGoiY').onclick=()=>{                       // điền sẵn một mật khẩu hợp lệ, hiện rõ để ghi lại
+    const g=goiYMatKhau();
+    $('#np1').value=g; $('#np2').value=g;
+    $('#np1').type='text'; $('#npEye1').innerHTML=EYE_OFF;
+    show('');
+    avaAlert('Mật khẩu gợi ý:\n\n'+g+'\n\nHãy GHI LẠI vào sổ trước, rồi bấm "Cập nhật mật khẩu".',{title:'Mật khẩu gợi ý'});
+  };
   $('#npSave').onclick=async()=>{
     const p1=$('#np1').value, p2=$('#np2').value;
-    if(p1.length<6){show('Mật khẩu phải từ 6 ký tự trở lên.');$('#np1').focus();return;}
+    const loi=loiMatKhau(p1);                      // kiểm tại chỗ theo ĐÚNG quy tắc máy chủ
+    if(loi){show(loi);$('#np1').focus();return;}
     if(p1!==p2){show('Hai lần nhập mật khẩu chưa khớp.');$('#np2').focus();return;}
     const btn=$('#npSave'); btn.disabled=true; btn.textContent='Đang cập nhật…'; show('');
     const {error}=await SB.auth.updateUser({password:p1});
     btn.disabled=false; btn.textContent='Cập nhật mật khẩu';
-    if(error){show('Lỗi: '+error.message);return;}
+    if(error){show(dichLoiMK(error.message));return;}
     closeModal();
-    avaAlert('Đã đổi mật khẩu thành công! Lần đăng nhập sau hãy dùng mật khẩu mới.');
+    avaAlert('Đã đổi mật khẩu thành công!\n\nMật khẩu mới của anh/chị là:\n'+p1+'\n\nHãy ghi lại. Lần đăng nhập sau dùng mật khẩu này.',{title:'Đổi mật khẩu xong'});
   };
 }
 
@@ -2903,19 +2950,23 @@ function tkResetPw(id){
      <div class="mava">🔑</div><div style="flex:1"><h3>Đổi mật khẩu</h3><p>${esc(a.email)}</p></div>
      <button class="mclose" onclick="closeModal()">${svg('<path d="M6 6l12 12M18 6L6 18"/>')}</button></div>
    <div class="mbody"><div class="form2">
-     <div class="fld full"><label>Mật khẩu mới</label><input id="tk_np" placeholder="≥ 6 ký tự"/></div>
+     <div class="fld full"><label>Mật khẩu mới</label><input id="tk_np" placeholder="${MK_MO_TA}"/>
+       <small style="color:var(--muted);display:block;margin-top:5px">${MK_MO_TA}. Không cần ký tự đặc biệt.</small></div>
+     <div class="fld full"><button class="btn btn-light btn-block" id="tk_goiy" style="font-size:.86rem">💡 Gợi ý một mật khẩu mạnh</button></div>
      <div id="tkErr2" style="display:none;color:#c0392b;font-size:.85rem;font-weight:600" class="fld full"></div>
      <div class="fld full" style="display:flex;gap:9px"><button class="btn btn-light" style="flex:1" onclick="closeModal()">Hủy</button><button class="btn btn-primary" style="flex:2" id="tk_npok">Đổi mật khẩu</button></div>
    </div></div>`;
   $('#modal').classList.add('on');
   const err=m=>{const e=$('#tkErr2');e.textContent=m||'';e.style.display=m?'block':'none';};
+  $('#tk_goiy').onclick=()=>{ $('#tk_np').value=goiYMatKhau(); err(''); };
   $('#tk_npok').onclick=async()=>{
     const p=$('#tk_np').value;
-    if(p.length<6){err('Mật khẩu cần ít nhất 6 ký tự.');return;}
+    const loi=loiMatKhau(p);
+    if(loi){err(loi);$('#tk_np').focus();return;}
     const btn=$('#tk_npok');btn.disabled=true;btn.textContent='Đang đổi…';err('');
     const r=await callTK('resetpw',{id,password:p});
     btn.disabled=false;btn.textContent='Đổi mật khẩu';
-    if(r.error){err(r.error);return;}
+    if(r.error){err(dichLoiMK(r.error));return;}
     closeModal(); avaAlert('Đã đổi mật khẩu cho '+a.email+'.\nMật khẩu mới: '+p);
   };
 }
@@ -3308,7 +3359,7 @@ const HD_FAQ=[
   ['Số phiếu vẫn là PT0001 chứ không phải PT-02-2607-001','Chưa chạy file <b>sql-giai-doan-5-thu-chi.sql</b> trong Supabase → SQL Editor. Chạy xong tải lại trang; các phiếu cũ cũng được đánh số lại theo đúng trình tự ngày.'],
   ['Vì sao thỉnh thoảng phải đăng nhập lại?','Máy đã đăng nhập một lần thì <b>mở app là vào thẳng</b>, không hỏi mật khẩu nữa — hệ thống nhớ phiên trong bộ nhớ của <b>riêng trình duyệt đó</b>. Đổi sang trình duyệt khác (Chrome → Safari), máy khác, hoặc mở <b>chế độ ẩn danh</b> thì phải nhập lại một lần. Ngoài ra phải đăng nhập lại khi: bấm <b>Đăng xuất</b>, đổi mật khẩu, Quản trị thu hồi quyền, hoặc xóa dữ liệu duyệt web. Trên điện thoại nên <b>Thêm vào màn hình chính</b> để dùng như một app riêng — vừa vào nhanh vừa giữ đăng nhập lâu hơn.'],
   ['Quên mật khẩu','Giáo viên: Quản trị vào <b>Tài khoản</b> → <b>Đổi MK</b>. Giám đốc / Lễ tân: liên hệ bộ phận kỹ thuật đặt lại.'],
-  ['Muốn đổi mật khẩu của chính mình','Bấm <b>Đổi mật khẩu</b> ở cuối thanh menu bên trái (điện thoại: bấm ☰ rồi kéo xuống), nhập mật khẩu mới hai lần.']
+  ['Muốn đổi mật khẩu của chính mình','Bấm <b>Đổi mật khẩu</b> ở cuối thanh menu bên trái (điện thoại: bấm ☰ rồi kéo xuống), nhập mật khẩu mới hai lần. Mật khẩu phải <b>ít nhất 8 ký tự, có chữ HOA, chữ thường và số</b> (không cần ký tự đặc biệt, không dùng dấu tiếng Việt). Chưa nghĩ ra thì bấm <b>💡 Gợi ý một mật khẩu mạnh</b> — nhớ ghi lại trước khi bấm cập nhật.']
 ];
 const HD_TIPS=[
   ['📲','Cài lên màn hình chính điện thoại (chọn “Thêm vào Màn hình chính”) để dùng như một ứng dụng riêng, mở nhanh hơn.'],
