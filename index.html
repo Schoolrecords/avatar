@@ -584,6 +584,9 @@ td.chi{color:var(--rose);font-weight:800}
 .vpaper{box-sizing:content-box;width:186mm;margin:0 auto;background:#fff;border-radius:6px;padding:12mm;font-family:"Times New Roman",Georgia,serif;color:#000;line-height:1.55;box-shadow:0 30px 70px -30px #000}
 .vtop{display:flex;justify-content:space-between;gap:16px;font-size:.9rem}
 .vtop b{font-size:.95rem}
+.vdv{display:flex;align-items:center;gap:10px}
+.vlogo{width:17mm;height:17mm;object-fit:contain;border-radius:3mm;flex:none}
+.vluuy{margin-top:18px;padding-top:8px;border-top:1px dashed #555;font-style:italic;font-size:.88rem;text-align:center}
 .vmau{text-align:right;font-size:.82rem}
 .vmau i{font-size:.74rem}
 .vtitle{text-align:center;font-size:1.7rem;font-weight:700;margin:14px 0 2px;letter-spacing:.02em}
@@ -4938,7 +4941,7 @@ function voucherHTML(g){
   const sign=[['Giám đốc',''],['Kế toán',''],[thu?'Người nộp tiền':'Người nhận tiền',esc(nguoi)],['Người lập phiếu',esc(g.nguoiLap||'')],['Thủ quỹ','']];
   return `<div class="vpaper">
     <div class="vtop">
-      <div><b>TRUNG TÂM ANH NGỮ AVATAR</b><br/><span>Cơ sở: ${esc(csName(g.coSoId))}</span></div>
+      <div class="vdv"><img class="vlogo" src="logo.png" alt="AVATAR" width="64" height="64"/><div><b>TRUNG TÂM ANH NGỮ AVATAR</b><br/><span>Cơ sở: ${esc(csName(g.coSoId))}</span></div></div>
       <div class="vmau">Mẫu số ${thu?'01':'02'} - TT<br/><i>(Ban hành theo TT 133/2016/TT-BTC)</i></div>
     </div>
     <div class="vtitle">${thu?'PHIẾU THU':'PHIẾU CHI'}</div>
@@ -4953,6 +4956,7 @@ function voucherHTML(g){
       <tr><td>Kèm theo:</td><td>................. chứng từ gốc</td></tr>
     </table>
     <div class="vsign">${sign.map(([t,n])=>`<div><b>${t}</b><small>(Ký, họ tên)</small><div style="height:44px"></div>${n?`<span>${n}</span>`:''}</div>`).join('')}</div>
+    ${thu&&g.hangMuc==='Học phí'?'<div class="vluuy"><b>Lưu ý:</b> Học phí đã đóng sẽ không được hoàn trả trong mọi trường hợp.</div>':''}
   </div>`;
 }
 function openVoucher(g,opts={}){
@@ -4966,7 +4970,8 @@ function openVoucher(g,opts={}){
   $('#voucher').classList.add('on');
   $('#vClose').onclick=()=>$('#voucher').classList.remove('on');
   $('#vPrint').onclick=()=>window.print();
-  $('#vWord').onclick=()=>taiWord($('#voucher .vpaper').outerHTML,((g.loai==='thu'?'Phieu-thu-':'Phieu-chi-')+String(soPhieu(g)).replace(/[\\/:*?"<>|\s]+/g,'-')+'.doc'));
+  // File Word không đọc được đường dẫn tương đối → đổi logo sang địa chỉ đầy đủ (cần mạng khi mở file)
+  $('#vWord').onclick=()=>taiWord($('#voucher .vpaper').outerHTML.replace('src="logo.png"','src="'+new URL('logo.png',location.href).href+'"'),((g.loai==='thu'?'Phieu-thu-':'Phieu-chi-')+String(soPhieu(g)).replace(/[\\/:*?"<>|\s]+/g,'-')+'.doc'));
   if(opts.onSave)$('#vSave').onclick=()=>{opts.onSave();$('#voucher').classList.remove('on');};
 }
 
@@ -5639,6 +5644,10 @@ function renderDiemDanh(){
       <div class="p vang"><b>${cnt.vang}</b><span>vắng</span></div>
       <div class="p done"><b>${marked}/${ds.length}</b><span>đã điểm</span></div>
     </div>
+    ${canEdit&&marked<ds.length?`<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 12px">
+      <button class="btn btn-sm btn-primary" id="ddAllCo">✓ Cả lớp có mặt</button>
+      <span class="muted" style="font-size:.74rem;font-weight:600">Đánh "Có" cho ${ds.length-marked} em chưa điểm danh; em đã đánh Muộn/Phép/Vắng giữ nguyên.</span>
+    </div>`:''}
     <div class="ddgrid">
       <div class="ddrow ddh"><div class="idx">TT</div><div class="nm">HỌC SINH</div><span class="hh">ĐIỂM DANH</span></div>`;
     ds.forEach((v,i)=>{
@@ -5714,6 +5723,21 @@ function renderDiemDanh(){
     const {error}=await SB.from('cham_cong_gv').update({gv_id:gid}).eq('lop_id',ddLopId).eq('ngay',ddDate);
     if(error){avaAlert('Lỗi đổi giáo viên dạy: '+error.message);return;}
     if(gid!=null)OPS.ccGvId[ccKey]=gid; else delete OPS.ccGvId[ccKey];
+    renderDiemDanh();
+  };
+  // Cả lớp đi đủ: chỉ điền "Có" cho em CHƯA điểm danh — không ghi đè Muộn/Phép/Vắng đã đánh,
+  // nên bấm trước rồi sửa vài em vắng sau, hay bấm sau cùng đều đúng. Gửi một lần cho cả lớp.
+  const allCo=$('#ddAllCo');
+  if(allCo) allCo.onclick=async()=>{
+    if(!canEdit)return;
+    const cur=OPS.ddHV[ddKey]||{};
+    const rows=ds.filter(v=>!cur[v.id]).map(v=>({lop_id:ddLopId,ngay:ddDate,hv_id:v.id,coso_id:lop.coSoId,trang_thai:'co'}));
+    if(!rows.length)return;
+    allCo.disabled=true;
+    const {error}=await SB.from('diem_danh_hv').upsert(rows,{onConflict:'lop_id,ngay,hv_id'});
+    if(error){allCo.disabled=false;avaAlert('Lỗi lưu điểm danh: '+error.message);return;}
+    OPS.ddHV[ddKey]=OPS.ddHV[ddKey]||{};
+    rows.forEach(r=>{OPS.ddHV[ddKey][r.hv_id]='co';});
     renderDiemDanh();
   };
   $$('#view .ddSeg').forEach(seg=>{const id=Number(seg.dataset.hv);
