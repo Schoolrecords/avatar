@@ -447,6 +447,35 @@ b.lpno{color:var(--rose)}
 .attseg button.on[data-v=vang]{background:var(--rose);border-color:var(--rose);color:#fff;box-shadow:0 3px 9px rgba(224,75,82,.30)}
 @media(max-width:400px){.attseg button{min-width:46px;padding:8px 2px;font-size:.72rem}}
 @media(max-width:520px){.ddrow{flex-wrap:wrap}.ddrow .seg,.ddrow .attseg{margin-left:34px}}
+/* Tích sao (Giai đoạn 14): vàng sao là màu NGHĨA (được khen), không dùng làm màu trang trí */
+.saorow{display:flex;align-items:center;gap:1px;margin-top:5px;flex-wrap:wrap}
+/* Điện thoại: tên + sao chiếm trọn một dòng, nút Có/Muộn/Phép/Vắng xuống dòng dưới —
+   nếu để chung một dòng thì cột tên còn ~60px, sao bị xếp dọc, tên ngắt từng chữ */
+@media(max-width:520px){.ddgrid .ddrow:not(.ddh) .nm:has(.saorow){flex:1 1 calc(100% - 40px)}}
+.saorow .sao{width:32px;height:30px;padding:3px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center}
+.saorow .sao svg{width:23px;height:23px;fill:none;stroke:#c3c9d4;stroke-width:1.7;stroke-linejoin:round;transition:.12s}
+.saorow .sao.on svg{fill:#f2b01e;stroke:#d39408}
+.saorow .sao:not(:disabled):hover{background:#fdf3d7}
+.saorow .sao:not(:disabled):hover svg{stroke:#d39408}
+.saorow .sao:disabled{cursor:not-allowed;opacity:.42}
+.saorow .sao.on:disabled{opacity:.8}
+.saoly{font-size:.7rem;font-weight:700;color:var(--muted);background:var(--soft);border:1px dashed var(--line);border-radius:7px;padding:3px 8px;margin-left:5px;max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+button.saoly{cursor:pointer}
+.saoly.tinh{border-style:solid}
+.saotong{font-size:.68rem;font-weight:800;color:#8a5d00;background:#fdf3d7;border-radius:7px;padding:3px 8px;margin-left:6px;white-space:nowrap}
+.saobang{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:8px}
+.saohang{display:flex;align-items:center;gap:11px;border:1px solid var(--line);border-radius:12px;padding:9px 12px}
+.saohang.sh-top{background:#fffaf0;border-color:#f1dca3}
+.sh-hang{width:28px;height:28px;flex:none;border-radius:8px;background:var(--soft);color:var(--muted);font-weight:900;font-size:.85rem;display:flex;align-items:center;justify-content:center}
+.saohang.sh-top .sh-hang{background:#f2b01e;color:#fff}
+.sh-ten{flex:1;min-width:0}.sh-ten b{display:block;font-size:.88rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.sh-ten small{color:var(--muted);font-size:.72rem}
+.sh-sao{display:inline-flex;align-items:center;gap:4px;flex:none}
+.sh-sao svg{width:20px;height:20px;fill:#f2b01e;stroke:#d39408;stroke-width:1.5;stroke-linejoin:round}
+.sh-sao b{font-size:1.05rem;font-weight:900;color:#8a5d00}
+.saohs{display:flex;align-items:center;gap:10px;font-size:.86rem}
+.saohs-ds{margin-top:8px;display:grid;gap:4px;font-size:.8rem}
+.saohs-ds>div{display:flex;gap:10px;align-items:baseline}
+.saohs-ds .sv{color:#e0a106;letter-spacing:1px;min-width:42px}
 
 /* ===== LỊCH DẠY THEO CA ===== */
 .calist{display:grid;gap:8px}
@@ -1196,6 +1225,7 @@ let ccLive=false;   // true khi đã chạy SQL Giai đoạn 7 (chấm công có
 let csLive=false;   // true khi đã chạy SQL Giai đoạn 7 (danh sách cơ sở lấy từ Supabase)
 let tbLive=false;   // true khi đã chạy SQL Giai đoạn 8 (bảng thông báo)
 let lichGvLive=true; // false khi CSDL chưa có cột lich_lop.gv_id (Giai đoạn 9)
+let saoLive=false;   // true khi đã chạy SQL Giai đoạn 14 (cột diem_danh_hv.sao — tích sao cho học sinh)
 /* ===== TẢI DỮ LIỆU LỚN AN TOÀN =====
    Supabase cắt mỗi truy vấn ở ~1000 dòng. Với 341 lớp (vài nghìn học sinh) mà
    không phân trang thì app hiện THIẾU dữ liệu mà KHÔNG báo lỗi. fetchAll() tải
@@ -1238,7 +1268,7 @@ async function loadCloud(){
   const mocDD=isoCongNgay(todayISO(),-DD_SO_NGAY), mocCA=isoCongNgay(todayISO(),-CA_SO_NGAY);
   ddFrom=(ddFromWanted && ddFromWanted<mocDD) ? ddFromWanted : mocDD;
   caFrom=(ddFromWanted && ddFromWanted<mocCA) ? ddFromWanted : mocCA;
-  const [hv,gd,dd,cc,ge,gvR,lopR,dz,cs,caR,liR,csR,tbR]=await Promise.all([
+  const [hv,gd,dd,cc,ge,gvR,lopR,dz,cs,caR,liR,csR,tbR,saoR]=await Promise.all([
     fetchAll(()=>SB.from('hoc_vien').select('*')),
     fetchAll(()=>SB.from('so_quy').select('*')),          // sổ quỹ tải đủ: tồn quỹ tính lũy kế từ đầu
     fetchAll(()=>SB.from('diem_danh_hv').select('*').gte('ngay',ddFrom)),
@@ -1251,7 +1281,10 @@ async function loadCloud(){
     fetchAll(()=>SB.from('ca_hoc').select('*')),
     fetchAll(()=>SB.from('lich_lop').select('*')),
     fetchAll(()=>SB.from('co_so').select('*')),
-    fetchAll(()=>SB.from('thong_bao').select('*'))
+    fetchAll(()=>SB.from('thong_bao').select('*')),
+    // Dò xem đã có cột sao chưa (Giai đoạn 14). Không dựa vào dòng điểm danh tải về,
+    // vì 30 ngày gần nhất có thể chưa có dòng nào mà cột thì đã có.
+    SB.from('diem_danh_hv').select('sao').limit(1)
   ]);
   if(hv.error||gd.error||dd.error||cc.error) throw (hv.error||gd.error||dd.error||cc.error);
   // Danh sách cơ sở SỐNG (Giai đoạn 7). Chưa chạy SQL → giữ nguyên danh sách tĩnh trong data.js.
@@ -1274,6 +1307,9 @@ async function loadCloud(){
   const hvCon=new Set(OPS.hv.map(h=>h.id));
   OPS.ddHV={}; (dd.data||[]).forEach(r=>{ if(!hvCon.has(r.hv_id))return;
     const k=r.lop_id+'|'+r.ngay;(OPS.ddHV[k]=OPS.ddHV[k]||{})[r.hv_id]=r.trang_thai;});
+  saoLive=!saoR.error;
+  OPS.sao={}; (dd.data||[]).forEach(r=>{ if(hvCon.has(r.hv_id)) saoNap(r); });
+  SAO_LOP={};                           // tổng sao cả khóa tải lại khi cần (người khác có thể vừa chấm)
   // ccGV = trạng thái buổi dạy; ccGvId = AI THỰC DẠY buổi đó (khác GV phụ trách khi dạy thay).
   // Tách riêng 2 bản đồ để phần cũ dùng ccGV không phải sửa gì.
   OPS.ccGV={}; OPS.ccGvId={};
@@ -1329,7 +1365,7 @@ async function loadDiemDanhTu(iso){
     ]);
     const hvCon=new Set(OPS.hv.map(h=>h.id));      // bỏ qua điểm danh của học sinh đã xóa
     (dd.data||[]).forEach(r=>{ if(!hvCon.has(r.hv_id))return;
-      const k=r.lop_id+'|'+r.ngay;(OPS.ddHV[k]=OPS.ddHV[k]||{})[r.hv_id]=r.trang_thai;});
+      const k=r.lop_id+'|'+r.ngay;(OPS.ddHV[k]=OPS.ddHV[k]||{})[r.hv_id]=r.trang_thai; saoNap(r);});
     (cc.data||[]).forEach(r=>{const k='cc|'+r.lop_id+'|'+r.ngay; OPS.ccGV[k]=r.trang_thai; if(r.gv_id!=null)OPS.ccGvId[k]=r.gv_id;});
     (dz.data||[]).forEach(r=>{OPS.duyet[r.lop_id+'|'+r.ngay]={id:r.id,st:r.trang_thai,gvAt:r.gv_gui_at,letanAt:r.letan_at,adminAt:r.admin_at};});
     if(iso<ddFrom) ddFrom=iso;
@@ -1747,7 +1783,7 @@ function duyetPending(){
 
 /* ===== NGHIỆP VỤ: ghi danh & điểm danh — lưu trên Supabase (đồng bộ mọi máy) ===== */
 /* OPS là bộ nhớ đệm trong trình duyệt; nạp bằng loadCloud() sau khi đăng nhập. */
-let OPS={hv:[],ddHV:{},ccGV:{},ccGvId:{},gd:[],duyet:{},chot:{},ca:{},lich:[],tb:[]};
+let OPS={hv:[],ddHV:{},sao:{},ccGV:{},ccGvId:{},gd:[],duyet:{},chot:{},ca:{},lich:[],tb:[]};
 /* ===== CHỐT SỔ QUỸ THEO THÁNG (Giai đoạn 5) =====
    Kỳ đã chốt = khóa với MỌI vai trò (khác chốt ca dạy: admin vẫn sửa được).
    Muốn sửa phiếu trong kỳ đã chốt thì Quản trị phải Mở khóa kỳ đó trước. */
@@ -3105,7 +3141,7 @@ const HD_MENU_DESC={
   lichhoc:'Khai <b>khung ca</b> của cơ sở (mặc định 5 ca, mỗi ca 2 giờ — <b>sửa giờ được</b>, ngay trong cửa sổ khai lịch lớp cũng sửa được) và <b>lịch từng lớp</b> (học thứ mấy – ca nào – phòng nào). Có lưới lịch tuần, cảnh báo xếp trùng giáo viên/phòng và nút <b>🖶 In lịch tuần</b> khổ A4. Giáo viên chỉ xem lịch dạy của mình.',
   thongbao:'Thông báo của trung tâm gửi tới mọi người. Quản trị gửi <b>toàn chuỗi</b> hoặc từng cơ sở; Lễ tân gửi cho cơ sở mình. Chọn được <b>người nhận</b> (tất cả / chỉ giáo viên / chỉ lễ tân), <b>mức độ</b> (thường · quan trọng · khẩn), <b>ghim</b> lên đầu và <b>ngày hết hạn</b>. Tin quan trọng chưa đọc hiện thành băng nổi bật ngay đầu trang Điểm danh và Bảng điều hành.',
   ghidanh:'Thêm học sinh vào lớp — nhập từng em hoặc nhập Excel cả cơ sở một lần. Do <b>Lễ tân</b> và <b>Quản trị</b> làm; giáo viên không dùng mục này.',
-  diemdanh:'Điểm danh học sinh và chấm công giáo viên theo từng buổi; gửi đối soát / chốt ca ngay tại đây. Khai lịch rồi thì đầu trang hiện sẵn <b>các ca trong ngày</b> — bấm một ca là vào thẳng lớp đó. Nút <b>🖶 In danh sách</b> in bảng điểm danh khổ A4 có ô ký.',
+  diemdanh:'Điểm danh học sinh và chấm công giáo viên theo từng buổi; gửi đối soát / chốt ca ngay tại đây. Khai lịch rồi thì đầu trang hiện sẵn <b>các ca trong ngày</b> — bấm một ca là vào thẳng lớp đó. Nút <b>🖶 In danh sách</b> in bảng điểm danh khổ A4 có ô ký. Dưới tên mỗi em có <b>ngôi sao</b> để chấm sao, cuối trang là <b>Bảng sao của lớp</b>.',
   duyet:'Danh sách các ca dạy theo trạng thái: <b>Chờ đối soát → Đã đối soát → Đã chốt</b>, kèm nút xử lý theo vai trò.',
   baocao:'Chuyên cần học sinh, <b>công &amp; lương giáo viên theo ca</b> (nhập đơn giá → tự tính tiền, in Bảng thanh toán công giảng dạy A4), tổng hợp theo lớp, chi tiết từng buổi, giáo viên dạy mấy ca/ngày, nhật ký đối soát — xuất Excel 7 sheet khổ A4.',
   thu:'Sổ quỹ thu – chi theo hạng mục: lập / <b>sửa</b> / xóa phiếu, số hiệu phiếu chuẩn, người nộp – nhận tiền, tiền mặt hay chuyển khoản, tồn quỹ, in &amp; tải Word từng phiếu, dự thu học phí theo cơ sở. <b>🖶 In sổ quỹ</b> in ngay khổ A4; <b>⬇ Xuất Excel</b> cho mẫu sổ quỹ có số dư đầu kỳ – cuối kỳ, tồn lũy kế, khối ký + sheet tổng hợp. Quản trị <b>chốt sổ theo tháng</b> để khóa số liệu đã quyết toán.',
@@ -3352,6 +3388,25 @@ const HD_HOWTO={
     ]]
   ]
 };
+/* Tích sao (Giai đoạn 14) — chen vào ngay sau mục điểm danh của từng vai trò */
+const HD_SAO_GV=['⭐','Chấm sao cho học sinh',[
+  'Chấm ngay trên màn <b>Điểm danh</b>: dưới tên mỗi em có <b>3 ngôi sao</b>. Bấm ngôi sao thứ nhất = 1 sao, thứ hai = 2 sao, thứ ba = 3 sao. Bấm tới đâu lưu tới đó.',
+  'Chỉ em đã điểm danh <b>Có mặt</b> hoặc <b>Muộn</b> mới chấm được sao — chưa điểm danh thì ngôi sao bị mờ. Đổi em đó sang <b>Phép / Vắng</b> thì sao của buổi đó tự về 0.',
+  'Chấm nhầm: bấm lại <b>đúng ngôi sao cuối đang sáng</b> để bớt một sao (2 sao → 1 sao → 0 sao).',
+  'Muốn ghi lý do (phát biểu tốt, làm bài đủ…): bấm ô <b>＋ lý do</b> cạnh ngôi sao. Không bắt buộc.',
+  'Cuối trang có khung <b>Bảng sao của lớp</b>: xếp hạng các em theo <b>Cả khóa</b> hoặc theo <b>tháng</b>. Bấm <b>🖶 In bảng vàng</b> để in tờ A4 dán bảng tin hoặc gửi phụ huynh.',
+  'Sao chỉ <b>cộng</b>, không trừ. Ca đã <b>Đã chốt</b> thì sao cũng khóa như điểm danh. Em lên khóa mới thì sao bắt đầu lại từ 0.'
+]];
+const HD_SAO_LT=['⭐','Sao của học sinh &amp; bảng vàng',[
+  'Giáo viên chấm <b>0–3 sao</b> cho từng em ngay trên màn <b>Điểm danh</b>. Lễ tân và Quản trị cũng chấm/sửa được ở đó (ví dụ cơ sở chưa có tài khoản giáo viên).',
+  'Xem xếp hạng: <b>Điểm danh</b> → chọn lớp → khung <b>Bảng sao của lớp</b> ở cuối trang → chọn <b>Cả khóa</b> hoặc <b>tháng</b>. Muốn xem tháng nào thì đổi ô ngày sang một ngày trong tháng đó.',
+  '<b>🖶 In bảng vàng</b>: A4 dọc, xếp hạng, số sao, số buổi được sao, có ô ký giáo viên – lễ tân – giám đốc. Dùng để trao thưởng.',
+  'Xem sao của riêng một em: <b>Học sinh</b> → <b>Hồ sơ</b> → mục <b>Sao khóa này</b> (tổng sao và các buổi gần nhất kèm lý do).',
+  'Sao đi theo ca dạy: ca <b>Đã chốt</b> thì sao cũng khóa. Muốn sửa sao của buổi đã chốt phải nhờ Quản trị mở khóa ca đó.'
+]];
+HD_HOWTO.teacher.splice(1,0,HD_SAO_GV);
+HD_HOWTO.owner.splice(1,0,HD_SAO_LT);
+HD_HOWTO.admin.push(HD_SAO_LT);
 /* Cách hệ thống tính các con số — để mọi người đọc số liệu giống nhau */
 const HD_NUMBERS=[
   ['Học sinh đang học','Là những em <b>chưa có ngày thôi học</b>. Em đã thôi học vẫn giữ hồ sơ nhưng không tính vào sĩ số, dự thu. Đếm theo <b>đầu người</b>: em học 2 lớp vẫn là <b>1 học sinh</b>, nhưng tính đủ <b>2 sĩ số lớp</b> và <b>2 khoản học phí</b>.'],
@@ -3370,7 +3425,8 @@ const HD_NUMBERS=[
   ['Chuyên cần','(Có mặt + Muộn) chia cho tổng lượt đã điểm danh — <b>Phép</b> và <b>Vắng</b> đều không tính là có mặt. Ở <b>Bảng điều hành</b> tính trong <b>30 ngày gần nhất</b>; ở <b>Báo cáo</b> tính đúng khoảng ngày mình chọn.'],
   ['Tồn quỹ','Tổng thu trừ tổng chi của <b>toàn bộ sổ quỹ</b> trong phạm vi — không phụ thuộc bộ lọc tháng/loại đang chọn.'],
   ['Ca thực dạy &amp; lương','Ca thực dạy = số buổi chấm <b>Lên lớp</b> cộng <b>Dạy bù</b>; buổi <b>Nghỉ</b> thống kê riêng, không tính công. Công quy cho <b>người THỰC DẠY</b> buổi đó — lấy theo thứ tự: người đã chấm công → <b>giáo viên khai cho buổi đó trong lịch</b> → giáo viên phụ trách lớp — buổi có người dạy thay thì công thuộc về người dạy thay, không thuộc về giáo viên phụ trách lớp. Lương = <b>ca thực dạy × đơn giá/ca</b>.'],
-  ['Ca đã chốt','Số ca dạy Quản trị đã chốt trong khoảng thời gian của báo cáo — đây là số liệu đã khóa, dùng để đối chiếu lương/học phí.']
+  ['Ca đã chốt','Số ca dạy Quản trị đã chốt trong khoảng thời gian của báo cáo — đây là số liệu đã khóa, dùng để đối chiếu lương/học phí.'],
+  ['Sao của học sinh','Mỗi buổi một em được <b>0 đến 3 sao</b>, chỉ khi có mặt hoặc đi muộn. <b>Cả khóa</b> = cộng mọi buổi từ khi em vào khóa đang học ở lớp đó; <b>tháng</b> = cộng các buổi trong tháng. Em lên khóa mới (lượt ghi danh mới) thì bắt đầu lại từ 0. Bằng sao thì <b>đồng hạng</b>.']
 ];
 /* Hỏi đáp – xử lý sự cố (rút từ tình huống thực tế trên hệ thống) */
 const HD_FAQ=[
@@ -5253,6 +5309,7 @@ function openHvEdit(h){
      <div class="fld"><label>Học phí (đ/khóa)</label><input id="hv_hp" inputmode="numeric" value="${h.hocPhi||''}" placeholder="VD: 600.000"/></div>
      <div class="fld"><label>Đã đóng</label><input value="${fmtVND(hpDaHT(h))}" disabled style="opacity:.8;font-weight:800"/></div>
      <div class="fld full" id="hv_dotBox">${hpDotHTML(h)}</div>
+     <div class="fld full" id="hv_saoBox" style="display:none"></div>
      <div class="fld"><label>Phụ huynh</label><input id="hv_ph" value="${esc(h.ph)}" placeholder="Tên phụ huynh"/></div>
      <div class="fld"><label>Điện thoại</label><input id="hv_sdt" value="${esc(h.sdt)}" inputmode="tel" placeholder="SĐT liên hệ"/></div>
      <div class="fld full"><label>Lớp đang học</label><select id="hv_lop">${lopsCs.map(l=>`<option value="${l.id}" ${l.id===h.lopId?'selected':''}>${esc(lopNhan(l))}${lopNhan(l)===l.lop?" — "+esc(l.gv||'?'):""}</option>`).join('')}</select></div>
@@ -5289,6 +5346,7 @@ function openHvEdit(h){
   attachMoneyFormat($('#hv_hp')); attachDateFormat($('#hv_ns'));
   attachDateFormat($('#hv_nhaphoc')); attachDateFormat($('#hv_thoihoc'));
   bindHpDot(h);
+  hvSaoBox(h);
   // Trạng thái học: Đang học / Đã thôi học
   let thoi=!!h.ngayThoiHoc;
   const setSttUI=()=>{
@@ -5581,6 +5639,154 @@ function renderGhiDanh(){
 }
 
 /* ============ ĐIỂM DANH ============ */
+/* ===== TÍCH SAO CHO HỌC SINH (Giai đoạn 14) =====
+   Trung tâm đề nghị 16/10/2026. Giáo viên chấm 0–3 sao cho từng em ngay trên
+   màn Điểm danh — đúng chỗ họ mở mỗi buổi, không bắt vào một mục riêng.
+   · Sao nằm trong CHÍNH dòng điểm danh của buổi đó (cột diem_danh_hv.sao), nên
+     quyền và khóa đi theo điểm danh: GV chỉ chấm lớp mình, ca đã chốt thì khóa.
+   · Chỉ em Có mặt / Muộn mới được sao. Đổi sang Phép / Vắng là sao về 0.
+   · Sao chỉ CỘNG, không trừ. Tính theo KHÓA: mỗi lượt ghi danh là một dòng
+     hoc_vien riêng, em lên khóa mới có mã mới nên sao khóa mới bắt đầu từ 0.
+   · Tổng sao cả khóa có thể cũ hơn 30 ngày đã tải sẵn, nên tải riêng theo lớp
+     khi mở lớp đó (một lớp chỉ vài trăm dòng có sao), không làm nặng lúc đăng nhập. */
+const SAO_MAX=3;
+let SAO_LOP={};          // lopId → {rows:[{hv,ngay,s,ly}]} | {loading:true} | {loi:'…'}
+let saoKy='khoa';        // Bảng sao: 'khoa' = cả khóa · 'thang' = tháng của ngày đang xem
+const SAO_GOI_Y=['Phát biểu tốt','Làm bài đầy đủ','Tiến bộ','Giúp đỡ bạn','Chăm chú nghe giảng'];
+const SVG_SAO='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.8l2.8 5.8 6.3.9-4.6 4.4 1.1 6.3L12 17.2l-5.6 3 1.1-6.3L2.9 9.5l6.3-.9z"/></svg>';
+function saoNap(r){
+  if(!(r.sao>0))return;
+  const k=r.lop_id+'|'+r.ngay; (OPS.sao[k]=OPS.sao[k]||{})[r.hv_id]={s:r.sao,ly:r.sao_ly_do||''};
+}
+const saoCua=(lopId,iso,hvId)=>((OPS.sao[lopId+'|'+iso]||{})[hvId])||{s:0,ly:''};
+/* Ghi nhận một thay đổi đã lưu thành công lên máy chủ vào bộ nhớ của app */
+function saoDatLocal(lopId,iso,hvId,s,ly){
+  const k=lopId+'|'+iso;
+  if(s>0) (OPS.sao[k]=OPS.sao[k]||{})[hvId]={s,ly:ly||''};
+  else if(OPS.sao[k]) delete OPS.sao[k][hvId];
+  const o=SAO_LOP[lopId]; if(!o||!o.rows)return;
+  o.rows=o.rows.filter(r=>!(r.hv===hvId&&r.ngay===iso));
+  if(s>0) o.rows.push({hv:hvId,ngay:iso,s,ly:ly||''});
+}
+/* Tải mọi buổi CÓ sao của một lớp (cả khóa). Xong thì vẽ lại nếu vẫn đang xem lớp đó. */
+async function taiSaoLop(lopId,veLai){
+  if(!saoLive||SAO_LOP[lopId])return;
+  const phieu={loading:true}; SAO_LOP[lopId]=phieu;
+  const r=await fetchAll(()=>SB.from('diem_danh_hv').select('hv_id,ngay,sao,sao_ly_do').eq('lop_id',lopId).gt('sao',0).order('ngay'));
+  if(SAO_LOP[lopId]!==phieu)return;     // trong lúc tải, dữ liệu đã được nạp lại — bỏ kết quả cũ
+  SAO_LOP[lopId]=r.error?{loi:r.error.message}:{rows:(r.data||[]).map(x=>({hv:x.hv_id,ngay:x.ngay,s:x.sao,ly:x.sao_ly_do||''}))};
+  if(veLai)veLai();
+}
+/* Cộng sao theo từng em: Map hvId → {s: tổng sao, n: số buổi được sao}. null = chưa tải xong. */
+function saoTong(lopId,kieu,iso){
+  const o=SAO_LOP[lopId]; if(!o||!o.rows)return null;
+  const thang=String(iso||'').slice(0,7), m=new Map();
+  o.rows.forEach(r=>{
+    if(kieu==='thang'&&r.ngay.slice(0,7)!==thang)return;
+    const x=m.get(r.hv)||{s:0,n:0}; x.s+=r.s; x.n++; m.set(r.hv,x);
+  });
+  return m;
+}
+/* Xếp hạng các em đang học của lớp. Bằng sao thì ĐỒNG HẠNG (hạng = 1 + số em nhiều sao hơn). */
+function saoXepHang(ds,tong){
+  const a=ds.map(v=>({v,...(tong.get(v.id)||{s:0,n:0})}))
+    .sort((x,y)=>y.s-x.s||String(x.v.ten).localeCompare(String(y.v.ten),'vi'));
+  a.forEach(x=>{x.hang=x.s>0?1+a.filter(y=>y.s>x.s).length:null;});
+  return a;
+}
+const saoThangTxt=iso=>'Tháng '+Number(String(iso).slice(5,7))+'/'+String(iso).slice(0,4);
+function saoPanelHTML(lop,ds){
+  const o=SAO_LOP[lop.id], tong=saoTong(lop.id,saoKy,ddDate);
+  const seg=`<div class="seg" id="saoKySeg" style="margin-left:auto">${[['khoa','Cả khóa'],['thang',saoThangTxt(ddDate)]].map(([k,t])=>
+    `<button data-k="${k}" class="${saoKy===k?'on-day':''}">${t}</button>`).join('')}</div>`;
+  let body;
+  if(!o||o.loading) body=`<div class="empty" style="padding:18px">Đang tải sao của lớp…</div>`;
+  else if(o.loi) body=`<div class="warnrow">Chưa tải được bảng sao: ${esc(o.loi)}. Kiểm tra mạng rồi bấm ↻ Tải lại.</div>`;
+  else{
+    const xh=saoXepHang(ds,tong), co=xh.filter(x=>x.s>0), chua=xh.length-co.length;
+    const tongSao=co.reduce((s,x)=>s+x.s,0);
+    body=!co.length
+      ? `<div class="empty" style="padding:18px">${saoKy==='thang'?saoThangTxt(ddDate)+' lớp chưa có':'Lớp chưa có'} em nào được sao.<br/><span style="font-size:.85rem">Điểm danh <b>Có mặt</b> rồi bấm vào ngôi sao dưới tên em đó.</span></div>`
+      : `<div class="saobang">${co.map(x=>`<div class="saohang${x.hang<=3?' sh-top':''}">
+            <span class="sh-hang">${x.hang}</span>
+            <span class="sh-ten"><b>${esc(x.v.ten)}</b><small>${x.n} buổi được sao</small></span>
+            <span class="sh-sao">${SVG_SAO}<b>${x.s}</b></span></div>`).join('')}</div>
+         <p class="muted" style="font-size:.76rem;margin:10px 2px 0;line-height:1.5">${co.length} em được sao · tổng ${tongSao} sao${chua?` · ${chua} em chưa có sao`:''}. Bằng sao thì đồng hạng.${saoKy==='khoa'?' “Cả khóa” tính mọi buổi từ khi em vào khóa này; em lên khóa mới thì sao bắt đầu lại từ 0.':''}</p>`;
+  }
+  return `<div class="panel" id="saoPanel"><div class="phead" style="flex-wrap:wrap;gap:8px"><h3>Bảng sao của lớp</h3>${seg}
+      <button class="btn btn-sm btn-light" id="saoPrint" ${o&&o.rows?'':'disabled'}>🖶 In bảng vàng</button></div>
+    <div class="pbody">${body}</div></div>`;
+}
+/* Ô sao dưới tên từng em trên màn Điểm danh */
+function saoStripHTML(lopId,iso,v,trangThai,canEdit,tongKhoa){
+  const c=saoCua(lopId,iso,v.id), coMat=trangThai==='co'||trangThai==='muon', duoc=canEdit&&coMat;
+  const goiY=!coMat?'Điểm danh Có mặt hoặc Muộn trước rồi mới chấm sao':!canEdit?'Ca đã chốt — không sửa được':'';
+  const tk=tongKhoa?tongKhoa.get(v.id):null;
+  return `<div class="saorow" data-hv="${v.id}" ${goiY?`title="${goiY}"`:''}>
+    ${Array.from({length:SAO_MAX},(_,i)=>i+1).map(n=>`<button type="button" class="sao${c.s>=n?' on':''}" data-n="${n}" ${duoc?'':'disabled'} aria-label="${n} sao">${SVG_SAO}</button>`).join('')}
+    ${c.s>0&&duoc?`<button type="button" class="saoly" data-ly="${v.id}">${c.ly?esc(c.ly):'＋ lý do'}</button>`
+      :c.ly?`<span class="saoly tinh">${esc(c.ly)}</span>`:''}
+    ${tk&&tk.s?`<span class="saotong" title="Tổng sao cả khóa của em này">Khóa: ${tk.s} sao</span>`:''}
+  </div>`;
+}
+/* Chấm sao / đổi lý do cho một em trong ca đang mở. Trả true nếu đã lưu. */
+async function saoLuu(lopId,iso,hvId,patch){
+  const {data,error}=await SB.from('diem_danh_hv').update(patch).eq('lop_id',lopId).eq('ngay',iso).eq('hv_id',hvId).select('sao,sao_ly_do');
+  if(error){avaAlert('Lỗi lưu sao: '+error.message);return false;}
+  // Không báo lỗi mà cũng không sửa được dòng nào = máy chủ từ chối (ca vừa bị chốt ở máy khác,
+  // hoặc dòng điểm danh vừa bị xóa). Phải nói ra, đừng để cô giáo tưởng đã lưu.
+  if(!data||!data.length){avaAlert('Chưa lưu được sao: máy chủ không cho sửa dòng điểm danh của em này (ca có thể vừa bị chốt, hoặc điểm danh vừa bị xóa ở máy khác). Bấm ↻ Tải lại rồi thử lại.');return false;}
+  saoDatLocal(lopId,iso,hvId,data[0].sao||0,data[0].sao_ly_do||'');
+  return true;
+}
+/* Hồ sơ học sinh: tổng sao của lượt ghi danh này + các buổi gần nhất */
+async function hvSaoBox(h){
+  const box=$('#hv_saoBox'); if(!box||!saoLive)return;
+  box.style.display='block'; box.innerHTML=`<label>Sao khóa này</label><div class="muted" style="font-size:.84rem">Đang tải…</div>`;
+  const r=await fetchAll(()=>SB.from('diem_danh_hv').select('ngay,sao,sao_ly_do').eq('hv_id',h.id).gt('sao',0).order('ngay',{ascending:false}));
+  if($('#hv_saoBox')!==box)return;      // hồ sơ đã đóng / đổi sang em khác
+  if(r.error){box.innerHTML=`<label>Sao khóa này</label><div class="muted" style="font-size:.84rem">Chưa tải được: ${esc(r.error.message)}</div>`;return;}
+  const ds=r.data||[], tong=ds.reduce((s,x)=>s+x.sao,0);
+  box.innerHTML=`<label>Sao khóa này</label>
+    <div class="saohs"><span class="sh-sao">${SVG_SAO}<b>${tong}</b></span>
+      <span>${ds.length?`sao trong <b>${ds.length}</b> buổi`:'Chưa có sao nào — giáo viên chấm sao trên màn Điểm danh.'}</span></div>
+    ${ds.length?`<div class="saohs-ds">${ds.slice(0,8).map(x=>`<div><span>${isoVN(x.ngay)}</span><span class="sv">${'★'.repeat(x.sao)}</span><span class="muted">${esc(x.sao_ly_do||'')}</span></div>`).join('')}
+      ${ds.length>8?`<div class="muted">… và ${ds.length-8} buổi trước đó</div>`:''}</div>`:''}`;
+}
+/* ===== IN BẢNG VÀNG — xếp hạng sao của 1 lớp (A4 dọc) ===== */
+function inBangSao(lopId){
+  const lop=LOP.find(l=>l.id===lopId); if(!lop)return;
+  const tong=saoTong(lopId,saoKy,ddDate); if(!tong)return;
+  const ds=hvOfLop(lopId).filter(hvActive), xh=saoXepHang(ds,tong), now=new Date();
+  const ky=saoKy==='thang'?saoThangTxt(ddDate):'Cả khóa học (tính đến ngày '+isoVN(todayISO())+')';
+  const rows=xh.map((x,i)=>`<tr><td class="c">${x.hang||''}</td><td>${esc(x.v.ten)}</td><td class="c">${esc(x.v.ns||'')}</td>
+      <td class="c"><b>${x.s||''}</b></td><td class="c">${x.n||''}</td><td></td></tr>`).join('');
+  const meta=[['Cơ sở',csName(lop.coSoId)],['Lớp',lop.lop],['Giáo viên',lop.gv||'—'],['Thời gian',ky]];
+  $('#voucher').innerHTML=`<div class="vbar">${VHINT('Dọc')}
+      <button class="btn btn-sm btn-light" id="saoPrintGo">🖶 In / lưu PDF</button>
+      <button class="btn btn-sm btn-light" id="saoPrintClose">Đóng</button></div>
+    <div class="vpaper ddpaper">
+      <div class="vtop"><div><b>TRUNG TÂM ANH NGỮ AVATAR</b><br/><span>Cơ sở: ${esc(csName(lop.coSoId))}</span></div></div>
+      <div class="vtitle">BẢNG VÀNG THI ĐUA</div>
+      <div class="ddmeta">${meta.map(([k,v])=>`<div><b>${esc(k)}:</b> ${esc(v)}</div>`).join('')}</div>
+      <table class="ddtbl">
+        <colgroup><col style="width:8%"/><col style="width:34%"/><col style="width:14%"/><col style="width:11%"/><col style="width:11%"/><col style="width:22%"/></colgroup>
+        <thead>${PGPAD(6)}<tr><th>Hạng</th><th>Họ và tên học sinh</th><th>Ngày sinh</th><th>Số sao</th><th>Số buổi</th><th>Ghi chú</th></tr></thead>${PGFOOT(6)}
+        <tbody>${rows||`<tr><td colspan="6" style="text-align:center;font-style:italic;padding:14px">Lớp chưa có học sinh.</td></tr>`}</tbody>
+      </table>
+      <div class="vfoot">
+      <div style="font-size:12.5px;margin-top:6px">Mỗi buổi học, giáo viên chấm từ 0 đến ${SAO_MAX} sao cho mỗi em có mặt. <b>Số buổi</b> = số buổi em được ít nhất 1 sao. Các em bằng sao được xếp đồng hạng.</div>
+      <div style="text-align:right;font-style:italic;font-size:12.5px;margin-top:10px">Quảng Châu, ngày ${now.getDate()} tháng ${now.getMonth()+1} năm ${now.getFullYear()}</div>
+      <div class="vsign" style="margin-top:6px">
+        <div><b>Giáo viên</b><small>(Ký, họ tên)</small><div style="height:48px"></div></div>
+        <div><b>Lễ tân</b><small>(Ký, họ tên)</small><div style="height:48px"></div></div>
+        <div><b>Giám đốc</b><small>(Ký, họ tên)</small><div style="height:48px"></div></div>
+      </div></div>
+    </div>`;
+  $('#voucher').classList.remove('sq','tk','dd'); $('#voucher').classList.add('on','dd');
+  $('#saoPrintClose').onclick=()=>{$('#voucher').classList.remove('on');$('#voucher').classList.remove('dd');};
+  $('#saoPrintGo').onclick=()=>window.print();
+}
 function renderDiemDanh(){
   const lops=inLOP().filter(lopDiemDanhDuoc);
   if(!lops.length){$('#view').innerHTML=`<div class="panel"><div class="pbody"><div class="empty">Chưa có lớp học trong phạm vi này</div></div></div>`;return;}
@@ -5648,19 +5854,26 @@ function renderDiemDanh(){
       <button class="btn btn-sm btn-primary" id="ddAllCo">✓ Cả lớp có mặt</button>
       <span class="muted" style="font-size:.74rem;font-weight:600">Đánh "Có" cho ${ds.length-marked} em chưa điểm danh; em đã đánh Muộn/Phép/Vắng giữ nguyên.</span>
     </div>`:''}
+    ${saoLive?`<p class="muted" style="font-size:.76rem;margin:-4px 2px 12px;line-height:1.5">Ngôi sao dưới tên mỗi em: bấm để chấm <b>1 đến ${SAO_MAX} sao</b> cho em <b>có mặt</b>; bấm lại ngôi sao cuối để bớt một sao.</p>`:''}
     <div class="ddgrid">
       <div class="ddrow ddh"><div class="idx">TT</div><div class="nm">HỌC SINH</div><span class="hh">ĐIỂM DANH</span></div>`;
+    const tongKhoa=saoLive?saoTong(ddLopId,'khoa',ddDate):null;
     ds.forEach((v,i)=>{
       h+=`<div class="ddrow"><div class="idx">${i+1}</div>
-        <div class="nm"><b>${esc(v.ten)}</b>${v.ns?`<small>${esc(v.ns)}</small>`:''}</div>
+        <div class="nm"><b>${esc(v.ten)}</b>${v.ns?`<small>${esc(v.ns)}</small>`:''}${saoLive?saoStripHTML(ddLopId,ddDate,v,state[v.id],canEdit,tongKhoa):''}</div>
         <div class="attseg ddSeg" data-hv="${v.id}">${[['co','Có'],['muon','Muộn'],['phep','Phép'],['vang','Vắng']].map(([k,t])=>`<button data-v="${k}" class="${state[v.id]===k?'on':''}" ${dis}>${t}</button>`).join('')}</div>
       </div>`;
     });
     h+=`</div>`;
   }
   h+='</div></div>';
+  if(saoLive&&ds.length) h+=saoPanelHTML(lop,ds);
   $('#view').innerHTML=h;
   tbBarBind();
+  if(saoLive&&ds.length){
+    const lopDangXem=ddLopId;
+    taiSaoLop(lopDangXem,()=>{ if(VIEW==='diemdanh'&&ddLopId===lopDangXem) renderDiemDanh(); });
+  }
   // Chọn ngày cũ hơn phần đã tải sẵn thì phải tải bù XONG rồi mới vẽ. Nếu vẽ trước,
   // màn hình hiện trắng như cả lớp chưa ai điểm danh — cô giáo bấm một cái là GHI ĐÈ
   // mất dữ liệu thật. Tải hỏng thì trả ô ngày về chỗ cũ chứ không cho vào.
@@ -5748,13 +5961,41 @@ function renderDiemDanh(){
         const {error}=await SB.from('diem_danh_hv').delete().eq('lop_id',ddLopId).eq('ngay',ddDate).eq('hv_id',id);
         if(error){avaAlert('Lỗi lưu điểm danh: '+error.message);return;}
         delete OPS.ddHV[ddKey][id];
+        saoDatLocal(ddLopId,ddDate,id,0,'');          // bỏ điểm danh = mất luôn dòng, sao đi theo
       }else{
-        const {error}=await SB.from('diem_danh_hv').upsert({lop_id:ddLopId,ngay:ddDate,hv_id:id,coso_id:lop.coSoId,trang_thai:b.dataset.v},{onConflict:'lop_id,ngay,hv_id'});
+        const row={lop_id:ddLopId,ngay:ddDate,hv_id:id,coso_id:lop.coSoId,trang_thai:b.dataset.v};
+        // Phép / Vắng thì không có mặt để được sao → đưa sao về 0 trong cùng một lần ghi
+        const boSao=saoLive&&(b.dataset.v==='phep'||b.dataset.v==='vang');
+        if(boSao){row.sao=0;row.sao_ly_do=null;}
+        const {error}=await SB.from('diem_danh_hv').upsert(row,{onConflict:'lop_id,ngay,hv_id'});
         if(error){avaAlert('Lỗi lưu điểm danh: '+error.message);return;}
         OPS.ddHV[ddKey][id]=b.dataset.v;
+        if(boSao) saoDatLocal(ddLopId,ddDate,id,0,'');
       }
       renderDiemDanh();});
   });
+  // Chấm sao: bấm ngôi sao thứ n = n sao; bấm lại đúng ngôi sao cuối đang sáng = bớt một sao
+  const saoLop=ddLopId, saoNgay=ddDate;
+  $$('#view .saorow .sao').forEach(b=>b.onclick=async()=>{
+    if(!canEdit||b.disabled)return;
+    const row=b.closest('.saorow'), id=Number(row.dataset.hv), n=Number(b.dataset.n);
+    const cu=saoCua(saoLop,saoNgay,id), moi=cu.s===n?n-1:n;
+    const patch={sao:moi}; if(moi===0)patch.sao_ly_do=null;
+    row.querySelectorAll('button').forEach(x=>x.disabled=true);   // chống bấm dồn khi mạng chậm
+    await saoLuu(saoLop,saoNgay,id,patch);
+    renderDiemDanh();
+  });
+  $$('#view .saoly[data-ly]').forEach(b=>b.onclick=async()=>{
+    if(!canEdit)return;
+    const id=Number(b.dataset.ly), cu=saoCua(saoLop,saoNgay,id), v=OPS.hv.find(x=>x.id===id);
+    const ly=await avaPrompt({title:'Lý do được sao',message:'Ghi ngắn vì sao em '+((v&&v.ten)||'')+' được sao (không bắt buộc).\nVí dụ: '+SAO_GOI_Y.join(' · ')+'.\nĐể trống rồi bấm Lưu là xóa lý do.',
+      label:'Lý do',value:cu.ly,okText:'Lưu'});
+    if(ly===null)return;
+    await saoLuu(saoLop,saoNgay,id,{sao_ly_do:ly.slice(0,80)||null});
+    renderDiemDanh();
+  });
+  $$('#saoKySeg button').forEach(b=>b.onclick=()=>{saoKy=b.dataset.k;renderDiemDanh();});
+  const sp=$('#saoPrint'); if(sp)sp.onclick=()=>inBangSao(saoLop);
 }
 /* Danh sách các CA có lịch trong ngày đang chọn — bấm 1 ca là nhảy thẳng vào điểm danh lớp đó.
    Mỗi ca hiện: giờ, phòng, đã điểm bao nhiêu em, trạng thái đối soát. */
