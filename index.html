@@ -1125,7 +1125,7 @@ const hvToDb=o=>({ten:o.ten,ns:o.ns||'',ph:o.ph||'',sdt:o.sdt||'',hoc_phi:o.hocP
 const gdFromDb=r=>({id:r.id,ngay:r.ngay,loai:r.loai,hangMuc:r.hang_muc,coSoId:r.coso_id,soTien:Number(r.so_tien)||0,
   noiDung:r.noi_dung||'',nguoiLap:r.nguoi_lap||'',hvId:(r.hv_id!=null?r.hv_id:null),createdAt:r.created_at||null,
   soPhieu:r.so_phieu||'',nguoiNop:r.nguoi_nop||'',hinhThuc:r.hinh_thuc||'tien_mat',
-  gvId:(r.gv_id!=null?r.gv_id:null),kyLuong:r.ky_luong||''});
+  gvId:(r.gv_id!=null?r.gv_id:null),kyLuong:r.ky_luong||'',tienSach:Number(r.tien_sach)||0});
 const gdToDb=o=>({ngay:o.ngay,loai:o.loai,hang_muc:o.hangMuc,coso_id:o.coSoId,so_tien:o.soTien,noi_dung:o.noiDung||'',nguoi_lap:o.nguoiLap||''});
 /* Các cột thêm ở Giai đoạn 5 — tách riêng để còn chạy được khi chưa chạy SQL */
 const gdToDb5=o=>({nguoi_nop:o.nguoiNop||'',hinh_thuc:o.hinhThuc||'tien_mat',
@@ -1147,7 +1147,7 @@ async function lamMoiPhien(){
   }catch(e){ return false; }
 }
 async function insertPhieu(rec){
-  const hv=(rec.hvId!=null?{hv_id:rec.hvId}:{});
+  const hv={...(rec.hvId!=null?{hv_id:rec.hvId}:{}),...(rec.tienSach>0?{tien_sach:rec.tienSach}:{})};
   const ghi=()=>SB.from('so_quy').insert({...gdToDb(rec),...gdToDb5(rec),...hv}).select().single();
   if(sqLive5){
     let r=await ghi();
@@ -1167,20 +1167,36 @@ const soPhieu=g=>g&&g.soPhieu?g.soPhieu:((g&&g.loai==='thu'?'PT':'PC')+String((g
 const HT_LABEL={tien_mat:'Tiền mặt',chuyen_khoan:'Chuyển khoản'};
 /* ---- Học phí: mỗi ĐỢT đóng là một phiếu thu riêng (giữ đầy đủ lịch sử) ---- */
 const hpPhieuCua=hvId=>OPS.gd.filter(g=>g.hvId===hvId&&g.loai==='thu').sort((a,b)=>a.ngay.localeCompare(b.ngay)||a.id-b.id);
-const hpDaDong=hvId=>hpPhieuCua(hvId).reduce((s,g)=>s+g.soTien,0);
+/* ===== TIỀN SÁCH TRÊN PHIẾU THU (Giai đoạn 16) =====
+   Phụ huynh nộp học phí + sách một lần → MỘT phiếu gộp: so_tien = tổng tiền nhận,
+   cột so_quy.tien_sach = phần sách trong đó. Nộp riêng tiền sách → phiếu hạng mục "Tiền sách".
+   Mọi chỗ tính HỌC PHÍ đã đóng phải lấy thuHP(g), không lấy thẳng g.soTien. */
+const HM_SACH='Tiền sách';
+const thuSach=g=>g.loai!=='thu'?0:(g.hangMuc===HM_SACH?(g.soTien||0):Math.min(g.soTien||0,g.tienSach||0));
+const thuHP=g=>g.loai!=='thu'?0:(g.soTien||0)-thuSach(g);
+const laPhieuHP=g=>g.loai==='thu'&&g.hangMuc!==HM_SACH;      // phiếu có phần học phí (kể cả phiếu gộp)
+let sqSachLive=false;  // true khi đã chạy SQL Giai đoạn 16 (cột so_quy.tien_sach)
+const hpDaDong=hvId=>hpPhieuCua(hvId).reduce((s,g)=>s+thuHP(g),0);
 /* Số đã đóng dùng để HIỂN THỊ: có phiếu thì lấy tổng phiếu; chưa có phiếu nào
    (dữ liệu cũ nhập tay trước khi tách theo đợt) thì lấy số lưu ở hồ sơ. */
-const hpDaHT=h=>{const ps=hpPhieuCua(h.id); return ps.length?ps.reduce((s,g)=>s+g.soTien,0):(Number(h.soTienDong)||0);};
+const hpDaHT=h=>{const ps=hpPhieuCua(h.id).filter(laPhieuHP); return ps.length?ps.reduce((s,g)=>s+thuHP(g),0):(Number(h.soTienDong)||0);};
+/* Tiền sách: đã thu = Σ phần sách trên các phiếu của em; phải thu = số ghi ở hồ sơ
+   (em đã nghỉ thì chỉ tính phần đã nộp, như học phí "học tới đâu thu tới đó"). */
+const sachDaThu=hvId=>hpPhieuCua(hvId).reduce((s,g)=>s+thuSach(g),0);
+const sachPhaiThu=(h,da)=>hvActive(h)?(h.tienSach||0):(da!=null?da:sachDaThu(h.id));
 /* Ghi nhận một đợt đóng học phí: tạo phiếu thu + cập nhật lại tổng đã đóng của HS */
-async function themDotDong(h,{soTien,ngay,nguoiNop,hinhThuc}){
-  const daCo=hpDaDong(h.id), conLai=Math.max(0,(h.hocPhi||0)-daCo);
-  const sd=Math.max(0,Number(soTien)||0);
-  if(sd<=0) return {error:'Số tiền phải lớn hơn 0.'};
-  const noi='Học phí: '+h.ten+' — '+lopName(h.lopId)
-    + (h.hocPhi?(' (đợt này '+fmtVND(sd)+', lũy kế '+fmtVND(daCo+sd)+'/'+fmtVND(h.hocPhi)
-      + ((h.hocPhi-daCo-sd)>0?', còn '+fmtVND(h.hocPhi-daCo-sd):', đã đủ')+')'):'');
-  const rec={ngay:ngay||todayISO(),loai:'thu',hangMuc:'Học phí',coSoId:h.coSoId,soTien:sd,noiDung:noi,
-    nguoiLap:tenNguoiLap(),nguoiNop:nguoiNop||h.ph||'',hinhThuc:hinhThuc||'tien_mat',hvId:h.id};
+async function themDotDong(h,{soTien,tienSach,ngay,nguoiNop,hinhThuc}){
+  const daCo=hpDaDong(h.id);
+  const sd=Math.max(0,Number(soTien)||0), sa=Math.max(0,Number(tienSach)||0);
+  if(sd+sa<=0) return {error:'Số tiền phải lớn hơn 0.'};
+  // Chỉ nộp tiền sách → phiếu hạng mục "Tiền sách"; có học phí → phiếu "Học phí", kèm phần sách nếu có
+  const noi=(sd>0?'Học phí: ':'Tiền sách: ')+h.ten+' — '+lopName(h.lopId)
+    + (sd>0&&h.hocPhi?(' (đợt này '+fmtVND(sd)+', lũy kế '+fmtVND(daCo+sd)+'/'+fmtVND(h.hocPhi)
+      + ((h.hocPhi-daCo-sd)>0?', còn '+fmtVND(h.hocPhi-daCo-sd):', đã đủ')+')'):'')
+    + (sd>0&&sa>0?'; kèm tiền sách '+fmtVND(sa):'');
+  const rec={ngay:ngay||todayISO(),loai:'thu',hangMuc:sd>0?'Học phí':HM_SACH,coSoId:h.coSoId,soTien:sd+sa,noiDung:noi,
+    nguoiLap:tenNguoiLap(),nguoiNop:nguoiNop||h.ph||'',hinhThuc:hinhThuc||'tien_mat',hvId:h.id,
+    ...(sd>0&&sa>0?{tienSach:sa}:{})};
   const {data,error}=await insertPhieu(rec);
   if(error) return {error:error.message,loi:error};      // giữ cả lỗi gốc để còn chẩn đoán nguyên nhân
   OPS.gd.push(gdFromDb(data));
@@ -1209,7 +1225,7 @@ async function hoanHocPhi(h,soTien,xong){
 /* Tổng đã đóng của học sinh = tổng các phiếu thu học phí của em đó */
 async function capNhatTongDong(h){
   const tong=hpDaDong(h.id);
-  const ps=hpPhieuCua(h.id);
+  const ps=hpPhieuCua(h.id).filter(laPhieuHP);
   const ngayCuoi=ps.length?ps[ps.length-1].ngay:null;
   h.soTienDong=tong; h.daDong=tong>0; h.ngayDong=ngayCuoi;
   await SB.from('hoc_vien').update({da_dong:tong>0}).eq('id',h.id);
@@ -1270,7 +1286,7 @@ async function loadCloud(){
   const mocDD=isoCongNgay(todayISO(),-DD_SO_NGAY), mocCA=isoCongNgay(todayISO(),-CA_SO_NGAY);
   ddFrom=(ddFromWanted && ddFromWanted<mocDD) ? ddFromWanted : mocDD;
   caFrom=(ddFromWanted && ddFromWanted<mocCA) ? ddFromWanted : mocCA;
-  const [hv,gd,dd,cc,ge,gvR,lopR,dz,cs,caR,liR,csR,tbR,saoR,dcR]=await Promise.all([
+  const [hv,gd,dd,cc,ge,gvR,lopR,dz,cs,caR,liR,csR,tbR,saoR,dcR,sqsR]=await Promise.all([
     fetchAll(()=>SB.from('hoc_vien').select('*')),
     fetchAll(()=>SB.from('so_quy').select('*')),          // sổ quỹ tải đủ: tồn quỹ tính lũy kế từ đầu
     fetchAll(()=>SB.from('diem_danh_hv').select('*').gte('ngay',ddFrom)),
@@ -1287,7 +1303,8 @@ async function loadCloud(){
     // Dò xem đã có cột sao chưa (Giai đoạn 14). Không dựa vào dòng điểm danh tải về,
     // vì 30 ngày gần nhất có thể chưa có dòng nào mà cột thì đã có.
     SB.from('diem_danh_hv').select('sao').limit(1),
-    SB.from('hoc_vien').select('dia_chi,tien_sach').limit(1)   // Giai đoạn 15: địa chỉ + tiền sách
+    SB.from('hoc_vien').select('dia_chi,tien_sach').limit(1),  // Giai đoạn 15: địa chỉ + tiền sách
+    SB.from('so_quy').select('tien_sach').limit(1)             // Giai đoạn 16: tiền sách trên phiếu thu
   ]);
   if(hv.error||gd.error||dd.error||cc.error) throw (hv.error||gd.error||dd.error||cc.error);
   // Danh sách cơ sở SỐNG (Giai đoạn 7). Chưa chạy SQL → giữ nguyên danh sách tĩnh trong data.js.
@@ -1312,6 +1329,7 @@ async function loadCloud(){
     const k=r.lop_id+'|'+r.ngay;(OPS.ddHV[k]=OPS.ddHV[k]||{})[r.hv_id]=r.trang_thai;});
   saoLive=!saoR.error;
   dcLive=!dcR.error;
+  sqSachLive=!sqsR.error;
   OPS.sao={}; (dd.data||[]).forEach(r=>{ if(hvCon.has(r.hv_id)) saoNap(r); });
   SAO_LOP={};                           // tổng sao cả khóa tải lại khi cần (người khác có thể vừa chấm)
   // ccGV = trạng thái buổi dạy; ccGvId = AI THỰC DẠY buổi đó (khác GV phụ trách khi dạy thay).
@@ -1577,8 +1595,8 @@ function hpStat(ids){
   // le = phiếu thu học phí lập THẲNG trong Sổ quỹ, chưa gắn học sinh nào.
   const theoHS={}; let le=0,nLe=0;
   OPS.gd.forEach(g=>{ if(g.loai!=='thu'||!ids.includes(g.coSoId))return;
-    if(g.hvId!=null){ theoHS[g.hvId]=(theoHS[g.hvId]||0)+(g.soTien||0); return; }
-    if(/học phí/i.test(g.hangMuc||'')){ le+=g.soTien||0; nLe++; } });
+    if(g.hvId!=null){ if(laPhieuHP(g)) theoHS[g.hvId]=(theoHS[g.hvId]||0)+thuHP(g); return; }   // tiền sách không phải học phí
+    if(/học phí/i.test(g.hangMuc||'')){ le+=thuHP(g); nLe++; } });
   // Tiền đã HOÀN lại cho em (thôi học mà đóng thừa) → khoản thu thực của em phải trừ đi
   const hoanHS={};
   OPS.gd.forEach(g=>{ if(g.loai==='chi'&&g.hvId!=null&&ids.includes(g.coSoId)&&/hoàn/i.test(g.hangMuc||''))
@@ -1868,7 +1886,7 @@ async function baoLoiGhiSo(e,coSoId,ngay,viec,errFn){
   }
   await avaAlert('Không '+v+' được.\n\n'+r.msg);
 }
-const HM_THU=['Học phí','Ghi danh/Nhập học','Bán tài liệu','Thu khác'];
+const HM_THU=['Học phí','Tiền sách','Ghi danh/Nhập học','Bán tài liệu','Thu khác'];
 const HM_CHI=['Lương giáo viên','Thuê mặt bằng','Điện nước','Vật tư/Văn phòng phẩm','Marketing','Hoàn học phí','Chi khác'];
 const isoVN=s=>{if(!s)return'';const p=String(s).split('-');return `${p[2]}/${p[1]}/${p[0]}`;};
 const vnToIso=s=>{const m=/^(\d{2})\/(\d{2})\/(\d{4})$/.exec(String(s||'').trim());return m?`${m[3]}-${m[2]}-${m[1]}`:'';};
@@ -2015,8 +2033,8 @@ async function ghiPhieuHangLoat(recs,tienDo){
    thường chỉ còn vài chục lệnh thay vì 13.000 lệnh. */
 async function capNhatTongDongHangLoat(hvList){
   const m={};
-  OPS.gd.forEach(g=>{ if(g.loai!=='thu'||g.hvId==null)return;
-    const o=m[g.hvId]=m[g.hvId]||{tong:0,ngay:''}; o.tong+=g.soTien||0; if(g.ngay>o.ngay)o.ngay=g.ngay; });
+  OPS.gd.forEach(g=>{ if(!laPhieuHP(g)||g.hvId==null)return;
+    const o=m[g.hvId]=m[g.hvId]||{tong:0,ngay:''}; o.tong+=thuHP(g); if(g.ngay>o.ngay)o.ngay=g.ngay; });
   const nhom={};
   hvList.forEach(h=>{ const o=m[h.id]||{tong:0,ngay:''};
     h.soTienDong=o.tong; h.daDong=o.tong>0; h.ngayDong=o.ngay||null;
@@ -2192,7 +2210,7 @@ const HP_COLS=[{h:'TT',k:'tt',w:5,ro:true,a:'c'},{h:'Mã HS',k:'ma',w:8,ro:true,
   {h:'Hình thức',k:'ht',w:14,dv:['Tiền mặt','Chuyển khoản']},{h:'Người nộp',k:'nguoinop',w:20}];
 /* Bảng tra "đã thu" theo từng em, dựng một lần từ sổ quỹ (đừng quét lại trong vòng lặp) */
 function daThuTheoEm(){
-  const m={}; OPS.gd.forEach(g=>{ if(g.loai==='thu'&&g.hvId!=null)m[g.hvId]=(m[g.hvId]||0)+(g.soTien||0); });
+  const m={}; OPS.gd.forEach(g=>{ if(laPhieuHP(g)&&g.hvId!=null)m[g.hvId]=(m[g.hvId]||0)+thuHP(g); });
   return {map:m, cua:h=>(m[h.id]!=null?m[h.id]:(Number(h.soTienDong)||0))};
 }
 async function hpDownloadTemplate(list){
@@ -2346,25 +2364,30 @@ const lopHP=id=>OPS.hv.filter(h=>h.lopId===id).reduce((s,h)=>s+hpPhaiThu(h),0);
    LƯU Ý: phiếu thu học phí lập thẳng ở Sổ quỹ, CHƯA GẮN HỌC SINH thì không quy
    được về lớp nào → không có trong bảng này. Vì vậy tổng "đã thu" cộng theo lớp
    có thể NHỎ HƠN "đã thu" của cơ sở. Chỗ nào hiện bảng lớp thì phải chú thích. */
+/* TIỀN SÁCH (Giai đoạn 16, trung tâm xin 24/10/2026): bảng lớp có thêm cột Tiền sách và
+   Tổng phí. hp = học phí phải thu, sach = tiền sách phải thu, du = TỔNG PHÍ = hp + sach;
+   da = học phí + sách đã thu → còn thiếu = tổng phí − đã thu, đọc ngang một dòng là khớp. */
 function hpTheoLop(){
-  const thu={},hoan={};
+  const thu={},sach={},hoan={};
   OPS.gd.forEach(g=>{ if(g.hvId==null)return;
-    if(g.loai==='thu') thu[g.hvId]=(thu[g.hvId]||0)+(g.soTien||0);
+    if(g.loai==='thu'){
+      if(laPhieuHP(g)) thu[g.hvId]=(thu[g.hvId]||0)+thuHP(g);
+      const s=thuSach(g); if(s) sach[g.hvId]=(sach[g.hvId]||0)+s; }
     else if(g.loai==='chi'&&/hoàn/i.test(g.hangMuc||'')) hoan[g.hvId]=(hoan[g.hvId]||0)+(g.soTien||0); });
   const m={};
   OPS.hv.forEach(h=>{
     const sd=Math.max(0,(thu[h.id]!=null?thu[h.id]:(Number(h.soTienDong)||0))-(hoan[h.id]||0));
-    const p=hpPhaiThu(h);
-    if(!hvActive(h)&&sd<=0&&p<=0)return;        // em đã nghỉ, không phát sinh đồng nào
-    const o=m[h.lopId]||(m[h.lopId]={du:0,da:0,n:0,nDa:0});
-    o.du+=p; o.da+=sd; o.n++; if(sd>0)o.nDa++;
+    const p=hpPhaiThu(h), sDa=sach[h.id]||0, sP=sachPhaiThu(h,sDa);
+    if(!hvActive(h)&&sd<=0&&p<=0&&sDa<=0)return;        // em đã nghỉ, không phát sinh đồng nào
+    const o=m[h.lopId]||(m[h.lopId]={hp:0,sach:0,du:0,da:0,n:0,nDa:0});
+    o.hp+=p; o.sach+=sP; o.du+=p+sP; o.da+=sd+sDa; o.n++; if(sd+sDa>0)o.nDa++;
   });
   for(const k in m){ const o=m[k];
     o.thieu=Math.max(0,o.du-o.da); o.thua=Math.max(0,o.da-o.du);
     o.rate=o.du?Math.min(1,o.da/o.du):(o.da>0?1:0); }
   return m;
 }
-const HP_LOP0={du:0,da:0,thieu:0,thua:0,rate:0,n:0,nDa:0};
+const HP_LOP0={hp:0,sach:0,du:0,da:0,thieu:0,thua:0,rate:0,n:0,nDa:0};
 const hpLopCua=(m,id)=>m[id]||HP_LOP0;
 /* Ô "đã thu" trong bảng lớp: số tiền + vạch tiến độ + % (mobile vẫn đọc được) */
 function oDaThu(o){
@@ -3140,7 +3163,7 @@ const HD_MENU_DESC={
   dashboard:'Toàn cảnh: dự thu – đã thu học phí, học sinh đang học, số lớp, chuyên cần 30 ngày, buổi đã điểm danh hôm nay, cảnh báo điều hành và hoạt động gần đây.',
   gv:'Hồ sơ giáo viên: thêm/sửa, ngày hợp đồng, tích chọn <b>lớp phụ trách</b>, tải mẫu &amp; nhập Excel.',
   coso:'Danh mục cơ sở của chuỗi; bấm vào một cơ sở để xem chi tiết lớp, học sinh, kinh phí học phí. Quản trị <b>tự thêm/sửa/xóa cơ sở</b> ngay tại đây, và đánh dấu <b>★ Cơ sở chính</b> — cơ sở này luôn đứng đầu mọi danh sách toàn hệ thống.',
-  lop:'Danh sách lớp: sĩ số, giáo viên phụ trách và <b>tình trạng thu phí từng lớp</b> — dự thu · đã thu (kèm vạch %) · còn thiếu. Lọc nhanh <b>“Lớp còn thiếu phí”</b> hoặc sắp xếp <b>“Còn thiếu nhiều nhất”</b> để biết ngay lớp nào cần nhắc. Thêm / sửa / xóa lớp.',
+  lop:'Danh sách lớp: sĩ số, giáo viên phụ trách và <b>tình trạng thu phí từng lớp</b> — học phí · tiền sách · tổng phí · đã thu (kèm vạch %) · còn thiếu. Lọc nhanh <b>“Lớp còn thiếu phí”</b> hoặc sắp xếp <b>“Còn thiếu nhiều nhất”</b> để biết ngay lớp nào cần nhắc. Thêm / sửa / xóa lớp.',
   hocvien:'Kho hồ sơ học sinh: tìm kiếm, lọc theo cơ sở – lớp – trạng thái – học phí; bấm <b>Hồ sơ</b> để sửa, ghi nhận đóng tiền, cho thôi học. Em học nhiều lớp có nhãn tím <b>“Học N lớp”</b> và chỉ tính là <b>1 học sinh</b>. <b>Hết khóa, lên khóa mới:</b> lọc về đúng lớp → <b>☑ Chọn nhiều</b> → <b>Chọn hết</b> → <b>🎓 Kết khóa</b>, nhập ngày kết thúc khóa. Các em được đánh dấu <b>“Hết khóa”</b>, <b>giữ nguyên hồ sơ và học phí đã thu</b>, chỉ rời khỏi danh sách đang học — rồi nhập danh sách khóa mới như bình thường. Em tái tục sẽ có <b>2 dòng</b> (khóa cũ đã hết khóa + khóa mới đang học); đó là lịch sử học phí từng khóa, <b>không phải nhập trùng</b>. <b>Tuyệt đối đừng xóa</b> — xóa là mất luôn tiền đã thu của khóa cũ. Nhập trùng danh sách thật thì trang này hiện khung vàng <b>“Phát hiện N bản ghi trùng”</b> (chỉ tính trùng khi <b>cùng lớp, cùng trạng thái và cùng ngày nhập học</b>) — bấm <b>Chọn N bản trùng để xóa</b> là dọn sạch bản dư, giữ bản gốc. Muốn xóa nhiều em bất kỳ: bấm <b>☑ Chọn nhiều</b> → tick từng em → <b>🗑 Xóa</b> (chỉ Quản trị). Hai nút <b>⬇ Tải file điền học phí</b> / <b>⬆ Nhập học phí</b> dùng để nhập tiền đã thu từ trước cho hàng loạt em bằng Excel.',
   lichhoc:'Khai <b>khung ca</b> của cơ sở (mặc định 5 ca, mỗi ca 2 giờ — <b>sửa giờ được</b>, ngay trong cửa sổ khai lịch lớp cũng sửa được) và <b>lịch từng lớp</b> (học thứ mấy – ca nào – phòng nào). Có lưới lịch tuần, cảnh báo xếp trùng giáo viên/phòng và nút <b>🖶 In lịch tuần</b> khổ A4. Giáo viên chỉ xem lịch dạy của mình.',
   thongbao:'Thông báo của trung tâm gửi tới mọi người. Quản trị gửi <b>toàn chuỗi</b> hoặc từng cơ sở; Lễ tân gửi cho cơ sở mình. Chọn được <b>người nhận</b> (tất cả / chỉ giáo viên / chỉ lễ tân), <b>mức độ</b> (thường · quan trọng · khẩn), <b>ghim</b> lên đầu và <b>ngày hết hạn</b>. Tin quan trọng chưa đọc hiện thành băng nổi bật ngay đầu trang Điểm danh và Bảng điều hành.',
@@ -3308,7 +3331,8 @@ const HD_HOWTO={
     ]],
     ['💰','Học phí — thu theo từng đợt',[
       'Vào <b>Học sinh</b> → <b>Hồ sơ</b> → nhập <b>Học phí (đ/khóa)</b>.',
-      'Mỗi lần phụ huynh nộp tiền: ở khung <b>Các đợt đóng học phí</b>, nhập <b>số tiền đợt này</b>, ngày, <b>người nộp</b>, hình thức (tiền mặt / chuyển khoản) → bấm <b>＋ Ghi nhận đóng tiền</b>.',
+      'Mỗi lần phụ huynh nộp tiền: ở khung <b>Các đợt đóng tiền</b>, nhập <b>học phí đợt này</b>, <b>tiền sách đợt này</b> (tự điền sẵn phần sách còn thiếu, không thu sách thì xóa trống), ngày, <b>người nộp</b>, hình thức (tiền mặt / chuyển khoản) → bấm <b>＋ Ghi nhận đóng tiền</b>.',
+      'Nộp cả học phí lẫn sách thì ra <b>một phiếu thu gộp</b>, trên phiếu ghi rõ từng khoản: học phí bao nhiêu, tiền sách bao nhiêu. Ghi xong phiếu tự mở để <b>In phiếu</b> / <b>Tải Word</b>; muốn in lại thì bấm <b>In phiếu</b> ở đợt đó.',
       'Mỗi đợt sinh <b>một phiếu thu riêng</b> trong sổ quỹ nên giữ đủ lịch sử: đóng 3 lần thì có 3 phiếu, không ghi đè lên nhau.',
       'Khung này tự tính <b>đã đóng</b> và <b>còn phải thu</b>; ô "Đã đóng" không nhập tay nữa để số liệu luôn khớp với chứng từ trong sổ quỹ.',
       'Ghi nhầm một đợt: bấm <b>Xóa đợt</b> ngay tại đó (phiếu thu tương ứng cũng bị xóa và số tiền được tính lại).',
@@ -3425,7 +3449,8 @@ const HD_NUMBERS=[
   ['Kỳ sổ quỹ đã chốt','Kỳ (tháng) của một cơ sở đã được Quản trị chốt: số liệu <b>khóa hoàn toàn</b>, không ai thêm/sửa/xóa phiếu được. Dùng làm số quyết toán.'],
   ['Hình thức thanh toán','Mỗi phiếu ghi <b>Tiền mặt</b> hoặc <b>Chuyển khoản</b>; phiếu chuyển khoản có nhãn <b>CK</b> trong sổ — để đối chiếu riêng tiền tại quỹ và tiền trong tài khoản ngân hàng.'],
   ['Còn phải thu','Dự thu trừ Đã thu.'],
-  ['Còn thiếu (theo lớp)','Ở bảng <b>Lớp học</b>: dự thu của lớp trừ đi số đã thu của chính các em trong lớp đó. Thu đủ thì hiện <b>✓ đủ</b>, thu quá thì hiện <b>thu thừa</b> chứ không bao giờ hiện số âm. Lưu ý: phiếu thu học phí lập thẳng ở Sổ quỹ mà <b>chưa gắn học sinh</b> thì không quy được về lớp nào, nên tổng đã thu cộng theo lớp có thể <b>nhỏ hơn</b> số “Đã thu” của cơ sở.'],
+  ['Tổng phí (theo lớp)','Ở bảng <b>Lớp học</b>: <b>học phí + tiền sách</b> của các em trong lớp. Cột <b>Đã thu</b> ở bảng này cũng gồm cả tiền sách đã nộp.'],
+  ['Còn thiếu (theo lớp)','Ở bảng <b>Lớp học</b>: tổng phí (học phí + sách) của lớp trừ đi số đã thu của chính các em trong lớp đó. Thu đủ thì hiện <b>✓ đủ</b>, thu quá thì hiện <b>thu thừa</b> chứ không bao giờ hiện số âm. Lưu ý: phiếu thu học phí lập thẳng ở Sổ quỹ mà <b>chưa gắn học sinh</b> thì không quy được về lớp nào, nên tổng đã thu cộng theo lớp có thể <b>nhỏ hơn</b> số “Đã thu” của cơ sở.'],
   ['Chuyên cần','(Có mặt + Muộn) chia cho tổng lượt đã điểm danh — <b>Phép</b> và <b>Vắng</b> đều không tính là có mặt. Ở <b>Bảng điều hành</b> tính trong <b>30 ngày gần nhất</b>; ở <b>Báo cáo</b> tính đúng khoảng ngày mình chọn.'],
   ['Tồn quỹ','Tổng thu trừ tổng chi của <b>toàn bộ sổ quỹ</b> trong phạm vi — không phụ thuộc bộ lọc tháng/loại đang chọn.'],
   ['Ca thực dạy &amp; lương','Ca thực dạy = số buổi chấm <b>Lên lớp</b> cộng <b>Dạy bù</b>; buổi <b>Nghỉ</b> thống kê riêng, không tính công. Công quy cho <b>người THỰC DẠY</b> buổi đó — lấy theo thứ tự: người đã chấm công → <b>giáo viên khai cho buổi đó trong lịch</b> → giáo viên phụ trách lớp — buổi có người dạy thay thì công thuộc về người dạy thay, không thuộc về giáo viên phụ trách lớp. Lương = <b>ca thực dạy × đơn giá/ca</b>.'],
@@ -4105,19 +4130,22 @@ function renderCosoDetail(id){
     ${money.nLe?`<p class="muted" style="font-size:.78rem;line-height:1.55;margin:6px 2px 0">Có <b>${money.nLe}</b> phiếu thu học phí lập thẳng ở Sổ quỹ (chưa gắn học sinh): <b>${fmtVND(money.le)}</b>.</p>`:''}`}
   </div>
   <div class="panel"><div class="phead"><h3>Danh sách lớp học</h3><span class="sub">${lops.length} lớp${lThieu>0?` · còn thiếu ${fmtShort(lThieu)} (${lops.filter(l=>hpLopCua(HPL,l.id).thieu>0).length} lớp)`:''}</span></div>
-    <div class="twrap"><table><thead><tr><th>Lớp</th><th class="hidesm">Giáo viên phụ trách</th><th class="tright">Sĩ số</th><th class="tright">Dự thu</th><th class="tright">Đã thu</th><th class="tright">Còn thiếu</th></tr></thead><tbody>`;
-  if(!lops.length){h+=`<tr><td colspan="6"><div class="empty">${svg(IC.lop,1.6)}Trung tâm chưa có lớp học</div></td></tr>`;}
+    <div class="twrap"><table><thead><tr><th>Lớp</th><th class="hidesm">Giáo viên phụ trách</th><th class="tright">Sĩ số</th><th class="tright hidesm">Học phí</th><th class="tright hidesm">Tiền sách</th><th class="tright">Tổng phí</th><th class="tright">Đã thu</th><th class="tright">Còn thiếu</th></tr></thead><tbody>`;
+  if(!lops.length){h+=`<tr><td colspan="8"><div class="empty">${svg(IC.lop,1.6)}Trung tâm chưa có lớp học</div></td></tr>`;}
   else lops.forEach(l=>{
     const o=hpLopCua(HPL,l.id);
     h+=`<tr><td><b>${esc(l.lop||'—')}</b> ${l.mon==='TA'?'<span class="badge bg-ta" style="margin-left:4px">TA</span>':''}
         <small class="onlysm">${esc(l.gv||'chưa phân công')}</small></td>
       <td class="hidesm">${esc(l.gv||'—')}</td>
       <td class="tright num">${l.siso||0}</td>
+      <td class="tright num hidesm">${o.hp?fmtVND(o.hp):'—'}</td>
+      <td class="tright num hidesm">${o.sach?fmtVND(o.sach):'—'}</td>
       <td class="tright num">${o.du?fmtVND(o.du):'—'}</td>
       <td class="tright num lpmoney">${oDaThu(o)}</td>
       <td class="tright num">${oConThieu(o)}</td></tr>`;
   });
-  h+=`</tbody>${lops.length?`<tfoot><tr style="background:var(--soft)"><td colspan="2" class="tright"><b>TỔNG CỘNG</b></td><td class="tright num"><b>${lops.reduce((s,l)=>s+(l.siso||0),0)}</b></td><td class="tright num"><b>${fmtVND(lDu)}</b></td><td class="tright num"><b>${fmtVND(lDa)}</b></td><td class="tright num"><b class="${lThieu>0?'lpno':''}">${lThieu>0?fmtVND(lThieu):'✓ đủ'}</b></td></tr></tfoot>`:''}</table></div>
+  h+=`</tbody>${lops.length?`<tfoot><tr style="background:var(--soft)"><td colspan="2" class="tright"><b>TỔNG CỘNG</b></td><td class="tright num"><b>${lops.reduce((s,l)=>s+(l.siso||0),0)}</b></td><td class="tright num hidesm"><b>${fmtVND(lops.reduce((s,l)=>s+hpLopCua(HPL,l.id).hp,0))}</b></td><td class="tright num hidesm"><b>${fmtVND(lops.reduce((s,l)=>s+hpLopCua(HPL,l.id).sach,0))}</b></td><td class="tright num"><b>${fmtVND(lDu)}</b></td><td class="tright num"><b>${fmtVND(lDa)}</b></td><td class="tright num"><b class="${lThieu>0?'lpno':''}">${lThieu>0?fmtVND(lThieu):'✓ đủ'}</b></td></tr></tfoot>`:''}</table></div>
+    <p class="muted" style="font-size:.76rem;line-height:1.55;padding:10px 16px ${money.nLe?'0':'14px'};margin:0"><b>Tổng phí = Học phí + Tiền sách</b>; cột Đã thu và Còn thiếu ở bảng này tính cả tiền sách, còn khung "Tổng kinh phí học phí" phía trên chỉ tính học phí.</p>
     ${money.nLe?`<p class="muted" style="font-size:.76rem;line-height:1.55;padding:10px 16px 14px;margin:0">Bảng theo lớp không gồm <b>${money.nLe}</b> phiếu thu học phí chưa gắn học sinh (<b>${fmtVND(money.le)}</b>) — vì không quy được về lớp nào. Vì vậy tổng "đã thu" ở đây nhỏ hơn số của cơ sở phía trên.</p>`:''}</div>`;
   $('#view').innerHTML=h;
   $('#csBack').onclick=()=>{csDetailId=null;renderCoso();};
@@ -4144,18 +4172,19 @@ function renderLop(){
   const tDa=list.reduce((s,l)=>s+hpLopCua(HPL,l.id).da,0);
   const tThieu=list.reduce((s,l)=>s+hpLopCua(HPL,l.id).thieu,0);
   const nThieu=list.filter(l=>hpLopCua(HPL,l.id).thieu>0).length;
-  const nCot=USER.role==='admin'?7:6;
+  const tHP=list.reduce((s,l)=>s+hpLopCua(HPL,l.id).hp,0), tSach=list.reduce((s,l)=>s+hpLopCua(HPL,l.id).sach,0);
+  const nCot=USER.role==='admin'?9:8;
 
   let h=`<div class="toolbar">
     <div class="search">${svg(IC.search,2)}<input id="lopq" placeholder="Tìm lớp hoặc giáo viên…" value="${esc(lopSearch)}"/></div>
     ${USER.role==='admin'?`<select class="fsel" id="lopcs"><option value="all">Tất cả cơ sở</option>${opts.map(c=>`<option value="${c.id}" ${String(lopCs)===String(c.id)?'selected':''}>${esc(c.ten)}</option>`).join('')}</select>`:''}
     <select class="fsel" id="lopthu">${[['all','Tất cả lớp'],['thieu','Lớp còn thiếu phí'],['du','Lớp đã thu đủ']].map(([k,t])=>`<option value="${k}" ${lopThu===k?'selected':''}>${t}</option>`).join('')}</select>
-    <select class="fsel" id="lopsort">${[['cs','Sắp xếp: theo cơ sở'],['thieu','Còn thiếu nhiều nhất'],['du','Dự thu cao nhất'],['ten','Tên lớp A→Z']].map(([k,t])=>`<option value="${k}" ${lopSort===k?'selected':''}>${t}</option>`).join('')}</select>
+    <select class="fsel" id="lopsort">${[['cs','Sắp xếp: theo cơ sở'],['thieu','Còn thiếu nhiều nhất'],['du','Tổng phí cao nhất'],['ten','Tên lớp A→Z']].map(([k,t])=>`<option value="${k}" ${lopSort===k?'selected':''}>${t}</option>`).join('')}</select>
     <button class="btn btn-sm btn-light" id="lopPrint" style="white-space:nowrap">🖶 In danh sách</button>
     ${gvLive?`<button class="btn btn-sm btn-primary" id="lopAdd" style="white-space:nowrap">＋ Thêm lớp</button>`:''}
   </div>`;
-  h+=`<div class="panel"><div class="phead"><h3>Danh sách lớp học</h3><span class="sub">${list.length} lớp · ${hs} HS · dự thu ${fmtShort(tDu)} · đã thu ${fmtShort(tDa)}${tThieu>0?` · còn thiếu ${fmtShort(tThieu)} (${nThieu} lớp)`:' · đã thu đủ'}${gvLive?' · bấm dòng để sửa':''}</span></div>
-    <div class="twrap"><table><thead><tr><th>Lớp</th><th class="hidesm">Giáo viên phụ trách</th>${USER.role==='admin'?'<th class="hidesm">Cơ sở</th>':''}<th class="tright">Sĩ số</th><th class="tright">Dự thu</th><th class="tright">Đã thu</th><th class="tright">Còn thiếu</th></tr></thead><tbody>`;
+  h+=`<div class="panel"><div class="phead"><h3>Danh sách lớp học</h3><span class="sub">${list.length} lớp · ${hs} HS · tổng phí ${fmtShort(tDu)} · đã thu ${fmtShort(tDa)}${tThieu>0?` · còn thiếu ${fmtShort(tThieu)} (${nThieu} lớp)`:' · đã thu đủ'}${gvLive?' · bấm dòng để sửa':''}</span></div>
+    <div class="twrap"><table><thead><tr><th>Lớp</th><th class="hidesm">Giáo viên phụ trách</th>${USER.role==='admin'?'<th class="hidesm">Cơ sở</th>':''}<th class="tright">Sĩ số</th><th class="tright hidesm">Học phí</th><th class="tright hidesm">Tiền sách</th><th class="tright">Tổng phí</th><th class="tright">Đã thu</th><th class="tright">Còn thiếu</th></tr></thead><tbody>`;
   if(!list.length){h+=`<tr><td colspan="${nCot}"><div class="empty">${svg(IC.lop,1.6)}Không có lớp nào khớp bộ lọc đang chọn</div></td></tr>`;}
   else list.forEach(l=>{
     const o=hpLopCua(HPL,l.id);
@@ -4164,12 +4193,14 @@ function renderLop(){
       <td class="hidesm">${esc(l.gv||'—')}</td>
       ${USER.role==='admin'?`<td class="hidesm">${esc(csName(l.coSoId))}</td>`:''}
       <td class="tright num">${l.siso||0}</td>
+      <td class="tright num hidesm">${o.hp?fmtVND(o.hp):'—'}</td>
+      <td class="tright num hidesm">${o.sach?fmtVND(o.sach):'—'}</td>
       <td class="tright num">${o.du?fmtVND(o.du):'—'}</td>
       <td class="tright num lpmoney">${oDaThu(o)}</td>
       <td class="tright num">${oConThieu(o)}</td></tr>`;
   });
-  h+=`</tbody>${list.length?`<tfoot><tr style="background:var(--soft)"><td colspan="${nCot-4}" class="tright"><b>TỔNG CỘNG</b></td><td class="tright num"><b>${list.reduce((s,l)=>s+(l.siso||0),0)}</b></td><td class="tright num"><b>${fmtVND(tDu)}</b></td><td class="tright num"><b>${fmtVND(tDa)}</b></td><td class="tright num"><b class="${tThieu>0?'lpno':''}">${tThieu>0?fmtVND(tThieu):'✓ đủ'}</b></td></tr></tfoot>`:''}</table></div>
-    <p class="muted" style="font-size:.76rem;line-height:1.55;padding:10px 16px 14px;margin:0">Đã thu lấy theo <b>chứng từ trong sổ quỹ</b> của từng em (đã trừ tiền hoàn). Phiếu thu học phí lập thẳng ở Sổ quỹ mà <b>chưa gắn học sinh</b> thì không quy được về lớp nào, nên tổng ở đây có thể nhỏ hơn số "Đã thu" của cơ sở.</p></div>`;
+  h+=`</tbody>${list.length?`<tfoot><tr style="background:var(--soft)"><td colspan="${nCot-6}" class="tright"><b>TỔNG CỘNG</b></td><td class="tright num"><b>${list.reduce((s,l)=>s+(l.siso||0),0)}</b></td><td class="tright num hidesm"><b>${fmtVND(tHP)}</b></td><td class="tright num hidesm"><b>${fmtVND(tSach)}</b></td><td class="tright num"><b>${fmtVND(tDu)}</b></td><td class="tright num"><b>${fmtVND(tDa)}</b></td><td class="tright num"><b class="${tThieu>0?'lpno':''}">${tThieu>0?fmtVND(tThieu):'✓ đủ'}</b></td></tr></tfoot>`:''}</table></div>
+    <p class="muted" style="font-size:.76rem;line-height:1.55;padding:10px 16px 14px;margin:0"><b>Tổng phí = Học phí + Tiền sách.</b> Đã thu gồm cả học phí lẫn tiền sách, lấy theo <b>chứng từ trong sổ quỹ</b> của từng em (đã trừ tiền hoàn). Phiếu thu học phí lập thẳng ở Sổ quỹ mà <b>chưa gắn học sinh</b> thì không quy được về lớp nào, nên tổng ở đây có thể nhỏ hơn số "Đã thu" của cơ sở.</p></div>`;
   $('#view').innerHTML=h;
   $('#lopq').oninput=e=>{lopSearch=e.target.value;const v=e.target.value;renderLop();$('#lopq').focus();$('#lopq').setSelectionRange(v.length,v.length);};
   const cs=$('#lopcs'); if(cs)cs.onchange=e=>{lopCs=e.target.value;renderLop();};
@@ -4573,19 +4604,20 @@ function addGD(loai){
    nhưng hệ thống không biết của em nào. */
 function hpBoxRender(loai,hangMuc,coSoId){
   const box=$('#gd_hpBox'); if(!box)return;
-  if(loai!=='thu'||!/học phí/i.test(hangMuc||'')){ box.style.display='none'; box.innerHTML=''; return; }
+  const laSach=hangMuc===HM_SACH;          // phiếu riêng tiền sách: "còn phải thu" tính theo tiền sách của em
+  if(loai!=='thu'||!(laSach||/học phí/i.test(hangMuc||''))){ box.style.display='none'; box.innerHTML=''; return; }
   const ds=OPS.hv.filter(h=>h.coSoId===coSoId&&hvActive(h))
     .slice().sort((a,b)=>String(a.ten).localeCompare(String(b.ten),'vi'));
   box.style.display='block';
   box.innerHTML=`<label>Thu của học sinh nào <span style="font-weight:600;color:var(--muted)">· nên chọn để biết em nào đã đóng</span></label>
     <select id="gd_hvSel"><option value="">— Chưa gắn học sinh —</option>${ds.map(h=>{
-      const con=Math.max(0,(h.hocPhi||0)-hpDaHT(h));
-      return `<option value="${h.id}" data-con="${con}">${esc(h.ten)} · ${esc(lopName(h.lopId))}${con>0?' · còn '+fmtVND(con):' · đã đóng đủ'}</option>`;}).join('')}</select>
+      const con=laSach?Math.max(0,(h.tienSach||0)-sachDaThu(h.id)):Math.max(0,(h.hocPhi||0)-hpDaHT(h));
+      return `<option value="${h.id}" data-con="${con}">${esc(h.ten)} · ${esc(lopName(h.lopId))}${con>0?' · còn '+fmtVND(con):(laSach?' · đã đủ tiền sách':' · đã đóng đủ')}</option>`;}).join('')}</select>
     <div id="gd_hvNote" class="muted" style="font-size:.76rem;font-weight:600;margin-top:5px"></div>`;
   const sel=$('#gd_hvSel'), note=$('#gd_hvNote');
   const moi=()=>{ const o=sel.selectedOptions[0], con=o?Number(o.dataset.con||0):0;
     if(!sel.value){ note.innerHTML='⚠️ Chưa gắn học sinh: tiền vẫn vào sổ quỹ nhưng <b>không tính vào phần "đã đóng"</b> của em nào.'; return; }
-    note.innerHTML=con>0?`Em này còn phải thu <b>${fmtVND(con)}</b>.`:'Em này đã đóng đủ học phí.';
+    note.innerHTML=con>0?`Em này còn phải thu <b>${fmtVND(con)}</b>${laSach?' tiền sách':''}.`:(laSach?'Em này đã đóng đủ tiền sách.':'Em này đã đóng đủ học phí.');
     const t=$('#gd_tien'); if(t&&!t.value&&con>0){ t.value=con.toLocaleString('vi-VN'); }   // mồi sẵn số còn thiếu
   };
   sel.onchange=moi; moi();
@@ -4654,14 +4686,15 @@ function editGD(g){
      <button class="mclose" onclick="closeModal()">${svg('<path d="M6 6l12 12M18 6L6 18"/>')}</button>
    </div>
    <div class="mbody"><div class="form2">
-     ${hv?`<div class="fld full"><div class="g-note" style="margin:0"><span>⚠</span><div>Đây là phiếu thu học phí của <b>${esc(hv.ten)}</b>. Sửa số tiền sẽ cập nhật lại số tiền đã đóng của em.</div></div></div>`:''}
+     ${hv?`<div class="fld full"><div class="g-note" style="margin:0"><span>⚠</span><div>Đây là phiếu thu của <b>${esc(hv.ten)}</b>. Sửa số tiền sẽ cập nhật lại số tiền đã đóng của em.</div></div></div>`:''}
      <div class="fld"><label>Ngày</label><input type="date" id="eg_ngay" value="${g.ngay}"/></div>
      <div class="fld"><label>Hạng mục</label><select id="eg_hm">${cats.map(c=>`<option ${c===g.hangMuc?'selected':''}>${c}</option>`).join('')}${cats.includes(g.hangMuc)?'':`<option selected>${esc(g.hangMuc||'')}</option>`}</select></div>
      ${(g.loai==='thu'&&!hv)?`<div class="fld full"><label>Thu của học sinh nào <span style="font-weight:600;color:var(--muted)">· gắn để tính vào phần "đã đóng" của em</span></label>
        <select id="eg_hv"><option value="">— Chưa gắn học sinh —</option>${
          OPS.hv.filter(x=>x.coSoId===g.coSoId&&hvActive(x)).slice().sort((a,b)=>String(a.ten).localeCompare(String(b.ten),'vi'))
            .map(x=>`<option value="${x.id}">${esc(x.ten)} · ${esc(lopName(x.lopId))}</option>`).join('')}</select></div>`:''}
-     <div class="fld full"><label>Số tiền (đồng)</label><input id="eg_tien" inputmode="numeric" value="${g.soTien||''}"/></div>
+     <div class="fld ${sqSachLive&&g.loai==='thu'?'':'full'}"><label>Số tiền (đồng)</label><input id="eg_tien" inputmode="numeric" value="${g.soTien||''}"/></div>
+     ${sqSachLive&&g.loai==='thu'?`<div class="fld"><label>Trong đó tiền sách</label><input id="eg_sach" inputmode="numeric" value="${g.tienSach||''}" placeholder="0"/></div>`:''}
      <div class="fld full"><label>Nội dung / diễn giải</label><input id="eg_nd" value="${esc(g.noiDung||'')}"/></div>
      <div class="fld"><label>${g.loai==='thu'?'Người nộp tiền':'Người nhận tiền'}</label><input id="eg_nop" value="${esc(g.nguoiNop||'')}"/></div>
      <div class="fld"><label>Hình thức</label><select id="eg_ht">
@@ -4675,7 +4708,7 @@ function editGD(g){
      </div>
    </div></div>`;
   $('#modal').classList.add('on');
-  attachMoneyFormat($('#eg_tien'));
+  attachMoneyFormat($('#eg_tien')); if($('#eg_sach'))attachMoneyFormat($('#eg_sach'));
   const err=m=>{const e=$('#eg_err');e.textContent=m||'';e.style.display=m?'block':'none';};
   $('#eg_save').onclick=async()=>{
     const tien=Number(String($('#eg_tien').value).replace(/\D/g,''))||0;
@@ -4684,6 +4717,12 @@ function editGD(g){
     if(await chanKyChot(g.coSoId,g.ngay,'sửa phiếu'))return;
     if(ngay!==g.ngay && await chanKyChot(g.coSoId,ngay,'chuyển phiếu sang kỳ đó'))return;
     const patch={ngay,hang_muc:$('#eg_hm').value,so_tien:tien,noi_dung:$('#eg_nd').value.trim(),nguoi_lap:$('#eg_ng').value.trim()};
+    // Phần sách trong phiếu gộp (Giai đoạn 16). Phiếu hạng mục "Tiền sách" thì cả phiếu đã là sách → để 0.
+    const sachMoi=$('#eg_sach')?(Number(String($('#eg_sach').value).replace(/\D/g,''))||0):null;
+    if(sachMoi!=null){
+      if(patch.hang_muc!==HM_SACH&&sachMoi>tien){err('Tiền sách không được lớn hơn số tiền của phiếu.');$('#eg_sach').focus();return;}
+      patch.tien_sach=patch.hang_muc===HM_SACH?0:sachMoi;
+    }
     const patch5={nguoi_nop:$('#eg_nop').value.trim(),hinh_thuc:$('#eg_ht').value};
     const btn=$('#eg_save'); btn.disabled=true; btn.textContent='Đang lưu…'; err('');
     let r=await SB.from('so_quy').update(sqLive5?{...patch,...patch5}:patch).eq('id',g.id);
@@ -4693,7 +4732,8 @@ function editGD(g){
     btn.disabled=false; btn.textContent='💾 Lưu thay đổi';
     if(r.error){ await baoLoiGhiSo(r.error,g.coSoId,ngay,'lưu phiếu',err); return; }
     Object.assign(g,{ngay,hangMuc:patch.hang_muc,soTien:tien,noiDung:patch.noi_dung,nguoiLap:patch.nguoi_lap,
-      nguoiNop:patch5.nguoi_nop,hinhThuc:patch5.hinh_thuc});
+      nguoiNop:patch5.nguoi_nop,hinhThuc:patch5.hinh_thuc,...(patch.tien_sach!=null?{tienSach:patch.tien_sach}:{})});
+
     if(hv) await capNhatTongDong(hv);
     // Phiếu chưa gắn học sinh mà nay lễ tân chọn em → gắn vào rồi tính lại số đã đóng của em đó
     const ehv=$('#eg_hv');
@@ -4999,6 +5039,11 @@ function voucherHTML(g){
   const thu=g.loai==='thu', d=(g.ngay||'').split('-'), so=soPhieu(g);
   const nguoi=(g.nguoiNop||'').trim();
   const sign=[['Giám đốc',''],['Kế toán',''],[thu?'Người nộp tiền':'Người nhận tiền',esc(nguoi)],['Người lập phiếu',esc(g.nguoiLap||'')],['Thủ quỹ','']];
+  // Phiếu của một học sinh: địa chỉ lấy theo hồ sơ em đó (trung tâm cần để xuất hóa đơn), trống thì ghi cơ sở
+  const hv=g.hvId!=null?(OPS.hv||[]).find(x=>x.id===g.hvId):null;
+  const diaChi=(hv&&hv.diaChi)||csName(g.coSoId);
+  // Phiếu gộp học phí + sách: tách rõ từng khoản ngay trên phiếu
+  const sa=thuSach(g), hp=thuHP(g), gop=thu&&sa>0&&hp>0;
   return `<div class="vpaper">
     <div class="vtop">
       <div class="vdv"><img class="vlogo" src="logo.png" alt="AVATAR" width="64" height="64"/><div><b>TRUNG TÂM ANH NGỮ AVATAR</b><br/><span>Cơ sở: ${esc(csName(g.coSoId))}</span></div></div>
@@ -5009,8 +5054,9 @@ function voucherHTML(g){
     <div class="vno">Số: ${esc(so)}</div>
     <table class="vfields">
       <tr><td>Họ tên người ${thu?'nộp':'nhận'} tiền:</td><td>${esc(nguoi||'.....................................')}</td></tr>
-      <tr><td>Địa chỉ:</td><td>${esc(csName(g.coSoId))}</td></tr>
-      <tr><td>Lý do ${thu?'nộp':'chi'}:</td><td>${esc(g.hangMuc)}${g.noiDung?' — '+esc(g.noiDung):''}</td></tr>
+      <tr><td>Địa chỉ:</td><td>${esc(diaChi)}</td></tr>
+      <tr><td>Lý do ${thu?'nộp':'chi'}:</td><td>${gop?'Học phí và tiền sách':esc(g.hangMuc)}${g.noiDung?' — '+esc(g.noiDung):''}</td></tr>
+      ${gop?`<tr><td>Chi tiết:</td><td>Học phí: <b>${fmtVND(hp)}</b> &nbsp;·&nbsp; Tiền sách: <b>${fmtVND(sa)}</b></td></tr>`:''}
       <tr><td>Số tiền:</td><td><b>${fmtVND(g.soTien)}</b> <span style="font-size:.9em">(${esc(HT_LABEL[g.hinhThuc]||'Tiền mặt')})</span></td></tr>
       <tr><td>Bằng chữ:</td><td><i>${docSoVN(g.soTien)}</i></td></tr>
       <tr><td>Kèm theo:</td><td>................. chứng từ gốc</td></tr>
@@ -5319,7 +5365,7 @@ function openHvEdit(h){
      <div class="fld"><label>Phụ huynh</label><input id="hv_ph" value="${esc(h.ph)}" placeholder="Tên phụ huynh"/></div>
      <div class="fld"><label>Điện thoại</label><input id="hv_sdt" value="${esc(h.sdt)}" inputmode="tel" placeholder="SĐT liên hệ"/></div>
      ${dcLive?`<div class="fld"><label>Địa chỉ</label><input id="hv_dc" value="${esc(h.diaChi)}" placeholder="VD: Xóm Văn Hiến, Xã Quảng Châu"/></div>
-     <div class="fld"><label>Tiền sách (đ)</label><input id="hv_sach" inputmode="numeric" value="${h.tienSach||''}" placeholder="VD: 85.000"/></div>`:''}
+     <div class="fld"><label>Tiền sách (đ)</label><input id="hv_sach" data-hv="${h.id}" inputmode="numeric" value="${h.tienSach||''}" placeholder="VD: 85.000"/></div>`:''}
      <div class="fld full"><label>Lớp đang học</label><select id="hv_lop">${lopsCs.map(l=>`<option value="${l.id}" ${l.id===h.lopId?'selected':''}>${esc(lopNhan(l))}${lopNhan(l)===l.lop?" — "+esc(l.gv||'?'):""}</option>`).join('')}</select></div>
      <div class="fld"><label>Thời gian nhập học</label><input id="hv_nhaphoc" placeholder="dd/mm/yyyy" value="${h.ngayNhapHoc?isoVN(h.ngayNhapHoc):''}"/></div>
      <div class="fld"><label>Trạng thái học</label>
@@ -5462,7 +5508,7 @@ function openHvEdit(h){
     // Em học nhiều lớp: nói rõ đang xóa khỏi MỘT lớp, rồi hỏi thêm có xóa khỏi tất cả không
     let xoa=[h];
     const msg=(anhEm.length?'Xóa em "'+h.ten+'" khỏi lớp '+lopName(h.lopId)+'?':'Xóa hồ sơ học sinh "'+h.ten+'"?')
-      + (hpPhieuCua(h.id).length?('\n\n'+hpPhieuCua(h.id).length+' phiếu thu học phí của lớp này (tổng '+fmtVND(hpDaDong(h.id))+') sẽ bị xóa khỏi sổ quỹ.'):'')
+      + (hpPhieuCua(h.id).length?('\n\n'+hpPhieuCua(h.id).length+' phiếu thu (học phí, tiền sách) của lớp này (tổng '+fmtVND(hpPhieuCua(h.id).reduce((s,g)=>s+g.soTien,0))+') sẽ bị xóa khỏi sổ quỹ.'):'')
       + (anhEm.length?('\n\nEm vẫn còn '+anhEm.length+' lớp khác: '+anhEm.map(x=>lopName(x.lopId)).join(', ')):'')
       + '\n\nThao tác này không thể hoàn tác.';
     if(!await avaConfirm(msg,{danger:true,okText:'Xóa'}))return;
@@ -5487,25 +5533,36 @@ function openHvEdit(h){
   };
 }
 /* ---- Khối "các đợt đóng học phí" trong hồ sơ học sinh ---- */
+/* Ô tiền sách của hồ sơ (đang gõ, chưa bấm Lưu) — lấy số đang hiện, chưa có ô thì lấy số đã lưu.
+   Phải đúng ô của CHÍNH em này: lúc dựng hồ sơ mới, ô của hồ sơ mở trước có thể vẫn còn trên trang. */
+const sachDangNhap=h=>{const el=$('#hv_sach'); return el&&el.dataset.hv===String(h.id)?(Number(String(el.value).replace(/[^\d]/g,''))||0):(h.tienSach||0);};
 function hpDotHTML(h){
   const ps=hpPhieuCua(h.id), da=hpDaHT(h), hp=h.hocPhi||0, con=Math.max(0,hp-da);
-  const rows=ps.map((p,i)=>`<div class="ddrow" style="padding:8px 10px">
+  const sDa=sachDaThu(h.id), sCon=Math.max(0,sachDangNhap(h)-sDa);
+  // Ô "Tiền sách" ở khung đóng tiền chỉ hiện khi CSDL đã có cột so_quy.tien_sach (SQL Giai đoạn 16)
+  const coSach=sqSachLive&&dcLive;
+  const rows=ps.map((p,i)=>{ const s=thuSach(p), t=thuHP(p);
+    return `<div class="ddrow" style="padding:8px 10px">
       <div class="idx">${i+1}</div>
-      <div class="nm"><b>${fmtVND(p.soTien)}</b><small>${isoVN(p.ngay)} · ${esc(soPhieu(p))}${p.nguoiNop?' · '+esc(p.nguoiNop):''}${p.hinhThuc==='chuyen_khoan'?' · CK':''}</small></div>
+      <div class="nm"><b>${fmtVND(p.soTien)}</b><small>${s?(t?'học phí '+fmtVND(t)+' + sách '+fmtVND(s):'tiền sách')+' · ':''}${isoVN(p.ngay)} · ${esc(soPhieu(p))}${p.nguoiNop?' · '+esc(p.nguoiNop):''}${p.hinhThuc==='chuyen_khoan'?' · CK':''}</small></div>
+      <button class="btn btn-sm btn-light" data-indot="${p.id}">In phiếu</button>
       ${daChotKy(p.coSoId,p.ngay)?'<span class="paidtag yes">🔒 đã chốt sổ</span>':`<button class="btn btn-sm btn-light" data-xoadot="${p.id}" style="color:var(--rose)">Xóa đợt</button>`}
-    </div>`).join('');
-  return `<label>Các đợt đóng học phí <span style="font-weight:600;color:var(--muted)">· mỗi đợt là một phiếu thu trong sổ quỹ</span></label>
+    </div>`;}).join('');
+  return `<label>Các đợt đóng tiền <span style="font-weight:600;color:var(--muted)">· mỗi đợt là một phiếu thu trong sổ quỹ</span></label>
     <div class="ddsum" style="margin:6px 0 8px">
-      <div class="p co"><b>${fmtVND(da)}</b><span>đã đóng</span></div>
-      <div class="p ${con>0?'muon':'done'}"><b>${fmtVND(con)}</b><span>còn phải thu</span></div>
+      <div class="p co"><b>${fmtVND(da)}</b><span>học phí đã đóng</span></div>
+      <div class="p ${con>0?'muon':'done'}"><b>${fmtVND(con)}</b><span>học phí còn thiếu</span></div>
+      ${coSach&&(sachDangNhap(h)||sDa)?`<div class="p ${sCon>0?'muon':'done'}"><b>${fmtVND(sDa)}</b><span>${sCon>0?'sách, còn '+fmtVND(sCon):'tiền sách đã đủ'}</span></div>`:''}
       <div class="p"><b>${ps.length}</b><span>đợt</span></div>
     </div>
     ${ps.length?`<div class="ddgrid" style="max-height:30vh;overflow:auto">${rows}</div>`
       :(da>0?`<div class="g-note" style="margin:0 0 8px"><span>ℹ️</span><div>Hồ sơ ghi <b>${fmtVND(da)}</b> đã đóng nhưng <b>chưa có phiếu thu</b> trong sổ quỹ (số liệu nhập tay trước đây). Nên ghi nhận lại thành một đợt bên dưới để sổ quỹ có chứng từ.</div></div>`
         :'<div class="muted" style="font-size:.82rem;padding:4px 2px 8px">Chưa ghi nhận đợt đóng nào.</div>')}
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-top:9px">
-      <div style="flex:1;min-width:110px"><label style="font-size:.7rem">Số tiền đợt này</label>
+      <div style="flex:1;min-width:110px"><label style="font-size:.7rem">${coSach?'Học phí đợt này':'Số tiền đợt này'}</label>
         <input id="hv_dotTien" inputmode="numeric" placeholder="${con>0?fmtVND(con).replace('₫',''):'VD: 200.000'}" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:10px;font-weight:700"/></div>
+      ${coSach?`<div style="flex:1;min-width:110px"><label style="font-size:.7rem">Tiền sách đợt này</label>
+        <input id="hv_dotSach" inputmode="numeric" value="${sCon?sCon.toLocaleString('vi-VN'):''}" placeholder="0" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:10px;font-weight:700"/></div>`:''}
       <div style="flex:1;min-width:110px"><label style="font-size:.7rem">Ngày đóng</label>
         <input id="hv_dotNgay" placeholder="dd/mm/yyyy" value="${isoVN(todayISO())}" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:10px;font-weight:700"/></div>
       <div style="flex:1;min-width:110px"><label style="font-size:.7rem">Người nộp</label>
@@ -5519,27 +5576,41 @@ function hpDotHTML(h){
 function bindHpDot(h){
   const box=$('#hv_dotBox'); if(!box)return;
   attachMoneyFormat($('#hv_dotTien')); attachDateFormat($('#hv_dotNgay'));
+  const oSach=$('#hv_dotSach'); if(oSach){ attachMoneyFormat(oSach); oSach.addEventListener('input',()=>{oSach.dataset.sua='1';}); }
+  // Gõ lại tiền sách ở hồ sơ → ô "Tiền sách đợt này" mồi theo phần còn thiếu (nếu người dùng chưa tự sửa ô đó)
+  const oHs=$('#hv_sach');
+  if(oHs&&oHs.dataset.hv===String(h.id)&&!oHs._dotBound){ oHs._dotBound=true; oHs.addEventListener('input',()=>{
+    const o=$('#hv_dotSach'); if(!o||o.dataset.sua)return;
+    const c=Math.max(0,sachDangNhap(h)-sachDaThu(h.id)); o.value=c?c.toLocaleString('vi-VN'):''; }); }
   const err=m=>{const e=$('#hv_dotErr');if(e){e.textContent=m||'';e.style.display=m?'block':'none';}};
   const lamMoi=()=>{ box.innerHTML=hpDotHTML(h); bindHpDot(h); };
   $('#hv_dotAdd').onclick=async()=>{
     const sd=Number(String($('#hv_dotTien').value).replace(/[^\d]/g,''))||0;
+    const sa=oSach?(Number(String(oSach.value).replace(/[^\d]/g,''))||0):0;
     const nv=$('#hv_dotNgay').value.trim();
-    if(sd<=0){err('Nhập số tiền đợt này.');$('#hv_dotTien').focus();return;}
+    if(sd+sa<=0){err(oSach?'Nhập học phí hoặc tiền sách đợt này.':'Nhập số tiền đợt này.');$('#hv_dotTien').focus();return;}
     if(nv&&!isValidDob(nv)){err('Ngày đóng chưa đúng dạng ngày/tháng/năm.');$('#hv_dotNgay').focus();return;}
     const ngay=nv?vnToIso(nv):todayISO();
     const hp=Number(String($('#hv_hp').value).replace(/[^\d]/g,''))||h.hocPhi||0;
     h.hocPhi=hp;                                     // lấy học phí đang hiển thị để tính "còn phải thu"
     const da=hpDaHT(h);
-    if(hp>0 && da+sd>hp){
+    if(sd>0 && hp>0 && da+sd>hp){
       if(!await avaConfirm('Tổng đã đóng sẽ là '+fmtVND(da+sd)+', VƯỢT học phí cả khóa ('+fmtVND(hp)+').\nVẫn ghi nhận?'))return;
+    }
+    const sP=sachDangNhap(h), sDa=sachDaThu(h.id);
+    if(sa>0 && sDa+sa>sP){
+      if(!await avaConfirm('Tiền sách đã thu sẽ là '+fmtVND(sDa+sa)+', VƯỢT tiền sách ghi ở hồ sơ ('+fmtVND(sP)+').\nVẫn ghi nhận?'))return;
     }
     if(await chanKyChot(h.coSoId,ngay,'ghi nhận đóng tiền'))return;
     const btn=$('#hv_dotAdd'); btn.disabled=true; btn.textContent='Đang lưu…'; err('');
-    const r=await themDotDong(h,{soTien:sd,ngay,nguoiNop:$('#hv_dotNguoi').value.trim(),hinhThuc:$('#hv_dotHT').value});
+    const r=await themDotDong(h,{soTien:sd,tienSach:sa,ngay,nguoiNop:$('#hv_dotNguoi').value.trim(),hinhThuc:$('#hv_dotHT').value});
     btn.disabled=false; btn.textContent='＋ Ghi nhận đóng tiền';
     if(r.error){ await baoLoiGhiSo(r.loi||r.error,h.coSoId,ngay,'ghi nhận đóng tiền',err); return; }
     lamMoi();
+    // Ghi xong mở luôn phiếu thu để in / tải Word đưa phụ huynh
+    const g=OPS.gd.find(x=>x.id===r.data.id); if(g) openVoucher(g);
   };
+  $$('#hv_dotBox [data-indot]').forEach(b=>b.onclick=()=>{const g=OPS.gd.find(x=>x.id===Number(b.dataset.indot)); if(g)openVoucher(g);});
   $$('#hv_dotBox [data-xoadot]').forEach(b=>b.onclick=async()=>{
     const id=Number(b.dataset.xoadot), p=OPS.gd.find(x=>x.id===id); if(!p)return;
     if(!await avaConfirm('Xóa đợt đóng '+fmtVND(p.soTien)+' ngày '+isoVN(p.ngay)+' (phiếu '+soPhieu(p)+')?\nPhiếu thu này sẽ bị xóa khỏi sổ quỹ.',{danger:true,okText:'Xóa'}))return;
@@ -6747,25 +6818,27 @@ async function inDsGiaoVien(list,ghiChuLoc){
   moBanIn('Dọc',tos);
 }
 
-/* ===== 2) DANH SÁCH LỚP HỌC — A4 dọc, mỗi cơ sở một tờ ===== */
+/* ===== 2) DANH SÁCH LỚP HỌC — A4 ngang, mỗi cơ sở một tờ ===== */
 async function inDsLop(list){
   if(!list.length){avaAlert('Không có lớp nào trong danh sách đang xem để in.');return;}
   const nhom=nhomTheoCoSo(list);
   if(!await xacNhanNhieuTo(nhom.length,'cơ sở',list.length))return;
   const HPL=hpTheoLop();                       // tiền theo từng lớp — gom một lượt cho cả bản in
   const vnd=n=>n?Math.round(n).toLocaleString('vi-VN'):'';
-  const cot=[{t:'TT',w:5,a:'c',stt:true},{t:'TÊN LỚP',w:13,b:true},{t:'MÔN',w:7,a:'c'},
-    {t:'GIÁO VIÊN PHỤ TRÁCH',w:16},{t:'SĨ SỐ',w:6,a:'c'},{t:'LỊCH HỌC',w:16},
-    {t:'DỰ THU',w:13,a:'r'},{t:'ĐÃ THU',w:13,a:'r'},{t:'CÒN THIẾU',w:11,a:'r'}];
+  // Có thêm cột Học phí · Sách · Tổng phí (24/10/2026) → 11 cột, in A4 NGANG cho đủ chỗ
+  const cot=[{t:'TT',w:4,a:'c',stt:true},{t:'TÊN LỚP',w:10,b:true},{t:'MÔN',w:7,a:'c'},
+    {t:'GIÁO VIÊN PHỤ TRÁCH',w:15},{t:'SĨ SỐ',w:5,a:'c'},{t:'LỊCH HỌC',w:16},
+    {t:'HỌC PHÍ',w:10,a:'r'},{t:'SÁCH',w:8,a:'r'},{t:'TỔNG PHÍ',w:10,a:'r'},{t:'ĐÃ THU',w:10,a:'r'},{t:'CÒN THIẾU',w:9,a:'r'}];
   const tos=nhom.map(({coSoId,ds})=>{
     const arr=ds.slice().sort((a,b)=>String(a.lop).localeCompare(String(b.lop),'vi'));
     const tSiSo=arr.reduce((s,l)=>s+hvOfLop(l.id).filter(hvActive).length,0);
+    const tHP=arr.reduce((s,l)=>s+hpLopCua(HPL,l.id).hp,0), tSach=arr.reduce((s,l)=>s+hpLopCua(HPL,l.id).sach,0);
     const tThu=arr.reduce((s,l)=>s+hpLopCua(HPL,l.id).du,0);
     const tDa=arr.reduce((s,l)=>s+hpLopCua(HPL,l.id).da,0);
     const tThieu=arr.reduce((s,l)=>s+hpLopCua(HPL,l.id).thieu,0);
     const nThieu=arr.filter(l=>hpLopCua(HPL,l.id).thieu>0).length;
     return toIn({
-      tieuDe:'DANH SÁCH LỚP HỌC', coSo:csName(coSoId),
+      tieuDe:'DANH SÁCH LỚP HỌC', coSo:csName(coSoId), ngang:true,
       sub:'Số liệu tính đến ngày '+isoVN(todayISO()),
       meta:[['Tổng số',arr.length+' lớp'],['Học sinh',tSiSo+' em'],['Lớp còn thiếu phí',nThieu+' lớp']],
       cot,
@@ -6774,15 +6847,15 @@ async function inDsLop(list){
         gvCuaLop(l.id).join(', ')||l.gv||'(chưa phân công)',
         hvOfLop(l.id).filter(hvActive).length,
         lichTomTat(l.id)||'(chưa xếp lịch)',
-        vnd(o.du),vnd(o.da),o.thieu>0?vnd(o.thieu):(o.du||o.da?'đủ':'')];}),
-      tong:{span:4,nhan:'TỔNG CỘNG',o:[tSiSo,'',vnd(tThu),vnd(tDa),tThieu>0?vnd(tThieu):'đủ']},
+        vnd(o.hp),vnd(o.sach),vnd(o.du),vnd(o.da),o.thieu>0?vnd(o.thieu):(o.du||o.da?'đủ':'')];}),
+      tong:{span:4,nhan:'TỔNG CỘNG',o:[tSiSo,'',vnd(tHP),vnd(tSach),vnd(tThu),vnd(tDa),tThieu>0?vnd(tThieu):'đủ']},
       trong:'Cơ sở này chưa có lớp học.',
-      ghiChu:[`Dự thu học phí toàn cơ sở: <b>${fmtVND(tThu)}</b> — ${docSoVN(tThu)}`,
+      ghiChu:[`Tổng phí toàn cơ sở (học phí + sách): <b>${fmtVND(tThu)}</b> — ${docSoVN(tThu)}`,
         `Đã thu theo lớp: <b>${fmtVND(tDa)}</b>${tThieu>0?` — còn thiếu <b>${fmtVND(tThieu)}</b> ở ${nThieu} lớp`:' — các lớp đã thu đủ'}.`,
-        'Đã thu lấy theo chứng từ trong sổ quỹ của từng học sinh (đã trừ tiền hoàn). Phiếu thu học phí chưa gắn học sinh không quy được về lớp nên không có trong bảng này.'],
+        'Đã thu gồm cả học phí và tiền sách, lấy theo chứng từ trong sổ quỹ của từng học sinh (đã trừ tiền hoàn). Phiếu thu học phí chưa gắn học sinh không quy được về lớp nên không có trong bảng này.'],
       ky:KY_LAP_GD });
   });
-  moBanIn('Dọc',tos);
+  moBanIn('Ngang',tos);
 }
 
 /* ===== 3) DANH SÁCH ĐĂNG KÝ LỚP — A4 ngang, mỗi LỚP một tờ =====
